@@ -1,0 +1,12 @@
+# Core (tested in this package, CPU-only):
+torch>=2.0
+numpy
+
+# Real backend (gsplat pipeline; needs CUDA GPU):
+gsplat>=1.5           # differentiable 3DGS feature rasterizer (JIT-builds CUDA;
+                      # needs nvcc — see README "CUDA toolchain" note)
+open-clip-torch>=3.0  # CLIP backbone (MaskCLIP-style dense features built in
+                      # usplat/clip_dense.py — no extra dense head needed)
+plyfile               # INRIA .ply checkpoint loading
+opencv-python         # dataset I/O
+tqdm

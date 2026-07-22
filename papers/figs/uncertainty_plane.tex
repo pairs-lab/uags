@@ -1,0 +1,90 @@
+% uncertainty_plane: disentanglement + consolidation regimes in the (n_eff, rbar) plane
+\documentclass[tikz,border=3pt]{standalone}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds,decorations.pathreplacing,shapes.geometric}
+
+\begin{document}
+\begin{tikzpicture}[font=\footnotesize, line width=0.6pt]
+
+% ---- geometry ----
+\def\xmax{6.8}   % n_eff axis length
+\def\ymax{4.6}   % rbar = 1
+\def\xtau{1.5}   % tau_min
+\def\ystab{3.59} % r_stable = 0.78
+\def\yunst{1.61} % r_unstable = 0.35
+
+% ---- region fills (background) ----
+\begin{scope}[on background layer]
+  \fill[blue!10]  (0,0) rectangle (\xtau,\ymax);
+  \fill[green!12] (\xtau,\ystab) rectangle (\xmax,\ymax);
+  \fill[red!10]   (\xtau,0) rectangle (\xmax,\yunst);
+  \fill[gray!8]   (\xtau,\yunst) rectangle (\xmax,\ystab);
+  % light diagonal hatching feel in the epistemic strip
+  \begin{scope}
+    \clip (0,0) rectangle (\xtau,\ymax);
+    \foreach \s in {-4.4,-3.8,...,1.4}
+      \draw[blue!22, line width=0.4pt] (\s,0) -- (\s+4.6,\ymax);
+  \end{scope}
+\end{scope}
+
+% ---- threshold dashed lines ----
+\draw[gray!75, dashed, line width=0.5pt] (\xtau,0) -- (\xtau,\ymax);
+\draw[gray!75, dashed, line width=0.5pt] (0,\ystab) -- (\xmax,\ystab);
+\draw[gray!75, dashed, line width=0.5pt] (0,\yunst) -- (\xmax,\yunst);
+
+% ---- small-sample bias curve: rbar biased high, decays to true value ----
+\draw[gray!60, dotted, line width=0.5pt] (0.35,2.53) -- (\xmax,2.53);
+\node[font=\scriptsize, anchor=east, text=gray!55!black] at (6.7,2.80) {true $\bar r$};
+\draw[orange!75!black, line width=0.7pt]
+  plot[domain=0.35:6.6, samples=80] (\x, {2.53 + 2.07*exp(-(\x-0.35)/1.0)});
+
+% shrinkage correction arrow: \tilde r pulls \bar r down
+\draw[black!80, line width=0.7pt, -{Stealth[length=2.2mm]}] (1.95,2.90) -- (1.95,2.56);
+\node[font=\scriptsize, anchor=west, text=black!80] at (2.06,2.38) {shrinkage $\tilde r$};
+
+% ---- region labels (\footnotesize via tikzpicture default) ----
+\node[align=center, rotate=90, text=blue!60!black] at (0.75,1.80)
+  {epistemic regime\\ $u^{\mathrm{ale}}$ undefined\\ \textit{look again}};
+\node[text=green!45!black] at (4.35,4.18) {consolidate (robust map)};
+\node[text=black!55] at (4.50,2.02) {ambiguous -- keep observing};
+\node[text=red!60!black] at (4.15,0.70)
+  {forget: $\mathbf{R}\leftarrow\lambda\mathbf{R}$,\ $n^{\mathrm{eff}}\leftarrow\lambda n^{\mathrm{eff}}$};
+
+% ---- example Gaussians (dots) ----
+\fill[green!45!black] (2.70,3.88) circle (1.5pt);
+\fill[green!45!black] (6.10,3.95) circle (1.5pt);
+\fill[red!60!black]   (5.80,1.15) circle (1.5pt);
+% forget decay trajectory: rbar constant, n_eff shrinks (back toward epistemic strip)
+\draw[red!60!black, line width=0.5pt, -{Stealth[length=1.6mm]}] (5.68,1.15) -- (4.85,1.15);
+\fill[gray!60]        (3.40,3.22) circle (1.5pt);
+% false-confidence case in the epistemic strip (white halo lifts dot off bias curve)
+\fill[white]          (0.45,4.43) circle (2.1pt);
+\fill[blue!60!black]  (0.45,4.43) circle (1.5pt);
+\node[font=\scriptsize, text=blue!60!black, inner sep=0.5pt] at (0.66,4.44) {\textbf{!}};
+
+% ---- bias annotation above the box ----
+\node[font=\scriptsize, anchor=west, text=orange!75!black] at (0.02,4.95)
+  {$\bar r$ biased high at small $n^{\mathrm{eff}}$ (one obs $\Rightarrow \bar r{=}1$)};
+\draw[orange!75!black, line width=0.5pt, -{Stealth[length=1.6mm]}]
+  (1.70,4.78) to[bend right=12] (0.92,3.74);
+
+% ---- axis box, ticks, labels ----
+\draw[black, line width=0.6pt] (0,0) rectangle (\xmax,\ymax);
+% x ticks
+\draw (0.35,0) -- (0.35,-0.08);
+\draw (\xtau,0) -- (\xtau,-0.08);
+\node[font=\scriptsize, below] at (0.35,-0.05) {$1$};
+\node[font=\scriptsize, below] at (\xtau,-0.05) {$\tau_{\min}$};
+\node[font=\scriptsize, below left=0pt and -2pt] at (0,-0.05) {$0$};
+% y ticks
+\draw (0,\ymax) -- (-0.08,\ymax);
+\node[font=\scriptsize, left] at (-0.05,\ymax) {$1$};
+% right-margin threshold labels
+\node[font=\scriptsize, anchor=west] at (\xmax+0.08,\ystab) {$r_{\mathrm{stable}}$};
+\node[font=\scriptsize, anchor=west] at (\xmax+0.08,\yunst) {$r_{\mathrm{unstable}}$};
+% axis labels (\footnotesize via tikzpicture default)
+\node at (\xmax/2,-0.55) {$n^{\mathrm{eff}}$ (observation mass)};
+\node[rotate=90] at (-0.52,\ymax/2) {$\bar r$ (agreement)};
+
+\end{tikzpicture}
+\end{document}

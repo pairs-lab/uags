@@ -1,0 +1,105 @@
+\documentclass[tikz,border=3pt]{standalone}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds,decorations.pathreplacing,shapes.geometric}
+
+\begin{document}
+\begin{tikzpicture}[
+  font=\footnotesize,
+  box/.style={draw, rounded corners=2pt, line width=0.6pt, align=center, inner sep=4pt},
+  obs/.style={box, fill=blue!10, draw=blue!50!black},
+  neut/.style={box, fill=gray!10, draw=gray!60},
+  stat/.style={box, fill=orange!15, draw=orange!60!black},
+  post/.style={box, fill=violet!10, draw=violet!60!black},
+  good/.style={box, fill=green!12, draw=green!45!black},
+  bad/.style={box, fill=red!10, draw=red!60!black},
+  chipE/.style={box, fill=white, draw=blue!60!black, inner sep=3pt, font=\footnotesize},
+  chipA/.style={box, fill=white, draw=red!60!black, inner sep=3pt, font=\footnotesize},
+  arr/.style={-{Stealth[length=2.2mm]}, line width=0.7pt},
+  thinarr/.style={-{Stealth[length=1.6mm]}, line width=0.5pt},
+  lbl/.style={font=\footnotesize, align=center},
+]
+
+% ===== (1) INPUT: posed RGB keyframes (stack) =====
+\begin{scope}[shift={(0,1.55)}]
+  \draw[box, draw=blue!50!black, fill=blue!10] (0.50,0.34) rectangle ++(1.7,1.12);
+  \draw[box, draw=blue!50!black, fill=blue!10] (0.25,0.17) rectangle ++(1.7,1.12);
+  \draw[box, draw=blue!50!black, fill=white]  (0.00,0.00) rectangle ++(1.7,1.12);
+  \fill[green!35]  (0.06,0.06) rectangle ++(1.58,0.34);
+  \fill[orange!80] (1.38,0.88) circle (0.11);
+  \fill[blue!40]   (0.30,0.34) rectangle ++(0.38,0.34);
+  \fill[red!55]    (0.90,0.34) -- ++(0.46,0) -- ++(-0.23,0.46) -- cycle;
+\end{scope}
+\node[lbl] at (1.35,3.30) {posed RGB keyframes};
+
+% ===== dense CLIP encoder + sphere glyph =====
+\node[obs, align=center] (enc) at (1.10,-0.80) {dense CLIP\\ encoder};
+\draw[arr] (1.10,1.50) -- (enc.north);
+
+\begin{scope}[shift={(2.62,-0.80)}]
+  \draw[blue!50!black, line width=0.5pt, fill=blue!5] (0,0) circle (0.30);
+  \draw[blue!50!black, line width=0.3pt, dash pattern=on 1pt off 1pt] (0,0) ellipse (0.30 and 0.10);
+  \foreach \a in {30,72,118} \draw[-{Stealth[length=1mm]}, blue!60!black, line width=0.5pt] (0,0) -- (\a:0.26);
+\end{scope}
+\draw[arr] (enc.east) -- (2.32,-0.80);
+\node[lbl] at (3.20,-1.62) {per-pixel directions $\mathbf{z}_p\in\mathbb{S}^{d-1}$};
+
+% ===== (2) 3DGS map =====
+\node[neut, minimum width=2.1cm, minimum height=1.5cm] (map) at (3.55,2.00) {};
+\draw[fill=blue!30, draw=blue!50!black, line width=0.4pt, rotate around={25:(3.08,2.32)}]  (3.08,2.32) ellipse (0.29 and 0.11);
+\draw[fill=cyan!35, draw=blue!50!black, line width=0.4pt, rotate around={-32:(3.80,2.42)}] (3.80,2.42) ellipse (0.29 and 0.10);
+\draw[fill=gray!45, draw=gray!70,       line width=0.4pt, rotate around={62:(4.22,2.05)}]  (4.22,2.05) ellipse (0.25 and 0.10);
+\draw[fill=blue!18, draw=blue!50!black, line width=0.4pt, rotate around={-12:(3.20,1.92)}] (3.20,1.92) ellipse (0.26 and 0.10);
+\draw[fill=teal!30, draw=teal!60!black, line width=0.4pt, rotate around={42:(3.78,1.96)}]  (3.78,1.96) ellipse (0.23 and 0.09);
+\node[lbl] at (3.55,1.48) {3D Gaussian map};
+\draw[arr] (2.24,2.10) -- (map.west |- 0,2.10);
+
+% ===== (3) accumulation: one render + one backward =====
+\node[stat, anchor=west] (acc) at (4.95,0.50)
+  {one render $+$ one backward\\[2pt]
+   $F_p=\sum_n k_{p,n}\mathbf{f}_n$\\[1pt]
+   $\partial/\partial\mathbf{f}_n\big[\sum_p \mathbf{z}_p^{\top}F_p\big]=\mathbf{R}_n$};
+
+% kernel connector from map
+\draw[arr] (map.east) -- ($(acc.west)+(0,0.45)$);
+\node[lbl, anchor=south west] at (5.05,1.72) {splat weight $k_{p,n}=T_{p,n}\,\alpha_{p,n}$\\ (BKI kernel)};
+% z_p connector from encoder/sphere
+\draw[arr] (2.92,-0.80) -- ($(acc.west)+(0,-0.45)$);
+
+% backward-pass loop (dashed red) under the box
+\draw[dash pattern=on 2pt off 1.6pt, red!60!black, -{Stealth[length=1.6mm]}, line width=0.5pt]
+  ([xshift=-4mm]acc.south east) -- ++(0,-0.42) -| ([xshift=4mm]acc.south west);
+\node[lbl, red!60!black] at ($(acc.south)+(0,-0.70)$) {backward pass};
+
+% ===== (4) vMF posterior =====
+\node[post, align=center, right=0.90cm of acc] (vmf)
+  {$\mathrm{vMF}(\boldsymbol{\mu}^\star_n,\kappa^\star_n)$\\[1pt]
+   $\boldsymbol{\eta}_n=\kappa_0\boldsymbol{\mu}_0+\kappa\,\mathbf{R}_n$};
+\draw[arr] (acc.east) -- (vmf.west)
+  node[midway, above=1.5pt, inner sep=1pt, font=\footnotesize, align=center] {$\mathbf{R}_n$\\[0pt] $n^{\mathrm{eff}}_n$};
+
+% forked uncertainty chips
+\node[chipA, anchor=west] (ale) at ($(vmf.east)+(0.15,0.90)$)  {$u^{\mathrm{ale}}_n=1-\tilde r_n$};
+\node[chipE, anchor=west] (epi) at ($(vmf.east)+(0.15,-1.05)$) {$u^{\mathrm{epi}}_n=1/(1+n^{\mathrm{eff}}_n)$};
+\node[lbl, red!60!black,  above=1pt of ale] {aleatoric};
+\node[lbl, blue!60!black, above=1pt of epi] {epistemic};
+\draw[thinarr] (vmf.east) -- (ale.west);
+\draw[thinarr] (vmf.east) -- (epi.west);
+
+% ===== (5) downstream =====
+\node[good, anchor=west] (cons) at ($(ale.east)+(0.35,0.55)$)
+  {consolidation\\ keep $\bar r_n\ge r_{\mathrm{stable}}$};
+\node[bad, anchor=west] (forg) at ($(ale.east)+(0.35,-0.80)$)
+  {forget: decay $\lambda$\\ if $\bar r_n\le r_{\mathrm{unstable}}$};
+\node[neut, below=0.30cm of epi] (efe)
+  {active view\\ selection: $\mathrm{EFE}(v)$};
+
+\draw[thinarr, red!60!black]  (ale.east) -- (cons.west);
+\draw[thinarr, red!60!black]  (ale.east) -- (forg.west);
+\draw[thinarr, blue!60!black] (epi.south) -- (efe.north);
+
+% feedback: robust subset for localization
+\draw[thinarr, green!45!black, rounded corners=3pt]
+  (cons.north) -- (cons.north |- 0,3.55) -- (map.north |- 0,3.55) -- (map.north);
+\node[lbl, green!45!black, above] at ($(cons.north |- 0,3.55)!0.5!(map.north |- 0,3.55)$) {robust subset};
+\end{tikzpicture}
+\end{document}

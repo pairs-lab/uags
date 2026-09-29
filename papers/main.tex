@@ -7,8 +7,8 @@
 %%    These are NOT results. Replace them with YOUR measured values. Do not
 %%    submit with placeholders in place. Search this file for "TODO".
 %%  * Author block, funding, and acknowledgments are placeholders.
-%%  * Citations marked "% TODO verify" could not be independently confirmed;
-%%    check the exact bibliographic details before submission.
+%%  * References live in ref.bib (BibTeX, IEEEtran style); entries marked
+%%    "% UNVERIFIED" there still need a DOI/arXiv check.
 %% ============================================================================
 \documentclass[journal]{IEEEtran}
 
@@ -164,7 +164,7 @@ continuous mapping with quantifiable uncertainty and underlies several semantic
 mapping systems~\cite{gan2020bayesian}. Evidential extensions move beyond one-hot
 labels~\cite{kim2025e2bki}. CSS~\cite{wilson2025css} brings BKI to 3D-GS with a
 Dirichlet posterior over a closed label set, and concurrent
-work~\cite{liu2025physgs} infers physical properties with a Bayesian 3D-GS
+work~\cite{chopra2026physgs} infers physical properties with a Bayesian 3D-GS
 treatment that separates aleatoric and epistemic terms. We extend the BKI line
 to \emph{open-vocabulary} semantics via a directional (vMF) conjugate model and
 provide the epistemic/aleatoric split for continuous embeddings.
@@ -523,104 +523,9 @@ the concentration and an online open-set treatment are natural extensions.
 \todo{Acknowledgment text.}
 
 %% ============================================================================
-\begin{thebibliography}{99}
+%% References: papers/ref.bib (BibTeX, IEEEtran style)
 %% ============================================================================
-\bibitem{kerbl2023} B.~Kerbl, G.~Kopanas, T.~Leimk\"uhler, and G.~Drettakis,
-``3D Gaussian splatting for real-time radiance field rendering,'' \emph{ACM
-Trans. Graph.}, vol.~42, no.~4, pp.~139:1--139:14, 2023.
-
-\bibitem{mildenhall2020nerf} B.~Mildenhall, P.~P. Srinivasan, M.~Tancik,
-J.~T. Barron, R.~Ramamoorthi, and R.~Ng, ``NeRF: Representing scenes as neural
-radiance fields for view synthesis,'' in \emph{Proc. ECCV}, 2020.
-
-\bibitem{radford2021} A.~Radford \emph{et al.}, ``Learning transferable visual
-models from natural language supervision,'' in \emph{Proc. ICML}, 2021,
-pp.~8748--8763.
-
-\bibitem{wilson2025css} J.~Wilson, M.~Almeida, M.~Sun, S.~Mahajan,
-M.~Ghaffari, P.~Ewen, O.~Ghasemalizadeh, C.-H. Kuo, and A.~Sen, ``Modeling
-uncertainty in 3D Gaussian splatting through continuous semantic splatting,''
-in \emph{Proc. IEEE Int. Conf. Robot. Autom. (ICRA)}, 2025. arXiv:2411.02547.
-
-\bibitem{vegabrown2014} W.~Vega-Brown, M.~Doniec, and N.~Roy, ``Nonparametric
-Bayesian inference on multivariate exponential families,'' in \emph{Adv. Neural
-Inf. Process. Syst. (NeurIPS)}, 2014.
-
-\bibitem{gan2020bayesian} L.~Gan, R.~Zhang, J.~W. Grizzle, R.~M. Eustice, and
-M.~Ghaffari, ``Bayesian spatial kernel smoothing for scalable dense semantic
-mapping,'' \emph{IEEE Robot. Autom. Lett.}, vol.~5, no.~2, pp.~790--797, 2020.
-
-\bibitem{kim2025e2bki} % TODO verify
-J.~Kim, M.~Jeon, J.~Min, K.~Kwak, and J.~Seo, ``E2-BKI: Evidential ellipsoidal
-Bayesian kernel inference for uncertainty-aware Gaussian semantic mapping,''
-arXiv:2509.11964, 2025.
-
-\bibitem{liu2025physgs} % TODO verify
-\todo{authors}, ``PhysGS: Bayesian-inferred Gaussian splatting for physical
-property estimation,'' arXiv:2511.18570, 2025.
-
-\bibitem{maggio2025bayesian} D.~Maggio and L.~Carlone, ``Bayesian fields:
-Task-driven open-set semantic Gaussian splatting,'' arXiv:2503.05949, 2025.
-
-\bibitem{lee2026lamp} S.~Lee, H.~Yu, G.~Kim, and S.~Choi, ``LAMP: Implicit
-language map for robot navigation,'' arXiv:2602.11862, 2026.
-
-\bibitem{nagami2025vista} K.~Nagami, T.~Chen, J.~Yu, O.~Shorinwa, M.~Adang,
-C.~Dougherty, E.~Cristofalo, and M.~Schwager, ``VISTA: Open-vocabulary,
-task-relevant robot exploration with online semantic Gaussian splatting,''
-arXiv:2507.01125, 2025.
-
-\bibitem{mardia2000directional} K.~V. Mardia and P.~E. Jupp, \emph{Directional
-Statistics}. Chichester, U.K.: Wiley, 2000.
-
-\bibitem{banerjee2005vmf} A.~Banerjee, I.~S. Dhillon, J.~Ghosh, and S.~Sra,
-``Clustering on the unit hypersphere using von Mises--Fisher distributions,''
-\emph{J. Mach. Learn. Res.}, vol.~6, pp.~1345--1382, 2005.
-
-\bibitem{friston2010} K.~Friston, ``The free-energy principle: a unified brain
-theory?'' \emph{Nat. Rev. Neurosci.}, vol.~11, no.~2, pp.~127--138, 2010.
-
-\bibitem{parr2022active} T.~Parr, G.~Pezzulo, and K.~J. Friston, \emph{Active
-Inference: The Free Energy Principle in Mind, Brain, and Behavior}. MIT Press,
-2022.
-
-\bibitem{ye2024gsplat} % TODO verify
-V.~Ye \emph{et al.}, ``gsplat: An open-source library for Gaussian splatting,''
-arXiv:2409.06765, 2024.
-
-\bibitem{qin2024langsplat} M.~Qin, W.~Li, J.~Zhou, H.~Wang, and H.~Pfister,
-``LangSplat: 3D language Gaussian splatting,'' in \emph{Proc. IEEE/CVF Conf.
-Comput. Vis. Pattern Recognit. (CVPR)}, 2024.
-
-\bibitem{zhou2024feature} % TODO verify
-S.~Zhou \emph{et al.}, ``Feature 3DGS: Supercharging 3D Gaussian splatting to
-enable distilled feature fields,'' in \emph{Proc. IEEE/CVF Conf. Comput. Vis.
-Pattern Recognit. (CVPR)}, 2024.
-
-\bibitem{wu2024opengaussian} Y.~Wu \emph{et al.}, ``OpenGaussian: Towards
-point-level 3D Gaussian-based open vocabulary understanding,'' in \emph{Adv.
-Neural Inf. Process. Syst. (NeurIPS)}, vol.~37, 2024, pp.~19114--19138.
-
-\bibitem{chen2024marepo} S.~Chen \emph{et al.}, ``Map-relative pose regression
-for visual relocalization,'' in \emph{Proc. IEEE/CVF Conf. Comput. Vis. Pattern
-Recognit. (CVPR)}, 2024, pp.~20665--20674.
-
-\bibitem{brachmann2023ace} E.~Brachmann, T.~Cavallari, and V.~A. Prisacariu,
-``Accelerated coordinate encoding: Learning to relocalize in minutes using RGB
-and poses,'' in \emph{Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit.
-(CVPR)}, 2023, pp.~5044--5053.
-
-\bibitem{chu2026semantic} B.-T.-H. Chu and G.-W. Kim, ``Semantic-augmented 3D
-Gaussian splatting for visual localization in complex indoor environments,''
-\emph{IEEE Robot. Autom. Lett.}, vol.~11, no.~3, pp.~3852--3859, Mar. 2026.
-
-\bibitem{glocker2013} B.~Glocker, S.~Izadi, J.~Shotton, and A.~Criminisi,
-``Real-time RGB-D camera relocalization,'' in \emph{Proc. IEEE Int. Symp. Mixed
-Augmented Reality (ISMAR)}, 2013, pp.~173--179.
-
-\bibitem{dai2017scannet} A.~Dai \emph{et al.}, ``ScanNet: Richly-annotated 3D
-reconstructions of indoor scenes,'' in \emph{Proc. IEEE Conf. Comput. Vis.
-Pattern Recognit. (CVPR)}, 2017, pp.~5828--5839.
-\end{thebibliography}
+\bibliographystyle{IEEEtran}
+\bibliography{ref}
 
 \end{document}

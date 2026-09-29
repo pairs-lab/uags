@@ -112,9 +112,8 @@ def summarize(results, ks):
 def run(args):
     device = args.device
     if device.startswith("cuda"):
-        frac = os.environ.get("UAGS_GPU_MEM_FRACTION")          # set by scripts/gpu_gate.sh
-        if frac:
-            torch.cuda.set_per_process_memory_fraction(float(frac))
+        from usplat import gpu_reserve                      # fraction from scripts/gpu_gate.sh
+        gpu_reserve.apply(device)
     if not args.betas:
         raise SystemExit("--betas is required (an eval_seg.py fit on the full val maps)")
     vocab = ES.load_vocab(args.vocab)

@@ -13,7 +13,8 @@
 # then runs the command under the lock with UAGS_GPU_MEM_FRACTION = need/total exported
 # (scripts/run_mapping.py applies it with torch.cuda.set_per_process_memory_fraction).
 # It never kills or signals other processes. A failed nvidia-smi reading counts as
-# "not enough memory" and the gate keeps waiting.
+# "not enough memory" and the gate keeps waiting. The jobs reserve their memory at start
+# (usplat/gpu_reserve.py) so a USGLoc batch cannot start in their CPU phases.
 set -uo pipefail
 need=${1:?need_mib}; shift
 headroom=${UAGS_GPU_HEADROOM_MIB:-2048}
@@ -26,8 +27,16 @@ export PATH=$CUDA_HOME/bin:$PATH
 num() { [[ $1 =~ ^[0-9]+$ ]] && echo "$1" || echo 0; }
 free_mib() { num "$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')"; }
 total_mib() { num "$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')"; }
-# USGLoc jobs (pattern split so this script's own command line never matches it)
-usgloc_running() { pgrep -f "run_7""scenes|exp_floor""_matcher|train""_map|train""_encoders" >/dev/null 2>&1; }
+# USGLoc jobs: any python process whose working directory is the USGLoc repo (covers every
+# script it runs: run_7scenes, train_locfeat, train_map, ...), checked through /proc
+usgloc_dir=${UAGS_USGLOC_DIR:-/home/thanhnc/gauss_ws/src/usgloc}
+usgloc_running() {
+  local p
+  for p in $(pgrep -x python3) $(pgrep -x python); do
+    [ "$(readlink "/proc/$p/cwd" 2>/dev/null)" = "$usgloc_dir" ] && return 0
+  done
+  return 1
+}
 required() {
   local r=$((need + headroom))
   if usgloc_running; then r=$((r + usgloc_extra)); fi

@@ -139,9 +139,10 @@ def run_gsplat(args):
     from usplat import baselines as B
 
     device = "cuda"
-    frac = os.environ.get("UAGS_GPU_MEM_FRACTION")          # set by scripts/gpu_gate.sh
-    if frac:
-        torch.cuda.set_per_process_memory_fraction(float(frac))
+    from usplat import gpu_reserve                          # fraction from scripts/gpu_gate.sh
+    held = gpu_reserve.apply(device)
+    if held:
+        print(f"reserved {held} MiB of GPU memory")
     splats = load_gaussians(args.ply, device=device)
     N = splats["means"].shape[0]
     print(f"loaded {N} Gaussians from {args.ply}")
@@ -227,10 +228,9 @@ def run_gsplat(args):
     if args.baselines and args.vocab and args.css_eval_data:
         css_ids, prompts, tpl = css_vocabulary(args)
         css_text = pca.project_text(clip.text_embedding(prompts, templates=tuple(tpl)))
-    del clip
+    del clip                                                # its blocks stay in our cache
     peak_extract = (torch.cuda.max_memory_allocated() / 2 ** 20
                     if torch.cuda.is_available() else None)
-    torch.cuda.empty_cache()
 
     cfg = FieldConfig(**json.loads(args.field_config)) \
         if args.field_config else FieldConfig()

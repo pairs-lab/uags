@@ -263,9 +263,7 @@ def load_scene(sc, vocab, args, device):
         for f in frames:
             f["tok2d"] = _extractor(args).extract_tokens(f["image"]).cpu()
             f["image"] = None
-        _EXTRACTOR.clear()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        _EXTRACTOR.clear()                   # its blocks stay in this process's cache
     splats = load_gaussians(sc["ply"], device=device)
     if splats["means"].shape[0] != field.N:
         raise ValueError(f"scene {sc['name']}: {splats['means'].shape[0]} Gaussians in "
@@ -519,9 +517,10 @@ def _plain_json(obj):
 def run(args, rec=None):
     device = args.device
     if device.startswith("cuda"):
-        frac = os.environ.get("UAGS_GPU_MEM_FRACTION")          # set by scripts/gpu_gate.sh
-        if frac:
-            torch.cuda.set_per_process_memory_fraction(float(frac))
+        from usplat import gpu_reserve                      # fraction from scripts/gpu_gate.sh
+        held = gpu_reserve.apply(device)
+        if held:
+            print(f"reserved {held} MiB of GPU memory")
     vocab = load_vocab(args.vocab)
     out = dict(vocab=dict(path=os.path.abspath(args.vocab), n_classes=len(vocab["ids"]),
                           templates=vocab["templates"], ignore=sorted(vocab["ignore"])))

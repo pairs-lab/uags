@@ -865,11 +865,12 @@ sentence on synthetic calibration data.} Fig.~\ref{fig:qual} shows examples.
 %%  * Pixels instead of views: evidence="pixels", epistemic="pixels". With
 %%    evidence="pixels" alone, u_epi would stay the Kish view count (review
 %%    finding, check_ablation_switches.log).
-%%  * Uncorrected mean length r-bar: needs an estimator "rbar" (not in the code yet).
-%%  * Pooled null: the code's calib_mode="pooled" IS the history-conditioned
-%%    rule (thr_by_hist). A true pooled mode (thr_by_hist = None, pooled
-%%    quantile) must be added, and the mode renamed, before this row runs.
-%%  * Per-Gaussian max null: calib_mode="max".
+%%  * Uncorrected mean length r-bar: estimator="rbar"; prior-shrunk: "joint";
+%%    shrunk r-tilde: "legacy" (read-outs of the same sums, usplat/ablation_rows.py).
+%%  * Full method: calib_mode="history" (history-conditioned null). Pooled
+%%    null: calib_mode="pooled" (one quantile). Per-Gaussian max null: "max".
+%%    Field states saved before 2026-09-29 called the history rule "pooled";
+%%    from_state maps them to "history".
 \begin{table}[t]
 \centering
 \caption{Ablations on the test scenes, mean over $N=6$ (top) and $N=7$

@@ -4,21 +4,20 @@ usplat.ablation_rows:row_factory. Each variant gives a P0 row (mu*, channels u_e
 the AUSE columns) and a P2 row (adaptive beta from the same channels: the calibration
 columns), named abl_<variant>_P0 / abl_<variant>_P2.
 
-Read-out variants use the SAME per-view sums as the main field (a copy of the field with
-another FieldConfig read-out option; no second mapping pass):
-    est_joint      aleatoric from the joint-prior MAP ||R|| / (W1 + c0)   (vs Kish, F2)
-    est_legacy     aleatoric from the old r_tilde shrinkage               (vs Kish, F2)
-    epi_kish       u_epi = 1/(1 + Kish views)                           (vs min(Kish, W1))
-    epi_views      u_epi = 1/(1 + W1)
-    epi_posterior  u_epi = 1 - A_d(kappa_post)
-    kappa_fixed    P1 with the fixed kappa_lik instead of the per-Gaussian MAP kappa
-                   (P1 row only: kappa never changes P0 or the channels)
+The Replica block of the paper's Table III (sec:ablation). Read-out variants use the SAME
+per-view sums as the main field (a copy of the field with another FieldConfig read-out
+option; no second mapping pass):
+    est_rbar       "Uncorrected mean length": aleatoric from r_bar = ||R|| / W1
+    est_joint      "Prior-shrunk agreement":  ||R|| / (W1 + c0)
+    est_legacy     "Shrunk mean length":      r_tilde = r_bar - (1 - r_bar)/(W1 + 1)
+(An epistemic read-out ablation is not listed: with view weights <= 1 the support
+min(n_K, W1) is W1, so epistemic="views" equals the default.)
 Re-mapped variants need their own mapping pass on the same 3DGS map; they are read from
 files next to the main field, <main>_<variant>.pt (run_mapping.py --field-config), and are
 skipped with a warning when the file is missing:
-    pixels   evidence = pixel mass (FieldConfig(evidence="pixels", epistemic="pixels"))
-    centre   centred dispersion channel (FieldConfig(centre=True))
-    legacy   the original draft's method (FieldConfig.legacy())
+    pixels   "Pixels instead of views" (FieldConfig(evidence="pixels", epistemic="pixels"))
+    centre   "Centered features" (FieldConfig(centre=True))
+    legacy   "Pixel-level variant", the original draft's method (FieldConfig.legacy())
 The main field path is the mapping run's --out (ckpt["config"]["out"]) unless the caller
 gives field_path.
 """
@@ -34,11 +33,9 @@ from .rows import FieldRow
 from .vmf_field import DirectionalSemanticField
 
 READOUT = {
+    "est_rbar": dict(estimator="rbar"),
     "est_joint": dict(estimator="joint"),
     "est_legacy": dict(estimator="legacy"),
-    "epi_kish": dict(epistemic="kish"),
-    "epi_views": dict(epistemic="views"),
-    "epi_posterior": dict(epistemic="posterior"),
 }
 REMAPPED = ("pixels", "centre", "legacy")
 REMAPPED_CONFIG = {                    # --field-config of each re-mapped variant
@@ -84,9 +81,6 @@ def row_factory(ckpt, field, device, class_ids=None, field_path=None, variants=N
     for name, over in READOUT.items():
         if want is None or name in want:
             rows += variant_rows(readout_copy(field, **over), name)
-    if want is None or "kappa_fixed" in want:
-        f = readout_copy(field, kappa_mode="fixed")
-        rows.append(FieldRow("abl_kappa_fixed_P1", "feature", field=f, mode="P1"))
     main = field_path or (ckpt.get("config") or {}).get("out")
     for name in REMAPPED:
         if want is not None and name not in want:

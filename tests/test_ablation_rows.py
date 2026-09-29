@@ -30,7 +30,6 @@ def test_readout_rows_share_statistics(tmp_path):
     names = [r.name for r in rows]
     for v in AR.READOUT:
         assert f"abl_{v}_P0" in names and f"abl_{v}_P2" in names
-    assert "abl_kappa_fixed_P1" in names
     assert (f.cfg.estimator, f.cfg.epistemic, f.cfg.kappa_mode) == before   # main untouched
     by = {r.name: r for r in rows}
     ours_ale, ours_epi = f.aleatoric()[0], f.epistemic()
@@ -39,12 +38,13 @@ def test_readout_rows_share_statistics(tmp_path):
     assert torch.equal(ok, ~torch.isnan(ours_ale)) and 0 < int(ok.sum()) < f.N
     assert torch.allclose(joint[ok], 1 - f.raw.agreement("joint", f.cfg.c0)[ok])
     assert not torch.allclose(joint, ours_ale, equal_nan=True)
-    views = by["abl_epi_views_P0"].uncertainties()["u_epi"]
-    assert torch.allclose(views, 1 / (1 + f.raw.W1))
+    rbar = by["abl_est_rbar_P0"].uncertainties()["u_ale"]
+    assert torch.allclose(rbar[ok], 1 - f.raw.rbar()[ok])
     assert torch.allclose(by["abl_est_joint_P0"].uncertainties()["u_epi"], ours_epi)
     # the copies share the statistics: an update of the field is seen by every read-out
     assert by["abl_est_joint_P0"].field.raw is f.raw
-    assert torch.equal(by["abl_est_joint_P0"].buffer(), by["abl_epi_views_P0"].buffer())
+    assert torch.equal(by["abl_est_joint_P0"].buffer(), by["abl_est_rbar_P0"].buffer())
+    assert len(rows) == 6
     print(f"PASS read-out ablations: {len(rows)} rows, main config unchanged")
 
 

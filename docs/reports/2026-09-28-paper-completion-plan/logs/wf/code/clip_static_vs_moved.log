@@ -1,0 +1,12 @@
+PCA explained: 0.912
+[raw512] r_bar static re-observation (pixel, frame i vs i+3) p5/p50/p95 = [0.875, 0.94, 0.988]
+[raw512] r_bar changed content (pixel, other scene)          p5/p50/p95 = [0.858, 0.912, 0.958]
+   r_bar<=0.55: static 0.000  changed 0.000
+   r_bar<=0.85: static 0.011  changed 0.030
+   AUROC(1-r_bar: changed vs static) = 0.725
+[pca64] r_bar static re-observation (pixel, frame i vs i+3) p5/p50/p95 = [0.896, 0.959, 0.993]
+[pca64] r_bar changed content (pixel, other scene)          p5/p50/p95 = [0.874, 0.931, 0.971]
+   r_bar<=0.55: static 0.000  changed 0.000
+   r_bar<=0.85: static 0.002  changed 0.009
+   AUROC(1-r_bar: changed vs static) = 0.745
+exit=0

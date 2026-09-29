@@ -1,0 +1,12 @@
+gaussians: 200 | mean n_eff: 91.4
+mean epistemic: 0.327 | mean aleatoric (valid): 0.336
+aleatoric  dynamic=0.460  static=0.289   (dynamic should be higher)
+robust(stable) Gaussians: 17 | flagged unstable: 28
+EFE per candidate view: [-54.218, -49.143, -51.882, -56.131, -55.725] | best=v3
+AUSE(aleatoric -> semantic error): 0.0275  (lower=better)
+done.
+
+real	0m1.929s
+user	0m10.574s
+sys	0m0.765s
+exit=0

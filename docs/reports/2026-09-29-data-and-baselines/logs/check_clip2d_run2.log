@@ -1,0 +1,34 @@
+2026-09-29 08:00:57
+office_0  pixel/photo        mIoU  13.0  acc  50.3  (24 classes)
+office_0  mask/photo         mIoU  11.3  acc  33.8  (24 classes)
+office_0  pixel_pca/photo    mIoU  13.0  acc  51.3  (24 classes)
+office_0  pixel/room         mIoU  13.4  acc  51.5  (24 classes)
+office_0  mask/room          mIoU  11.3  acc  35.8  (24 classes)
+office_0  pixel_pca/room     mIoU  13.1  acc  52.1  (24 classes)
+office_0  pixel/ensemble     mIoU  12.5  acc  47.9  (24 classes)
+office_0  mask/ensemble      mIoU  12.2  acc  34.7  (24 classes)
+office_0  pixel_pca/ensemble mIoU  12.4  acc  48.6  (24 classes)
+room_2    pixel/photo        mIoU  21.8  acc  71.7  (21 classes)
+room_2    mask/photo         mIoU  16.7  acc  47.1  (21 classes)
+room_2    pixel_pca/photo    mIoU  21.1  acc  71.8  (21 classes)
+room_2    pixel/room         mIoU  22.6  acc  73.0  (21 classes)
+room_2    mask/room          mIoU  17.3  acc  52.9  (21 classes)
+room_2    pixel_pca/room     mIoU  22.2  acc  73.0  (21 classes)
+room_2    pixel/ensemble     mIoU  21.4  acc  70.6  (21 classes)
+room_2    mask/ensemble      mIoU  17.3  acc  49.2  (21 classes)
+room_2    pixel_pca/ensemble mIoU  21.2  acc  70.8  (21 classes)
+{
+ "worst_scene_miou": {
+  "pixel/photo": 0.12989067562798592,
+  "mask/photo": 0.11337359831925091,
+  "pixel_pca/photo": 0.1304738687796715,
+  "pixel/room": 0.1335005256715859,
+  "mask/room": 0.11279200626940607,
+  "pixel_pca/room": 0.13072531409590116,
+  "pixel/ensemble": 0.12459583868475399,
+  "mask/ensemble": 0.12160614666941272,
+  "pixel_pca/ensemble": 0.12384281237600647
+ },
+ "pass_15": false
+}
+2026-09-29 08:05:57

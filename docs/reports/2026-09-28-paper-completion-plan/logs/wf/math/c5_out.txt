@@ -1,0 +1,16 @@
+[a] counts=[3, 1, 0]: Dirichlet predictive p=[0.571 0.286 0.143]  | vMF mu*=[0.949 0.316 0.   ] kappa*=31.6 r_bar=0.791
+[a] counts=[5, 5, 0]: Dirichlet predictive p=[0.462 0.462 0.077]  | vMF mu*=[0.707 0.707 0.   ] kappa*=70.7 r_bar=0.707
+[a] counts=[50, 50, 0]: Dirichlet predictive p=[0.495 0.495 0.01 ]  | vMF mu*=[0.707 0.707 0.   ] kappa*=707.1 r_bar=0.707
+    -> same sufficient statistic and same argmax, but the vMF posterior over a mean direction
+       does not return class probabilities: a 50/50 split gives mu* between two labels
+       with kappa* growing like n (certain about a direction that is neither label).
+[b] d=64, kappa=10.0, new view adds mass m=5.0 with the same agreement r_bar (aligned)
+     n_eff  r_bar  paper u_epi*(1-u_ale)   model IG=H_old-H_new [nats]
+         5   0.95               0.1569                 12.596
+         5    0.6               0.0889                  8.887
+        10   0.95               0.0860                  9.481
+        10    0.6               0.0512                  7.787
+        50   0.95               0.0186                  2.818
+        50    0.6               0.0116                  2.711
+    -> under the paper's own model the gain falls with n; its r_bar effect shrinks as n grows
+       (kappa* < d at small n). The paper gate keeps a fixed r~ factor at every n.

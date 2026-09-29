@@ -1,0 +1,531 @@
+%% ============================================================================
+%%  RA-L submission — IEEEtran journal class
+%%  Uncertainty-Aware Open-Vocabulary Semantic Gaussian Splatting
+%%
+%%  >>> READ ME BEFORE SUBMITTING <<<
+%%  * Every experimental number is a PLACEHOLDER written as "XX.X" or "--".
+%%    These are NOT results. Replace them with YOUR measured values. Do not
+%%    submit with placeholders in place. Search this file for "TODO".
+%%  * Author block, funding, and acknowledgments are placeholders.
+%%  * References live in ref.bib (BibTeX, IEEEtran style); entries marked
+%%    "% UNVERIFIED" there still need a DOI/arXiv check.
+%% ============================================================================
+\documentclass[journal]{IEEEtran}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,allcolors=blue]{hyperref}
+\usepackage{cite}
+
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
+\newcommand{\ph}{\textcolor{red}{XX.X}}      % numeric placeholder
+\newcommand{\R}{\mathbf{R}}
+\newcommand{\xv}{\mathbf{x}}
+\newcommand{\zv}{\mathbf{z}}
+\newcommand{\muv}{\boldsymbol{\mu}}
+\newcommand{\etav}{\boldsymbol{\eta}}
+\newcommand{\Sph}{\mathbb{S}}
+
+\begin{document}
+
+\title{Uncertainty-Aware Open-Vocabulary Semantic\\
+Gaussian Splatting for Robust Mapping in Dynamic Scenes}
+
+\author{First~Author,~Second~Author,~and~Senior~Author%
+\thanks{Manuscript received \todo{date}. \todo{Funding/grant text.}}%
+\thanks{The authors are with \todo{Affiliation}, \todo{City, Country}
+(e-mail: \todo{email}).}%
+\thanks{Digital Object Identifier \todo{DOI}}}
+
+\markboth{IEEE Robotics and Automation Letters. Preprint Version. Month, Year}%
+{Author \MakeLowercase{\textit{et al.}}: Uncertainty-Aware Open-Vocabulary Semantic Gaussian Splatting}
+
+\maketitle
+
+\begin{abstract}
+Semantic 3D Gaussian Splatting (3D-GS) enables open-vocabulary scene
+understanding by embedding language features into a photorealistic map, but
+existing representations report semantics without a calibrated notion of
+\emph{trust}. This is unsafe for robotics: a region that has been observed only
+briefly is treated identically to one whose semantics are genuinely ambiguous or
+changing. We present a probabilistic open-vocabulary semantic field for 3D-GS
+that attaches a per-Gaussian directional posterior to the map and, from the same
+sufficient statistics, exposes a \emph{disentangled} epistemic and aleatoric
+uncertainty. Because language embeddings are unit-normalized, we model each
+Gaussian's semantics with a von Mises--Fisher (vMF) distribution and derive a
+closed-form Bayesian Kernel Inference (BKI) update that is the continuous
+generalization of categorical semantic mapping. We further show that the
+required kernel-weighted sufficient statistics are recoverable as the gradient
+of a feature render, so the update plugs into any differentiable feature
+rasterizer without modifying its kernels. The disentangled uncertainty drives an
+uncertainty-driven consolidation rule that identifies stable structure and
+forgets transient content, yielding robustness to scene change without
+hand-tuned dynamic-object heuristics or a language model in the loop. We
+evaluate calibration, open-vocabulary segmentation, and localization under scene
+change on indoor benchmarks. \todo{One-sentence headline result once measured.}
+\end{abstract}
+
+\begin{IEEEkeywords}
+Mapping, semantic scene understanding, localization, RGB-D perception,
+uncertainty estimation.
+\end{IEEEkeywords}
+
+%% ============================================================================
+\section{Introduction}
+%% ============================================================================
+\IEEEPARstart{R}{eliable} spatial perception underpins autonomous operation in
+complex indoor environments, where robots must localize and act despite
+occlusions, repetitive structure, diverse object categories, and dynamic
+rearrangement of the scene~\cite{chu2026semantic}. Recent work couples
+photorealistic 3D Gaussian Splatting (3D-GS)~\cite{kerbl2023} with language
+features~\cite{radford2021} to build \emph{open-vocabulary} semantic maps that
+support querying arbitrary concepts at test time~\cite{qin2024langsplat,
+zhou2024feature, wu2024opengaussian}. Such maps are attractive for localization
+and navigation because they combine appearance, geometry, and semantics in a
+single differentiable representation.
+
+A critical property is missing, however. Existing semantic 3D-GS
+representations report a most-likely semantic label or feature at every point but
+provide no calibrated measure of how much that report should be \emph{trusted}.
+For a safety-critical robot this conflation is dangerous: a surface seen from
+only one fleeting viewpoint and a surface whose semantics are genuinely
+ambiguous or actively changing are reported with identical confidence, even
+though the correct response to each is opposite---gather more observations in the
+first case, distrust the region in the second. Continuous Semantic Splatting
+(CSS)~\cite{wilson2025css} took an important step by porting Bayesian Kernel
+Inference (BKI)~\cite{vegabrown2014, gan2020bayesian} from voxel maps to 3D-GS,
+obtaining a Dirichlet posterior over a \emph{closed} label set. Two gaps remain.
+First, open-vocabulary semantics are continuous CLIP directions, not categories,
+so a Dirichlet treatment does not apply; CSS itself identifies an open-dictionary
+continuous conjugate prior as future work. Second, a single posterior variance
+does not separate uncertainty that more sensing can reduce (epistemic) from
+uncertainty that it cannot (aleatoric), yet that distinction is exactly what a
+robot needs to decide whether to look again or to forget.
+
+We address both gaps with a probabilistic open-vocabulary semantic field for
+3D-GS. Our representation is summarized in Fig.~\ref{fig:pipeline}. The
+contributions are:
+
+\begin{itemize}
+\item A \textbf{directional semantic posterior} for 3D-GS that models each
+Gaussian's open-vocabulary semantics with a von Mises--Fisher distribution on
+the unit hypersphere and admits a closed-form BKI update---the continuous
+generalization of categorical semantic mapping, using the splat weight as the
+inference kernel.
+\item A \textbf{disentangled epistemic/aleatoric} read-out obtained from the same
+sufficient statistics at no extra cost, with an explicit small-sample correction
+that prevents the false confidence that arises from few observations.
+\item A \textbf{gradient-based accumulation} showing that the kernel-weighted
+sufficient statistics equal the gradient of a feature render, so the update
+integrates with any differentiable feature rasterizer without custom kernels.
+\item An \textbf{uncertainty-driven consolidation} mechanism that uses the
+aleatoric signal to identify stable structure and forget transient content,
+providing robustness to scene change without dynamic-object thresholds or a
+language model in the loop.
+\end{itemize}
+
+We evaluate calibration, open-vocabulary segmentation, and localization under
+scene change on standard indoor datasets, and ablate each component.
+
+%% ============================================================================
+\section{Related Work}
+%% ============================================================================
+\textbf{Visual localization and rendering-based refinement.} Absolute pose
+regression~\cite{chen2024marepo} and scene coordinate
+regression~\cite{brachmann2023ace} learn a mapping from images to pose but
+generalize poorly across scenes and degrade in complex layouts. Rendering-based
+methods refine a coarse pose against a learned scene representation; replacing
+NeRF~\cite{mildenhall2020nerf} with 3D-GS~\cite{kerbl2023} improves render
+quality and efficiency for relocalization. \cite{chu2026semantic} augment a
+Gaussian map with semantics and a language model to select stable objects for
+robust indoor localization. We share the goal of robustness to scene change but
+replace heuristic stable-object selection with a calibrated uncertainty derived
+directly from the map.
+
+\textbf{Semantic and language-embedded 3D-GS.} A growing body of work distills
+2D features into a 3D-GS field for open-vocabulary
+understanding~\cite{qin2024langsplat, zhou2024feature, wu2024opengaussian}.
+These methods optimize or rasterize per-Gaussian features but treat the result
+as deterministic, providing no uncertainty for downstream decision making.
+Bayesian Fields~\cite{maggio2025bayesian} fuses semantics across views with a
+recursive Bayesian update, but maintains only a scalar task-relevance
+probability per Gaussian for a query fixed \emph{at mapping time}, and assumes
+a static scene. Our field instead maintains a posterior over the embedding
+\emph{direction itself}, so arbitrary queries can be answered post hoc with
+calibrated uncertainty.
+
+\textbf{Uncertainty in mapping.} BKI~\cite{vegabrown2014} provides closed-form
+continuous mapping with quantifiable uncertainty and underlies several semantic
+mapping systems~\cite{gan2020bayesian}. Evidential extensions move beyond one-hot
+labels~\cite{kim2025e2bki}. CSS~\cite{wilson2025css} brings BKI to 3D-GS with a
+Dirichlet posterior over a closed label set, and concurrent
+work~\cite{chopra2026physgs} infers physical properties with a Bayesian 3D-GS
+treatment that separates aleatoric and epistemic terms. We extend the BKI line
+to \emph{open-vocabulary} semantics via a directional (vMF) conjugate model and
+provide the epistemic/aleatoric split for continuous embeddings.
+
+\textbf{Directional statistics for embeddings.} Normalized embeddings lie on a
+hypersphere, where the vMF distribution is the natural model and its
+concentration measures
+confidence~\cite{mardia2000directional, banerjee2005vmf}. Concurrent work uses
+a vMF model of language-embedding uncertainty in an \emph{implicit} field for
+navigation~\cite{lee2026lamp}; we instead attach the directional posterior to
+an explicit 3D-GS map, derive its closed-form BKI update, and disentangle
+epistemic from aleatoric uncertainty.
+
+\textbf{Active perception.} Active inference casts perception and action as
+minimizing expected free energy, which decomposes into information-seeking
+(epistemic) and goal-directed (pragmatic) value~\cite{friston2010,
+parr2022active}. Recent semantic 3D-GS exploration combines geometric and
+semantic information gain with hand-set weights~\cite{nagami2025vista}. Our
+disentangled uncertainty
+provides the epistemic term in a principled form and, by gating out aleatoric
+regions, avoids expending observations where more sensing cannot help
+(Sec.~\ref{sec:efe}).
+
+%% ============================================================================
+\section{Method}
+%% ============================================================================
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=\textwidth]{figs/pipeline.pdf}
+  \caption{Overview. Per-pixel CLIP directions $\zv_p$ are accumulated into
+  each Gaussian's von Mises--Fisher sufficient statistics
+  $(\R_n, n^{\mathrm{eff}}_n)$ through the splat weight
+  $k_{p,n}=T_{p,n}\alpha_{p,n}$ (the BKI kernel), recovered exactly by one
+  feature render and one backward pass (Sec.~\ref{sec:grad}). The closed-form
+  posterior yields a mean semantic direction and concentration, from which a
+  disentangled epistemic/aleatoric uncertainty is read off
+  (Sec.~\ref{sec:uncertainty}) and used for consolidation
+  (Sec.~\ref{sec:consolidation}) and, optionally, active viewpoint selection
+  (Sec.~\ref{sec:efe}).}
+  \label{fig:pipeline}
+\end{figure*}
+
+\subsection{Directional Semantic Field}
+We build on an open-vocabulary 3D-GS map of $N$ Gaussians
+$\{g_n\}_{n=1}^N$, each with mean, covariance, opacity and color as
+usual~\cite{kerbl2023}. We attach to each Gaussian a semantic state living on
+the unit hypersphere $\Sph^{d-1}$, matching the geometry of $\ell_2$-normalized
+language embeddings~\cite{radford2021}.
+
+Let a training/keyframe provide a dense per-pixel CLIP feature map; pixel $p$
+contributes a unit observation $\zv_p\in\Sph^{d-1}$. We model the observations of
+Gaussian $n$ with a von Mises--Fisher (vMF) likelihood with \emph{fixed}
+concentration $\kappa$,
+\begin{equation}
+p(\zv_p \mid \muv_n) = C_d(\kappa)\,\exp\!\big(\kappa\,\muv_n^\top \zv_p\big),
+\qquad \muv_n\in\Sph^{d-1},
+\end{equation}
+where $\muv_n$ is the (unknown) mean semantic direction and
+$C_d(\kappa)$ the normalizer. The conjugate prior for the mean direction of a vMF
+likelihood with fixed $\kappa$ is again a vMF,
+$\muv_n \sim \mathrm{vMF}(\muv_0,\kappa_0)$~\cite{mardia2000directional}; setting
+$\kappa_0=0$ recovers a uniform prior, while a nonzero $\kappa_0$ lets a CLIP
+\emph{text} embedding act as a semantic prior.
+
+Following BKI~\cite{vegabrown2014}, we relate observations across space by
+tempering each likelihood with a kernel $k_{p,n}\in[0,1]$ that measures the
+influence of pixel $p$ on Gaussian $n$. As in CSS~\cite{wilson2025css}, the
+3D-GS blending weight is a valid BKI kernel: $k_{p,n}=T_{p,n}\,\alpha_{p,n}$,
+the transmittance-weighted opacity with which $g_n$ contributes to $p$. The
+tempered posterior is
+\begin{equation}
+p(\muv_n\mid \mathcal{D}) \propto
+\exp(\kappa_0\muv_0^\top\muv_n)\prod_p
+\big[C_d(\kappa)\exp(\kappa\,\zv_p^\top\muv_n)\big]^{k_{p,n}} .
+\end{equation}
+Crucially $C_d(\kappa)^{k_{p,n}}$ is independent of $\muv_n$ and drops out,
+leaving a vMF posterior in closed form:
+\begin{align}
+p(\muv_n\mid\mathcal{D}) &\propto \exp\!\big(\etav_n^\top\muv_n\big)
+= \mathrm{vMF}\!\Big(\muv_n \,\Big|\, \tfrac{\etav_n}{\lVert\etav_n\rVert},
+\lVert\etav_n\rVert\Big),\\
+\etav_n &= \kappa_0\muv_0 + \kappa\,\R_n,\qquad
+\R_n = \textstyle\sum_p k_{p,n}\,\zv_p, \label{eq:eta}
+\end{align}
+with effective observation mass $n^{\mathrm{eff}}_n=\sum_p k_{p,n}$. The
+posterior mean direction and concentration are
+$\muv^{\star}_n=\etav_n/\lVert\etav_n\rVert$ and
+$\kappa^{\star}_n=\lVert\etav_n\rVert$, and the posterior angular variance admits
+the closed form $\approx (d-1)/\kappa^{\star}_n$. Equation~\eqref{eq:eta} is the
+exact analogue of the categorical update $\alpha_n \leftarrow \alpha_0 + \sum_p
+k_{p,n}\,\mathbf{y}_p$ of~\cite{wilson2025css} with the one-hot label
+$\mathbf{y}_p$ replaced by the continuous direction $\zv_p$; the resultant vector
+$\R_n$ is the sufficient statistic, and its length relative to the accumulated
+mass separates agreement from conflict (Fig.~\ref{fig:vmf}). Semantic queries
+reduce to cosine similarity
+between $\muv^{\star}_n$ and a query text embedding, and a novel-view semantic
+render with per-pixel uncertainty follows the probabilistic rasterization
+of~\cite{wilson2025css}.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/vmf_sphere.pdf}
+  \caption{Directional semantic state on $\Sph^{d-1}$. Kernel-weighted CLIP
+  directions accumulate into the resultant $\R_n$, whose direction is the
+  posterior semantics and whose length relative to the observation mass
+  ($\bar r_n$) separates consistent evidence (left) from conflicting evidence
+  (right).}
+  \label{fig:vmf}
+\end{figure}
+
+\subsection{Gradient-Based Accumulation}
+\label{sec:grad}
+Computing $\R_n$ and $n^{\mathrm{eff}}_n$ appears to require, for every Gaussian,
+the list of pixels it touches and their weights---information that standard
+rasterizers do not expose. We avoid any kernel modification by observing that
+feature compositing is \emph{linear} in the per-Gaussian feature. Let
+$\mathbf{f}_n$ be a per-Gaussian feature buffer and
+$F_p=\sum_n k_{p,n}\mathbf{f}_n$ the composited feature at $p$. Then
+\begin{equation}
+\frac{\partial}{\partial \mathbf{f}_n}\Big[\textstyle\sum_p \zv_p^\top F_p\Big]
+= \textstyle\sum_p k_{p,n}\,\zv_p = \R_n,
+\end{equation}
+i.e.\ the resultant is the gradient of a single feature render with respect to
+the feature buffer, with geometry and opacity detached so the weights are
+constant. Appending a constant ones-channel recovers $n^{\mathrm{eff}}_n$ in the
+same backward pass. Hence the update requires one render and one backward call
+through any differentiable feature
+rasterizer~\cite{ye2024gsplat, zhou2024feature}; Fig.~\ref{fig:gradtrick}
+summarizes the construction. We verified this identity against an explicit
+weighted-sum reference and obtained agreement to numerical precision.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/gradient_trick.pdf}
+  \caption{Gradient-based accumulation. Because feature compositing is linear
+  in the per-Gaussian buffer, the kernel-weighted sufficient statistics are
+  the gradient of a single feature render; a constant ones channel recovers
+  $n^{\mathrm{eff}}_n$ in the same backward pass, with no rasterizer
+  modification.}
+  \label{fig:gradtrick}
+\end{figure}
+
+\subsection{Disentangling Epistemic and Aleatoric Uncertainty}
+\label{sec:uncertainty}
+Define the mean resultant length
+$\bar r_n = \lVert\R_n\rVert / n^{\mathrm{eff}}_n \in [0,1]$, the standard vMF
+concentration statistic~\cite{banerjee2005vmf}. With a weak prior the posterior
+concentration factorizes as
+\begin{equation}
+\kappa^{\star}_n \;\approx\; \kappa\, n^{\mathrm{eff}}_n\, \bar r_n ,
+\end{equation}
+exposing two independent routes to a diffuse posterior. A small
+$n^{\mathrm{eff}}_n$ means few observations: the posterior is uncertain only for
+lack of data, and additional viewpoints reduce it. This is \emph{epistemic}
+uncertainty, for which we use the monotone proxy
+\begin{equation}
+u^{\mathrm{epi}}_n = \frac{1}{1+n^{\mathrm{eff}}_n}.
+\end{equation}
+A small $\bar r_n$ \emph{despite} large $n^{\mathrm{eff}}_n$ means many
+observations that disagree---the language directions at that location point
+different ways---which more sensing under the same conditions cannot resolve.
+This is \emph{aleatoric} uncertainty,
+\begin{equation}
+u^{\mathrm{ale}}_n = 1 - \tilde r_n, \qquad
+\tilde r_n = \bar r_n - \frac{1-\bar r_n}{n^{\mathrm{eff}}_n+1},
+\end{equation}
+where $\tilde r_n$ is a small-sample shrinkage of $\bar r_n$. The correction is
+essential: with a single observation $\bar r_n=1$ trivially, which would falsely
+signal certainty; we therefore treat $u^{\mathrm{ale}}_n$ as valid only once
+$n^{\mathrm{eff}}_n \geq \tau_{\min}$ and report it as undefined otherwise.
+Maintaining the pair $(n^{\mathrm{eff}}_n,\bar r_n)$ rather than a single scalar
+is what makes the two regimes separable; Fig.~\ref{fig:plane} maps the regimes
+and the consolidation rule of Sec.~\ref{sec:consolidation} onto this plane.
+A data-driven per-Gaussian
+concentration estimate $\hat\kappa_n = \bar r_n (d-\bar r_n^2)/(1-\bar
+r_n^2)$~\cite{banerjee2005vmf} is available if a fixed $\kappa$ is undesirable,
+at the cost of closed-form conjugacy.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/uncertainty_plane.pdf}
+  \caption{Uncertainty regimes in the $(n^{\mathrm{eff}},\bar r)$ plane. Low
+  observation mass is the epistemic regime (more sensing helps; $\bar r$ is
+  biased high and $u^{\mathrm{ale}}$ is withheld); given sufficient mass, high
+  agreement consolidates into the robust map while persistent conflict is
+  forgotten by evidence decay.}
+  \label{fig:plane}
+\end{figure}
+
+\subsection{Uncertainty-Driven Consolidation}
+\label{sec:consolidation}
+The aleatoric signal identifies, without semantic thresholds or a language model,
+which structure is stable. Across keyframes, a Gaussian whose observations
+persistently disagree ($n^{\mathrm{eff}}_n\!\geq\!\tau_{\min}$, $\bar r_n \leq
+r_{\mathrm{unstable}}$) corresponds to content that has moved or whose appearance
+is inconsistent; we decay its accumulated evidence,
+$\R_n \leftarrow \lambda \R_n$, $n^{\mathrm{eff}}_n \leftarrow \lambda
+n^{\mathrm{eff}}_n$ with $\lambda<1$, an exponential forgetting of stale support.
+Conversely, Gaussians with $\bar r_n \geq r_{\mathrm{stable}}$ are consolidated
+and define a \emph{robust} subset used for localization. This replaces heuristic
+dynamic-object removal and stable-object selection with a single mechanism driven
+by the map's own uncertainty.
+
+\subsection{Active Viewpoint Selection (Optional)}
+\label{sec:efe}
+The disentangled uncertainty also yields a principled next-best-view objective.
+Casting selection as minimizing expected free energy~\cite{friston2010}, a
+candidate view $v$ with predicted per-Gaussian visibility $\nu_{v,n}$ is scored
+by an epistemic term that seeks \emph{reducible} uncertainty and a pragmatic term
+that seeks task-relevant content:
+\begin{equation}
+\mathrm{EFE}(v) = -\Big[\underbrace{\sum_n \nu_{v,n}\,u^{\mathrm{epi}}_n
+(1-u^{\mathrm{ale}}_n)}_{\text{epistemic value}}
++ \lambda_p \underbrace{\sum_n \nu_{v,n}\,s_n}_{\text{pragmatic value}}\Big],
+\end{equation}
+where $s_n=\max(0,\muv^{\star\top}_n \mathbf{t})$ is similarity to a query
+embedding $\mathbf{t}$. Gating the epistemic term by $(1-u^{\mathrm{ale}}_n)$
+prevents the agent from repeatedly visiting genuinely ambiguous or dynamic
+regions, a failure mode of objectives that do not separate the two uncertainties.
+
+%% ============================================================================
+\section{Experiments}
+%% ============================================================================
+\todo{All numeric cells below are placeholders (\ph{} / --). Replace with your
+measured results before submission.}
+
+\subsection{Setup}
+\textbf{Datasets.} We evaluate on small-scale (7-Scenes~\cite{glocker2013}),
+large-scale (ScanNet~\cite{dai2017scannet}), and semi-dynamic indoor data; the
+dynamic split contains query images captured after object rearrangement
+\todo{describe your custom dynamic dataset / acquisition}.
+
+\textbf{Baselines.} For open-vocabulary semantics with uncertainty we compare
+against the categorical Dirichlet treatment of CSS~\cite{wilson2025css} and
+deterministic language-embedded 3D-GS~\cite{qin2024langsplat,
+zhou2024feature, wu2024opengaussian}. For localization we compare against
+representative APR~\cite{chen2024marepo}, SCR~\cite{brachmann2023ace}, and
+GS-based relocalization methods, including the semantic localizer
+of~\cite{chu2026semantic}. \todo{finalize baseline list and citations.}
+
+\textbf{Metrics.} Open-vocabulary segmentation accuracy / mIoU; calibration via
+the sparsification error (AUSE) for each uncertainty channel and expected
+calibration error (ECE); localization by median translation/rotation error
+(ATE/ARE) and success rate at $5\,$cm/$5^\circ$ and $2\,$cm/$2^\circ$; and
+runtime. We report AUSE separately for the epistemic and aleatoric channels to
+test whether each predicts the failure mode it is intended to.
+
+\textbf{Implementation.} \todo{backbone for dense CLIP features (e.g.\ LSeg /
+MaskCLIP / SAM+CLIP), feature dimension $d$, $\kappa$, $\tau_{\min}$,
+$r_{\mathrm{stable}}$, $r_{\mathrm{unstable}}$, $\lambda$, hardware, timings.}
+
+\subsection{Open-Vocabulary Semantics and Calibration}
+Table~\ref{tab:seg} reports segmentation quality and calibration.
+Fig.~\ref{fig:qual} shows qualitative posterior semantics with epistemic and
+aleatoric maps. \todo{1--2 sentences interpreting the measured numbers: e.g.\
+that the directional posterior matches/exceeds deterministic features on
+accuracy while providing calibrated uncertainty, and that the epistemic channel
+attains lower AUSE against reconstruction-improvable error while the aleatoric
+channel attains lower AUSE against dynamic/boundary error.}
+
+\begin{table}[t]
+\centering
+\caption{Open-vocabulary segmentation and calibration. OV: supports
+open-vocabulary queries. \todo{replace placeholders; arrows indicate better
+direction.}}
+\label{tab:seg}
+\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccccc}
+\toprule
+Method & OV & mIoU\,$\uparrow$ & Acc.\,$\uparrow$
+& AUSE$_{\mathrm{epi}}\!\downarrow$ & ECE\,$\downarrow$\\
+\midrule
+Deterministic feat.~\cite{zhou2024feature} & \checkmark & \ph & \ph & -- & --\\
+CSS (Dirichlet)~\cite{wilson2025css}       & $\times$   & \ph & \ph & \ph & \ph\\
+\textbf{Ours (vMF)}                        & \checkmark & \textbf{\ph} & \textbf{\ph} & \textbf{\ph} & \textbf{\ph}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \fbox{\parbox[c][0.30\linewidth][c]{0.92\linewidth}{\centering
+  \todo{qualitative figure: query RGB, posterior semantics, epistemic map,
+  aleatoric map; show dynamic objects lighting up the aleatoric channel.}}}
+  \caption{Posterior semantics with disentangled uncertainty. \todo{caption.}}
+  \label{fig:qual}
+\end{figure}
+
+\subsection{Localization Under Scene Change}
+Table~\ref{tab:loc} reports localization accuracy. The consolidation mechanism
+(Sec.~\ref{sec:consolidation}) supplies a robust subset for matching under
+rearrangement. \todo{interpret: e.g.\ that aleatoric-driven consolidation
+preserves accuracy as the scene changes, versus baselines that degrade.}
+
+\begin{table}[t]
+\centering
+\caption{Localization on dynamic indoor data (median ATE/ARE and success rate).
+\todo{replace placeholders.}}
+\label{tab:loc}
+\begin{tabular}{lcccc}
+\toprule
+Method & ATE\,[cm]\,$\downarrow$ & ARE\,[\textdegree]\,$\downarrow$
+& \multicolumn{2}{c}{Success\,[\%]\,$\uparrow$}\\
+\cmidrule(lr){4-5}
+ & & & 5cm/5\textdegree & 2cm/2\textdegree\\
+\midrule
+APR~\cite{chen2024marepo}        & \ph & \ph & \ph & \ph\\
+SCR~\cite{brachmann2023ace}      & \ph & \ph & \ph & \ph\\
+Semantic GS~\cite{chu2026semantic} & \ph & \ph & \ph & \ph\\
+\textbf{Ours}                    & \textbf{\ph} & \textbf{\ph} & \textbf{\ph} & \textbf{\ph}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Ablations}
+Table~\ref{tab:abl} isolates each component. \todo{interpret the four ablations:
+(i) directional vMF vs.\ categorical posterior on open-vocabulary queries;
+(ii) the 2-D $(n^{\mathrm{eff}},\bar r)$ uncertainty with the small-sample
+correction vs.\ a single scalar; (iii) consolidation on/off under scene change;
+(iv) the EFE objective vs.\ a hand-weighted geometric+semantic score.}
+
+\begin{table}[t]
+\centering
+\caption{Ablation study. \todo{replace placeholders.}}
+\label{tab:abl}
+\begin{tabular}{lccc}
+\toprule
+Configuration & mIoU\,$\uparrow$ & AUSE$_{\mathrm{ale}}\!\downarrow$
+& ATE\,[cm]\,$\downarrow$\\
+\midrule
+Categorical posterior        & \ph & \ph & \ph\\
+Scalar uncertainty           & \ph & \ph & \ph\\
+w/o consolidation            & \ph & \ph & \ph\\
+Heuristic view score         & \ph & \ph & \ph\\
+\textbf{Full model}          & \textbf{\ph} & \textbf{\ph} & \textbf{\ph}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%% ============================================================================
+\section{Conclusion}
+%% ============================================================================
+We presented a probabilistic open-vocabulary semantic field for 3D Gaussian
+Splatting that attaches a von Mises--Fisher posterior to each Gaussian, derives a
+closed-form BKI update that generalizes categorical semantic mapping to
+continuous language embeddings, and exposes a disentangled epistemic/aleatoric
+uncertainty from the same sufficient statistics. The update integrates with any
+differentiable feature rasterizer through a gradient identity, and the
+uncertainty drives a consolidation rule that yields robustness to scene change
+without dynamic-object heuristics. \todo{one sentence summarizing the strongest
+measured outcome.} Limitations include the fixed-concentration assumption and
+the dependence of the consolidation thresholds on a validation split; learning
+the concentration and an online open-set treatment are natural extensions.
+
+\section*{Acknowledgment}
+\todo{Acknowledgment text.}
+
+%% ============================================================================
+%% References: papers/ref.bib (BibTeX, IEEEtran style)
+%% ============================================================================
+\bibliographystyle{IEEEtran}
+\bibliography{ref}
+
+\end{document}

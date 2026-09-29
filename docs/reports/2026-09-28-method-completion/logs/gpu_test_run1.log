@@ -1,0 +1,12 @@
+[gpu_gate] 2026-09-28 23:52:47 waiting: free 3020 MiB < 1500+4096 or lock busy
+[gpu_gate] 2026-09-28 23:53:47 waiting: free 3020 MiB < 1500+4096 or lock busy
+[gpu_gate] 2026-09-28 23:54:47 waiting: free 3020 MiB < 1500+4096 or lock busy
+[gpu_gate] 2026-09-28 23:55:47 waiting: free 3020 MiB < 1500+4096 or lock busy
+[gpu_gate] 2026-09-28 23:56:47 free 11877 MiB >= 1500+4096; running: python3 tests/test_gsplat_gpu.py
+PASS linearity: max |render(a*b1+b2) - a*render(b1)-render(b2)| = 1.91e-06
+PASS mass: sum n_eff = 5596.1 vs alpha mass 5596.1 (rel gap 0.00e+00)
+PASS per-Gaussian identity: max |R - W^T z| = 2.86e-06, max |n - W^T 1| = 1.53e-05 (max mass 241.7)
+PASS constant-direction: min cos(mu_post, z) = 1.00000, min r_bar = 1.00000 on 277 observed Gaussians
+PASS conflict: mean aleatoric under flipping semantics = 1.000 (> 0.5)
+PASS change test: 100.0% of well-observed Gaussians flagged after z0 -> z1
+ALL GPU CHECKS PASSED

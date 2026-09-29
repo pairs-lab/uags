@@ -1,0 +1,10 @@
+PASS linearity: max |render(a*b1+b2) - a*render(b1)-render(b2)| = 1.91e-06
+PASS mass: sum n_eff = 5596.1 vs alpha mass 5596.1 (rel gap 0.00e+00)
+PASS constant-direction: min cos(mu_post, z) = 1.00000, min r_bar = 1.00000 on 287 observed Gaussians
+PASS conflict: mean aleatoric under flipping semantics = 1.000 (> 0.5)
+ALL GPU CHECKS PASSED
+
+real	0m1.460s
+user	0m1.416s
+sys	0m1.310s
+exit=0

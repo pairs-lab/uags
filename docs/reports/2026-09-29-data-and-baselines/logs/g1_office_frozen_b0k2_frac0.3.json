@@ -1,0 +1,96 @@
+{
+ "scene": "office",
+ "change_frac": 0.3,
+ "n_points": 882,
+ "n_changed": 441,
+ "n_strong": 220,
+ "pair_cos_median": 0.8007317185401917,
+ "feat_dim": 64,
+ "seed": 0,
+ "auroc": {
+  "legacy_1-rbar": 0.8698741779402616,
+  "resid_1": 0.8680539487147845,
+  "resid_2": 0.8734015148009318,
+  "frozen_b0_k2:u_ale": 0.8770008381281462,
+  "frozen_b0_k2:c_max": 0.8724296975025838,
+  "frozen_b0_k2:c_last": 0.8509468791295808
+ },
+ "n_undefined": {
+  "legacy_1-rbar": 0,
+  "resid_1": 0,
+  "resid_2": 0,
+  "frozen_b0_k2:u_ale": 0,
+  "frozen_b0_k2:c_max": 0,
+  "frozen_b0_k2:c_last": 0
+ },
+ "auroc_strong": {
+  "legacy_1-rbar": 0.9510719439290868,
+  "resid_1": 0.9663883735312306,
+  "resid_2": 0.9672232529375386,
+  "frozen_b0_k2:u_ale": 0.9579158936301794,
+  "frozen_b0_k2:c_max": 0.9668418882704597,
+  "frozen_b0_k2:c_last": 0.936105957534529
+ },
+ "variants": {
+  "frozen_b0_k2": {
+   "field_config": {
+    "evidence": "views",
+    "view_mass_frac": 0.0001,
+    "estimator": "kish",
+    "c0": 1.0,
+    "tau_min": 3.0,
+    "epistemic": "support",
+    "kappa_mode": "map",
+    "kappa_lik": 10.0,
+    "prior_kappa": 0.0,
+    "centre": false,
+    "centre_eps": 0.05,
+    "change_test": true,
+    "slow_decay": 1.0,
+    "fast_memory": 0.0,
+    "fast_min": 1.0,
+    "change_persist": 2,
+    "slow_min": 1.0,
+    "change_score": "raw",
+    "change_thr": Infinity,
+    "change_quantile": 0.99,
+    "readmit_views": 3.0,
+    "readmit_depth": 0.05,
+    "r_stable": 0.6
+   },
+   "centred": false,
+   "fired_changed": 0.0,
+   "fired_static": 0.0,
+   "c_max_q_static": [
+    0.12223637104034424,
+    0.18350470066070557,
+    0.2023051381111145
+   ],
+   "c_max_q_changed": [
+    0.12371867895126343,
+    0.23038917779922485
+   ],
+   "u_ale_defined": 1.0,
+   "selfcal": {
+    "0.9": {
+     "thr": 0.16460666060447693,
+     "fired_changed": 0.7301587462425232,
+     "fired_static": 0.095238097012043
+    },
+    "0.95": {
+     "thr": 0.18471041321754456,
+     "fired_changed": 0.646258533000946,
+     "fired_static": 0.056689340621232986
+    },
+    "0.99": {
+     "thr": 0.22969770431518555,
+     "fired_changed": 0.4897959232330322,
+     "fired_static": 0.00907029490917921
+    }
+   }
+  }
+ },
+ "seconds_extract": 2.78698468208313,
+ "seconds_total": 9.386566877365112,
+ "git": "ab28fb4+dirty"
+}

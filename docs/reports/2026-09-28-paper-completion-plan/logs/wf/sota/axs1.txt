@@ -1,0 +1,9 @@
+## von Mises-Fisher Gaussian splatting hits 0
+## von Mises-Fisher semantic map hits 5
+  2605.08637 | Spherical Mixture Integration for Latent Embedding Alignment across Multi-Source Feature Spaces | 22 June, 2026
+  2603.19722 | FedRG: Unleashing the Representation Geometry for Federated Learning with Noisy Clients | 31 March, 2026
+  2602.11862 | LAMP: Implicit Language Map for Robot Navigation | 12 February, 2026
+  2512.13672 | Directional Textual Inversion for Personalized Text-to-Image Generation | 10 March, 2026
+  2509.19625 | Adaptive von Mises-Fisher Likelihood Loss for Supervised Deep Time Series Hashing | 23 September, 2025
+## von Mises-Fisher CLIP uncertainty hits 0
+## vMF language embedding uncertainty 3D hits 0

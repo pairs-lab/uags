@@ -1,0 +1,30 @@
+== 2412.01807
+ title: ["Occam's LGS: An Efficient Approach for Language Gaussian Splatting"]
+ authors: Cheng, Jiahuan; Zaech, Jan-Nico; Van Gool, Luc; Paudel, Danda Pani
+ date: ['2024/12/02']
+ comments: Project Page: this https URL
+ versions: [('v2', 'Sat, 8 Mar 2025 14:48:12 UTC (')]
+ abstract: TL;DR: Gaussian Splatting is a widely adopted approach for 3D scene representation, offering efficient, high-quality reconstruction and rendering. A key reason for its success is the simplicity of representing scenes with sets of Gaussians, making it interpretable and adaptable. To enhance understanding beyond visual representation, recent approaches extend Gaussian Splatting with semantic vision-language features, enabling open-set tasks. Typically, these language features are aggregated from multiple 2D views, however, existing methods rely on cumbersome techniques, resulting in high computational costs and longer training times. In this work, we show that the complicated pipelines for language 3D Gaussian Splatting are simply unnecessary. Instead, we follow a probabilistic formulation of Language Gaussian Splatting and apply Occam's razor to the task at hand, leading to a highly efficient weighted multi-view feature aggregation technique. Doing so offers us state-of-the-art results with a speed-up of two orders of magnitude without any compression, allowing for easy scene manipulation. Project Page: https://insait-institute.github.io/OccamLGS/
+== 2502.16652
+ title: ['Dr. Splat: Directly Referring 3D Gaussian Splatting via Direct Language Embedding Registration']
+ authors: Jun-Seong, Kim; Kim, GeonU; Yu-Ji, Kim; Wang, Yu-Chiang Frank; Choe, Jaesung; Oh, Tae-Hyun
+ date: ['2025/02/23']
+ comments: 20 pages
+ versions: [('v1', 'Sun, 23 Feb 2025 17:01:14 UTC ')]
+ abstract: We introduce Dr. Splat, a novel approach for open-vocabulary 3D scene understanding leveraging 3D Gaussian Splatting. Unlike existing language-embedded 3DGS methods, which rely on a rendering process, our method directly associates language-aligned CLIP embeddings with 3D Gaussians for holistic 3D scene understanding. The key of our method is a language feature registration technique where CLIP embeddings are assigned to the dominant Gaussians intersected by each pixel-ray. Moreover, we integrate Product Quantization (PQ) trained on general large-scale image data to compactly represent embeddings without per-scene optimization. Experiments demonstrate that our approach significantly outperforms existing approaches in 3D perception benchmarks, such as open-vocabulary 3D semantic segmentation, 3D object localization, and 3D object selection tasks. For video results, please visit : https://drsplat.github.io/
+== 2606.16935
+ title: ['CrossMaps: Confidence-Aware Open-Vocabulary Semantic Mapping for Rover Navigation']
+ authors: Klein, Jan-Niklas; Ghahremani, Sona; Adriano, Christian Medeiros; Giese, Holger
+ date: ['2026/06/15']
+ comments: IEEE International Conference on Robotics and Automation (ICRA) 2026: ROSE International Workshop on Robotics Software Engineering, June 01, 2026, Vienna, Austria
+ versions: [('v1', 'Mon, 15 Jun 2026 16:35:01 UTC ')]
+ abstract: Rovers rely on perception to maintain spatial maps that encode both objects and sensor quality (e.g., range reliability, lighting artifacts, data density), guiding data fusion, embedding updates, and navigation under partial observability. To study these coupled perception-navigation processes, we present CrossMaps, a real-time confidence-aware open-vocabulary semantic mapping pipeline that constructs language-queryable maps from RGB-D data. Building on VLMaps-style approaches, CrossMaps integrates multi-scale CLIP embeddings with confidence-aware fusion and a dual-memory architecture consisting of Short-Term Memory (STM) and Long-Term Memory (LTM). The STM aggregates noisy visual observations using geometric, semantic, and temporal confidence cues, while confident and coherent cells are promoted to the LTM as persistent semantic landmarks. Designed for deployment with a Jetson Orin-powered UGV alongside SLAM, CrossMaps runs in real time and produces semantic heatmaps that can be queried with natural language to guide rover navigation.
+== 2506.01950
+ title: ['DualMap: Online Open-Vocabulary Semantic Mapping for Natural Language Navigation in Dynamic Changing Scenes']
+ authors: Jiang, Jiajun; Zhu, Yiming; Wu, Zirui; Song, Jie
+ date: ['2025/06/02']
+ comments: 14 pages, 14 figures. Published in IEEE Robotics and Automation Letters (RA-L), 2025. Code: this https URL Project page: this https URL
+ jref: IEEE Robotics and Automation Letters, Vol. 10, No. 12, pp. 12612-12619, 2025
+ doi: 10.1109/LRA.2025.3621942
+ versions: [('v4', 'Mon, 15 Dec 2025 06:43:59 UTC ')]
+ abstract: We introduce DualMap, an online open-vocabulary mapping system that enables robots to understand and navigate dynamically changing environments through natural language queries. Designed for efficient semantic mapping and adaptability to changing environments, DualMap meets the essential requirements for real-world robot navigation applications. Our proposed hybrid segmentation frontend and object-level status check eliminate the costly 3D object merging required by prior methods, enabling efficient online scene mapping. The dual-map representation combines a global abstract map for high-level candidate selection with a local concrete map for precise goal-reaching, effectively managing and updating dynamic changes in the environment. Through extensive experiments in both simulation and real-world scenarios, we demonstrate state-of-the-art performance in 3D open-vocabulary segmentation, efficient scene mapping, and online language-guided navigation. Project page: https://eku127.github.io/DualMap/

@@ -1,0 +1,3 @@
+ace_dsacstar_full: scenes=7 frames=17000 mean-of-medians 1.09cm/0.34deg  avg 5cm5=97.0% 2cm2=83.1%
+marepo_100: scenes=7 frames=700 mean-of-medians 2.87cm/1.03deg  avg 5cm5=83.4% 2cm2=34.3%
+ace_dsacstar_12scenes_100: scenes=12 frames=1200 mean-of-medians 0.98cm/0.26deg  avg 5cm5=99.9% 2cm2=91.6%

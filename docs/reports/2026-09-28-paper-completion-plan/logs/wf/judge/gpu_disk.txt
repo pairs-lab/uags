@@ -1,0 +1,4 @@
+Mon Sep 28 10:51:14 PM +07 2026
+memory.used [MiB], memory.total [MiB], utilization.gpu [%]
+13604 MiB, 16303 MiB, 21 %
+/dev/nvme0n1p1  937G  842G   48G  95% /

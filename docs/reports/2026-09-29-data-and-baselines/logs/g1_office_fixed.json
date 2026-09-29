@@ -1,0 +1,159 @@
+{
+ "scene": "office",
+ "n_points": 882,
+ "n_changed": 441,
+ "n_strong": 220,
+ "pair_cos_median": 0.7867748737335205,
+ "feat_dim": 64,
+ "seed": 0,
+ "auroc": {
+  "legacy_1-rbar": 0.8898607061872368,
+  "resid_1": 0.8631074500850983,
+  "resid_2": 0.8723577110360395,
+  "frozen_raw_b05:u_ale": 0.891819766455335,
+  "frozen_raw_b05:c_max": 0.8567006545626565,
+  "frozen_raw_b05:c_last": 0.777860048025257,
+  "old_default_cen_b09:u_ale": 0.8345699579907548,
+  "old_default_cen_b09:c_max": 0.8620790719916084,
+  "old_default_cen_b09:c_last": 0.8603719643564153
+ },
+ "n_undefined": {
+  "legacy_1-rbar": 0,
+  "resid_1": 0,
+  "resid_2": 0,
+  "frozen_raw_b05:u_ale": 0,
+  "frozen_raw_b05:c_max": 0,
+  "frozen_raw_b05:c_last": 0,
+  "old_default_cen_b09:u_ale": 0,
+  "old_default_cen_b09:c_max": 0,
+  "old_default_cen_b09:c_last": 0
+ },
+ "auroc_strong": {
+  "legacy_1-rbar": 0.9753865182436611,
+  "resid_1": 0.9704184704184704,
+  "resid_2": 0.9774479488765203,
+  "frozen_raw_b05:u_ale": 0.9775819418676561,
+  "frozen_raw_b05:c_max": 0.9657905586477015,
+  "frozen_raw_b05:c_last": 0.8497423211708925,
+  "old_default_cen_b09:u_ale": 0.8701298701298701,
+  "old_default_cen_b09:c_max": 0.9173675530818388,
+  "old_default_cen_b09:c_last": 0.9182951968666254
+ },
+ "variants": {
+  "frozen_raw_b05": {
+   "field_config": {
+    "evidence": "views",
+    "view_mass_frac": 0.0001,
+    "estimator": "kish",
+    "c0": 1.0,
+    "tau_min": 3.0,
+    "epistemic": "support",
+    "kappa_mode": "map",
+    "kappa_lik": 10.0,
+    "prior_kappa": 0.0,
+    "centre": true,
+    "centre_eps": 0.05,
+    "change_test": true,
+    "slow_decay": 1.0,
+    "fast_memory": 0.5,
+    "fast_min": 1.0,
+    "slow_min": 1.0,
+    "change_score": "raw",
+    "change_thr": Infinity,
+    "change_quantile": 0.99,
+    "readmit_views": 3.0,
+    "readmit_depth": 0.05,
+    "r_stable": 0.6
+   },
+   "centred": false,
+   "fired_changed": 0.0,
+   "fired_static": 0.0,
+   "c_max_q_static": [
+    0.09189170598983765,
+    0.14103925228118896,
+    0.1499847173690796
+   ],
+   "c_max_q_changed": [
+    0.09282982349395752,
+    0.16380727291107178
+   ],
+   "u_ale_defined": 1.0,
+   "selfcal": {
+    "0.9": {
+     "thr": 0.12956391274929047,
+     "fired_changed": 0.6643990874290466,
+     "fired_static": 0.17006802558898926
+    },
+    "0.95": {
+     "thr": 0.1687111258506775,
+     "fired_changed": 0.4512471556663513,
+     "fired_static": 0.013605441898107529
+    },
+    "0.99": {
+     "thr": 0.2587953209877014,
+     "fired_changed": 0.12018140405416489,
+     "fired_static": 0.0
+    }
+   }
+  },
+  "old_default_cen_b09": {
+   "field_config": {
+    "evidence": "views",
+    "view_mass_frac": 0.0001,
+    "estimator": "kish",
+    "c0": 1.0,
+    "tau_min": 3.0,
+    "epistemic": "support",
+    "kappa_mode": "map",
+    "kappa_lik": 10.0,
+    "prior_kappa": 0.0,
+    "centre": true,
+    "centre_eps": 0.05,
+    "change_test": true,
+    "slow_decay": 1.0,
+    "fast_memory": 0.9,
+    "fast_min": 1.0,
+    "slow_min": 1.0,
+    "change_score": "raw",
+    "change_thr": Infinity,
+    "change_quantile": 0.99,
+    "readmit_views": 3.0,
+    "readmit_depth": 0.05,
+    "r_stable": 0.6
+   },
+   "centred": true,
+   "fired_changed": 0.0,
+   "fired_static": 0.0,
+   "c_max_q_static": [
+    0.11590605974197388,
+    0.2701892852783203,
+    0.32233625650405884
+   ],
+   "c_max_q_changed": [
+    0.14397263526916504,
+    0.3220069408416748
+   ],
+   "u_ale_defined": 1.0,
+   "selfcal": {
+    "0.9": {
+     "thr": 0.199534073472023,
+     "fired_changed": 0.7709750533103943,
+     "fired_static": 0.2063492089509964
+    },
+    "0.95": {
+     "thr": 0.26874038577079773,
+     "fired_changed": 0.6167800426483154,
+     "fired_static": 0.10204081982374191
+    },
+    "0.99": {
+     "thr": 0.46570518612861633,
+     "fired_changed": 0.18594104051589966,
+     "fired_static": 0.006802720949053764
+    }
+   }
+  }
+ },
+ "seconds_extract": 56.49298286437988,
+ "seconds_total": 59.2418692111969,
+ "git": "ab28fb4+dirty"
+}

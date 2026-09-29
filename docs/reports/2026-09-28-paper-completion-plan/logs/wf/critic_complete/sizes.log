@@ -1,0 +1,9 @@
+Replica frames 2160
+per-pixel fp16 PCA-64, one Replica frame MB: 39.3216
+per-pixel fp16 PCA-64, 8 scenes x 180 map frames GB: 56.623104
+per-pixel fp16 PCA-64, all 2160 Replica frames GB: 84.934656
+token grid Replica 1200 tokens; fp16 512-d per frame MB: 1.2288 ; all frames GB: 2.654208
+RIO10 update frames approx 3441.5
+per-pixel fp16 PCA-64, one RIO10 frame MB: 66.3552 ; all update frames GB: 228.3614208
+RIO10 update extraction h at 1.81 s/frame: 1.7303097222222221
+RIO10 update extraction h scaled by pixels: 2.9198976562500003

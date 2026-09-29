@@ -1,0 +1,13 @@
+W1 Sep29-Oct4   workdays=4 cap80=3.20 load=3.00 ok  ['admin day1', 'K1', 'K2', 'K3']
+W2 Oct5-11      workdays=5 cap80=4.00 load=4.00 ok  ['K14', 'K8', 'K9', 'port']
+W3 Oct12-18     workdays=4 cap80=3.20 load=3.25 OVER  ['K4', 'K6', 'RIO10 dl+disk', 'K5*']
+W4 Oct19-25     workdays=5 cap80=4.00 load=3.50 ok  ['K12', 'K15']
+W5 Oct26-Nov1   workdays=5 cap80=4.00 load=3.50 ok  ['K13', 'val II runs', 'K16 sweeps']
+W6 Nov2-8       workdays=4 cap80=3.20 load=3.50 OVER  ['K7', 'K10']
+W7 Nov9-15      workdays=5 cap80=4.00 load=3.75 ok  ['K11', 'val I runs']
+W8 Nov16-22     workdays=5 cap80=4.00 load=4.25 OVER  ['test runs', 'K16 figs', 'method text', 'figures+redraw']
+W9 Nov23-27     workdays=4 cap80=3.20 load=3.50 OVER  ['exp text', 'abstract/intro', 'G5', 'revise']
+TOTAL workdays=41 (incl. submit day Nov 27) load=32.25 cap80=32.80 buffer_vs_workdays=21.3%
+must-have without K5 = 31.75; defer list = 4.25 {'optimised field': 1.5, '3DGS-CD': 1.0, 'abl (e),(g)': 0.25, 'K5 G1 replay*': 0.5, 'RIO10 risk-coverage': 0.75, 'MC predictive check': 0.25}
+if all defer items kept: load=36.00 buffer=12.2%
+supervisor (not in student load): related work + bib 1.5, two review rounds

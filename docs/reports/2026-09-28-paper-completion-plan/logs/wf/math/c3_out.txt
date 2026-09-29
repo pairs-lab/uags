@@ -1,0 +1,18 @@
+model loaded in 3.3s, d=512, patch=16
+[i] ds=4 image 160x120 (extract 0.4s, 8x10 tokens): mean cos at horizontal offset 1px:0.999 2px:0.994 4px:0.977 8px:0.920 16px:0.774 32px:0.684 64px:0.673 | random pairs 0.679
+[i] ds=1 image 640x480 (extract 1.8s, 30x40 tokens): mean cos at horizontal offset 1px:0.999 2px:0.995 4px:0.981 8px:0.932 16px:0.813 32px:0.720 64px:0.680 | random pairs 0.654
+[ii] ds=4, one view, disc footprints (equal weights): n_pixels ~ n_eff if alpha=1
+     radius  2px: n_pix=  13.0  distinct 16px tokens= 1.5  r_bar median=0.997 min=0.993  frac r_bar>=0.85 (r_stable): 1.00
+     radius  4px: n_pix=  49.0  distinct 16px tokens= 2.1  r_bar median=0.988 min=0.977  frac r_bar>=0.85 (r_stable): 1.00
+     radius  8px: n_pix= 197.0  distinct 16px tokens= 3.7  r_bar median=0.960 min=0.926  frac r_bar>=0.85 (r_stable): 1.00
+     radius 16px: n_pix= 797.0  distinct 16px tokens= 7.8  r_bar median=0.903 min=0.860  frac r_bar>=0.85 (r_stable): 1.00
+[iii] static chess points seen in >=5 of 20 frames (stride 10): 439 pts, median views 10
+      cross-view r_bar (1 obs per view): 10%:0.834 50%:0.869 90%:0.910 | frac <=0.55 (r_unstable): 0.00 | frac >=0.85 (r_stable): 0.77
+      bias-corrected rho_hat: 10%:0.813 50%:0.853 90%:0.895
+      same points, one view, 5x5 px window: r_bar 10%:0.991 50%:0.994 90%:0.996
+[iv] PCA-64 explained second moment on image feats: 0.918
+     energy kept by PCA-64: image pixels mean 0.918 | text prompts mean 0.119 (min 0.086, max 0.130)
+     argmax-label agreement over 12 prompts, full-512 vs PCA-64 space: 0.868
+     mean image-text cos full: 0.178 | after PCA+renorm: 0.539
+     cross-view r_bar of the static points in PCA-64 space: 10%:0.876 50%:0.903 90%:0.931 (vs 512-D above)
+total time 25.7s

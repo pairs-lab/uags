@@ -1,0 +1,12 @@
+W1 Sep29-Oct4   workdays=4 cap80=3.20 load=3.00 ok
+W2 Oct5-11      workdays=5 cap80=4.00 load=4.00 ok
+W3 Oct12-18     workdays=4 cap80=3.20 load=3.25 OVER
+W4 Oct19-25     workdays=5 cap80=4.00 load=4.00 ok
+W5 Oct26-Nov1   workdays=5 cap80=4.00 load=4.00 ok
+W6 Nov2-8       workdays=4 cap80=3.20 load=3.00 ok
+W7 Nov9-15      workdays=5 cap80=4.00 load=3.75 ok
+W8 Nov16-22     workdays=5 cap80=4.00 load=3.75 ok
+W9 Nov23-27     workdays=4 cap80=3.20 load=3.50 OVER
+TOTAL workdays=41 load=32.25 (incl K5 0.5) buffer=21.3%; without K5 load=31.75 buffer=22.6%
+all defer items kept: load=36.00 buffer=12.2%
+supervisor takes figures (1.0): load=30.75 buffer=25.0%

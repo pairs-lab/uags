@@ -1,0 +1,31 @@
+## arXiv:2509.11964 n= 2
+  2026-04-07 | Ensemble-Based Dirichlet Modeling for Predictive Uncertainty and Selective Classification | arXiv.org | 2604.06032
+  2025-11-23 | PhysGS: Bayesian-Inferred Gaussian Splatting for Physical Property Estimation | arXiv.org | 2511.18570
+## arXiv:2602.11862 n= 1
+  2025-11-20 | LEGO-SLAM: Language-Embedded Gaussian Optimization SLAM | arXiv.org | 2511.16144
+## arXiv:2503.05949 n= 7
+  2026-07-14 | Just-In-Time Scene Graph Growth: Combating Perceptual Saturation in Long-Horizon Robotics | arXiv.org | 2607.13245
+  2026-06-29 | GaussLite: Online Task-Conditioned 3D Gaussian Splatting for Real-Time Robotic Mapping | arXiv.org | 2606.30809
+  2026-05-29 | Belief Consistency Between Foundation-Model Evidence and Geometric Perception in Persistent Robotic Maps | arXiv.org | 2606.00318
+  2026-05-25 | FOUND-IT: Foundation-model-first Task-driven 3D Scene Graphs with Granularity on Demand | arXiv.org | 2605.25371
+  2026-03-01 | Task-Aware Semantic Map++: Cost-Efficient Task Assignment With Advanced Benchmark | IEEE Robotics and Automation Letters | None
+  2026-02-03 | Modular Safety Guardrails Are Necessary for Foundation-Model-Enabled Robots in the Real World | arXiv.org | 2602.04056
+  2025-11-29 | Describe Anything Anywhere At Any Moment | arXiv.org | 2512.00565
+## arXiv:2411.15193 n= 5
+  2026-09-16 | NormLift: From Lifted Features To Semantic Reliability In 3D Gaussian Splatting |  | 2609.18898
+  2026-04-09 | Visually-grounded Humanoid Agents | arXiv.org | 2604.08509
+  2025-12-15 | Session Summary Podcast: Session 48: Expressive and Structured Gaussian Representations | Proceedings of the SIGGRAPH Asia 2025 Conference Papers | None
+  2025-06-10 | SceneSplat++: A Large Dataset and Comprehensive Benchmark for Language Gaussian Splatting | Neural Information Processing Systems | 2506.08710
+  2024-03-22 | Semantic Gaussians: Open-Vocabulary Scene Understanding With 3D Gaussian Splatting | IEEE transactions on circuits and systems for video technology (Print) | 2403.15624
+## arXiv:2507.01125 n= 11
+  2026-11-01 | Efficient semantic segmentation for 3D Gaussian Splatting via confidence-based label assignment | Computer Vision and Image Understanding | None
+  2026-09-25 | CognitiveReality: Robot-Agnostic Semantic Gaussian Mapping with an LLM Agent for Immersive Collaborative VR Teleoperation |  | 2609.31418
+  2026-08-28 | Cooperative Risk-Aware Exploration in Heterogeneous Multi-Robot Systems Using Algorithmic Altruism |  | 2608.28409
+  2026-06-29 | GaussLite: Online Task-Conditioned 3D Gaussian Splatting for Real-Time Robotic Mapping | arXiv.org | 2606.30809
+  2026-06-02 | Multi-Agent Next-Best-View Optimization for Risk-Averse Planning | arXiv.org | 2606.04158
+  2026-05-22 | Semantic-Aware Guided Drone Exploration for Language-Conditioned 3D Indoor Mapping | arXiv.org | 2605.23160
+  2026-05-19 | Conflict-Aware Active Perception and Control in 3D Gaussian Splatting Fields via Control Barrier Functions | arXiv.org | 2605.20566
+  2026-04-06 | Coverage Optimization for Camera View Selection | arXiv.org | 2604.05259
+  2026-03-26 | π, But Make It Fly: Physics-Guided Transfer of VLA Models to Aerial Manipulation | arXiv.org | 2603.25038
+  2025-09-23 | SINGER: An Onboard Generalist Vision-Language Navigation Policy for Drones | arXiv.org | 2509.18610
+  2025-03-28 | Segment then Splat: Unified 3D Open-Vocabulary Segmentation via Gaussian Splatting | Neural Information Processing Systems | 2503.22204

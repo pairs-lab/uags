@@ -1,0 +1,16 @@
+## Semantic-augmented 3D Gaussian splatting visual localization complex indoor
+ ERR 
+## Continuous Semantic Splatting
+ ERR 
+## E2-BKI
+ ERR 
+## Bayesian Fields task-driven open-set semantic Gaussian
+ ERR 
+## LAMP implicit language map robot navigation
+ ERR 
+## VISTA open-vocabulary task-relevant robot exploration
+ ERR 
+## Feature 3DGS supercharging
+ ERR 
+## gsplat open-source library Gaussian splatting
+ ERR 

@@ -1,0 +1,35 @@
+R   max abs diff: 0.00e+00
+n_eff max abs diff: 9.54e-07
+PASS: gradient-trick accumulation is exact.
+.PASS change: fired within 2 view(s); static 0 flagged; swapped re-admitted; removed stays flagged; unseen untouched
+.PASS re-admission on views alone when readmit_depth=None
+.PASS buckets: slow + fast = all evidence; decay per observed view only
+.PASS: dense CLIP shapes (512-d), unit-norm outputs
+.PASS identical: kish 1, joint 8/9; uniform: kish mean 0.088 vs raw r_bar 0.350
+.PASS one view: kish undefined, joint 1/(1+c0)=0.5, legacy r_tilde stays 1.0
+.PASS joint prior: A_d(kappa_hat) = ||R||/(n+c0) matches the brute-force MAP
+.PASS A_d: monotone, invertible, d=3 closed form, d=64 A=0.85 -> kappa 193.5
+.PASS centred: constant content 1.0; mixed content raw 0.970 vs centred 0.632
+.PASS: PCA explained=0.999, max cosine distortion=0.0013
+.PASS: ply load + activations
+.PASS: pt load + auto-activation
+..PASS: se3_exp + pose_errors
+.PASS AUSE: tie-invariant (0.2380), oracle 0, constant u = random gap
+.PASS AUROC 0.4948 and AP 0.4473 equal brute force with ties
+.PASS calibration: ECE 0.0110 for a calibrated model; beta fit 6.92 (true 7.0)
+.PASS P1: |E[mu]| = 0.500 (1 view) < 0.949 (12 views); P0 = 1
+.PASS dispersion: aleatoric dynamic=0.400 > static=0.211
+.PASS change test: AUROC(c_max) 1.000; at the default threshold recall 0.50, false alarms 0.00; cos(mu*, new content) 0.995
+.PASS views: Kish views = 5 at both resolutions on 40 Gaussians; pixel mass grew 9.0x
+.PASS one view: 0% defined/stable with views; legacy pixel count calls 100% stable
+.PASS groups: multi-target accumulation equals brute force (masks included)
+.
+24 passed in 3.60s
+=== mock run
+gaussians: 200 | views: 16 | mean support 9.6 | well-observed 133
+mean epistemic 0.211 | mean aleatoric (valid) 0.296
+change test: AUROC(c_max) 1.000 | flagged 73% of changed, 0% of unchanged (n=33/47)
+robust set: 95 Gaussians
+EFE per candidate view: [-38.717, -42.367, -40.848, -40.105, -38.257] | best=v1
+AUSE(aleatoric -> semantic error): 0.0615 (random gap 0.1328; lower = better)
+done.

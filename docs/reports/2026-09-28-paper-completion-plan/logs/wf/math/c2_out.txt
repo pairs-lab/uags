@@ -1,0 +1,25 @@
+[a] one observation (n=1, r=1): paper r~ = 1.0 | n identical obs (r=1), n=2,5,50: [1.0, 1.0, 1.0]
+    => 1 - r~ = (1-r)(n+2)/(n+1): multiplicative in (1-r), so r=1 stays r~=1 for every n
+    standard unbiased rho^2 at n=1: (1*1-1)/(1-1) = 0/0 -> undefined (correctly 'no information')
+[b] d=64: mean over 4000 trials of r_bar, paper r~, unbiased rho_hat (true rho in header)
+    kappa=  0.0 true rho=0.000
+      n=  2: r_bar=0.706  paper r~=0.608  unbiased rho_hat=0.146
+      n=  3: r_bar=0.575  paper r~=0.468  unbiased rho_hat=0.106
+      n=  5: r_bar=0.445  paper r~=0.353  unbiased rho_hat=0.079
+      n= 10: r_bar=0.315  paper r~=0.253  unbiased rho_hat=0.055
+      n= 50: r_bar=0.141  paper r~=0.124  unbiased rho_hat=0.024
+    kappa= 30.0 true rho=0.397
+      n=  2: r_bar=0.760  paper r~=0.680  unbiased rho_hat=0.367
+      n=  3: r_bar=0.661  paper r~=0.576  unbiased rho_hat=0.382
+      n=  5: r_bar=0.570  paper r~=0.498  unbiased rho_hat=0.391
+      n= 10: r_bar=0.491  paper r~=0.444  unbiased rho_hat=0.395
+      n= 50: r_bar=0.417  paper r~=0.406  unbiased rho_hat=0.397
+    kappa=300.0 true rho=0.900
+      n=  2: r_bar=0.951  paper r~=0.935  unbiased rho_hat=0.900
+      n=  3: r_bar=0.935  paper r~=0.918  unbiased rho_hat=0.900
+      n=  5: r_bar=0.921  paper r~=0.908  unbiased rho_hat=0.900
+      n= 10: r_bar=0.911  paper r~=0.903  unbiased rho_hat=0.900
+      n= 50: r_bar=0.902  paper r~=0.901  unbiased rho_hat=0.900
+[c] weighted obs (w ~ splat weights, many tiny), d=64, true rho=0 (pure conflict)
+    P=20: mean n_eff=sum w=2.6  Kish n=7.1  r_bar=0.381  paper r~=0.202  weighted-unbiased rho_hat=0.062  (truth 0)
+    P=200: mean n_eff=sum w=26.1  Kish n=66.7  r_bar=0.122  paper r~=0.090  weighted-unbiased rho_hat=0.021  (truth 0)

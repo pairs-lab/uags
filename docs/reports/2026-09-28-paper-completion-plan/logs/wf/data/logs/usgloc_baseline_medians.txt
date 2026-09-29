@@ -1,0 +1,14 @@
+ace_dsacstar_full/7scenes_chess.json               n= 2000 med_t=0.54cm med_r=0.18deg 5cm5=100.0 2cm2=99.2
+ace_dsacstar_full/7scenes_fire.json                n= 2000 med_t=0.83cm med_r=0.33deg 5cm5=99.6 2cm2=90.5
+ace_dsacstar_full/7scenes_heads.json               n= 1000 med_t=0.52cm med_r=0.33deg 5cm5=99.8 2cm2=98.4
+ace_dsacstar_full/7scenes_office.json              n= 4000 med_t=1.05cm med_r=0.29deg 5cm5=100.0 2cm2=88.5
+ace_dsacstar_full/7scenes_pumpkin.json             n= 2000 med_t=1.04cm med_r=0.22deg 5cm5=99.9 2cm2=90.5
+ace_dsacstar_full/7scenes_redkitchen.json          n= 5000 med_t=0.78cm med_r=0.20deg 5cm5=98.6 2cm2=89.9
+ace_dsacstar_full/7scenes_stairs.json              n= 1000 med_t=2.87cm med_r=0.80deg 5cm5=81.3 2cm2=24.4
+marepo_100/7scenes_chess.json                      n=  100 med_t=1.88cm med_r=0.83deg 5cm5=100.0 2cm2=56.0
+marepo_100/7scenes_fire.json                       n=  100 med_t=2.26cm med_r=0.95deg 5cm5=95.0 2cm2=38.0
+marepo_100/7scenes_heads.json                      n=  100 med_t=2.01cm med_r=1.18deg 5cm5=100.0 2cm2=49.0
+marepo_100/7scenes_office.json                     n=  100 med_t=2.79cm med_r=0.97deg 5cm5=81.0 2cm2=29.0
+marepo_100/7scenes_pumpkin.json                    n=  100 med_t=2.52cm med_r=0.87deg 5cm5=88.0 2cm2=37.0
+marepo_100/7scenes_redkitchen.json                 n=  100 med_t=2.72cm med_r=0.90deg 5cm5=82.0 2cm2=29.0
+marepo_100/7scenes_stairs.json                     n=  100 med_t=5.87cm med_r=1.49deg 5cm5=38.0 2cm2=2.0

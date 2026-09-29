@@ -1,0 +1,16 @@
+== ShijieZhou-UCLA/feature-3dgs
+LICENSE.md :: Gaussian-Splatting License =========================== **Inria** and **the Max Planck Institut for Informatik (MPII)** hold all the ownership rights on the *Software* named **gaussian-splatting**. The *Software* is in the process of being registered with the A
+== minghanqin/LangSplat
+LICENSE.md :: Gaussian-Splatting License =========================== **Inria** and **the Max Planck Institut for Informatik (MPII)** hold all the ownership rights on the *Software* named **gaussian-splatting**. The *Software* is in the process of being registered with the A
+== yanmin-wu/OpenGaussian
+LICENSE.md :: Gaussian-Splatting License =========================== **Inria** and **the Max Planck Institut for Informatik (MPII)** hold all the ownership rights on the *Software* named **gaussian-splatting**. The *Software* is in the process of being registered with the A
+== XRIM-Lab/GS-CPR
+LICENSE :: DUSt3R, Copyright (c) 2024-present Naver Corporation, is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 license. A summary of the CC BY-NC-SA 4.0 license is located here: https://creativecommons.org/licenses/by-nc-sa/4.0/ The CC B
+== ScanNet/ScanNet
+LICENSE :: Copyright 2017 Angela Dai, Angel X. Chang, Manolis Savva, Maciej Halber, Thomas Funkhouser, Matthias Niessner Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to 
+== facebookresearch/Replica-Dataset
+LICENSE :: Replica Dataset Research Terms Before Facebook Technologies, LLC (“FB”) is able to offer you (“Researcher” or “You”) access to the Replica Dataset (the “Dataset”), please read the following agreement (“Agreement”). By accessing, and in exchange for receiving p
+== Harry-Zhi/semantic_nerf
+LICENSE :: Semantic-NeRF SOFTWARE LICENCE AGREEMENT WE (Imperial College of Science, Technology and Medicine, (“Imperial College London”)) ARE WILLING TO LICENSE THIS SOFTWARE TO YOU (a licensee “You”) ONLY ON THE CONDITION THAT YOU ACCEPT ALL OF THE TERMS CONTAINED IN T
+== kmk97/UGSLoc
+LICENSE.md :: Gaussian-Splatting License =========================== **Inria** and **the Max Planck Institut for Informatik (MPII)** hold all the ownership rights on the *Software* named **gaussian-splatting**. The *Software* is in the process of being registered with the A

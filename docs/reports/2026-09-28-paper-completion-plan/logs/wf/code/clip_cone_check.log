@@ -1,0 +1,26 @@
+model ViT-B-16 laion2b_s34b_b88k, feat dim 512
+
+[full640x480] input 640x480, patch grid 40x30, extract time mean 1.81s (CPU, 8 threads)
+cos(random pixel pair, same frame)   p5/p50/p95 = [0.479, 0.652, 0.813]
+cos(random pixel pair, other scene)  p5/p50/p95 = [0.478, 0.646, 0.798]
+r_bar of 50/50 mix (other-scene pixel pairs) p5/p50/p95 = [0.86, 0.907, 0.948]
+  fraction of mixes with r_bar <= 0.55 (r_unstable): 0.000; >= 0.85 (r_stable): 0.975
+r_bar of ALL pixels of one frame pooled: [0.809, 0.803, 0.796, 0.798, 0.81, 0.82]
+PCA 512->64 explained second moment (image feats): 0.903
+energy kept: image pixels mean 0.897; text embeds mean 0.109 (min 0.077, max 0.129)
+per-pixel zero-shot argmax agreement 512-d vs PCA-64: 0.707 over 1843200 pixels
+cos(pixel, text) 512-d p5/p50/p95 = [0.133, 0.175, 0.215]
+
+[down4_160x120] input 160x120, patch grid 10x8, extract time mean 0.12s (CPU, 8 threads)
+cos(random pixel pair, same frame)   p5/p50/p95 = [0.483, 0.666, 0.837]
+cos(random pixel pair, other scene)  p5/p50/p95 = [0.48, 0.66, 0.799]
+r_bar of 50/50 mix (other-scene pixel pairs) p5/p50/p95 = [0.86, 0.911, 0.948]
+  fraction of mixes with r_bar <= 0.55 (r_unstable): 0.000; >= 0.85 (r_stable): 0.974
+r_bar of ALL pixels of one frame pooled: [0.826, 0.805, 0.82, 0.802, 0.809, 0.83]
+PCA 512->64 explained second moment (image feats): 0.922
+energy kept: image pixels mean 0.922; text embeds mean 0.119 (min 0.088, max 0.139)
+per-pixel zero-shot argmax agreement 512-d vs PCA-64: 0.807 over 115200 pixels
+cos(pixel, text) 512-d p5/p50/p95 = [0.137, 0.182, 0.223]
+
+zero-shot label agreement, full-res vs downscale-4 extraction, per frame: [0.612, 0.575, 0.55, 0.646, 0.627, 0.707]
+exit=0

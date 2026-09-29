@@ -1,0 +1,18 @@
+[gpu_gate] 2026-09-29 00:44:29 free 11877 MiB >= 8668; running: python3 tests/test_gsplat_gpu.py
+/home/thanhnc/gauss_ws/src/uags/usplat/vmf_field.py:320: UserWarning: centre=True but set_centre() was not called: the centred channel equals the raw channel (set zbar from the mapping frames)
+  warnings.warn("centre=True but set_centre() was not called: the centred channel "
+/home/thanhnc/gauss_ws/src/uags/usplat/vmf_field.py:320: UserWarning: centre=True but set_centre() was not called: the centred channel equals the raw channel (set zbar from the mapping frames)
+  warnings.warn("centre=True but set_centre() was not called: the centred channel "
+PASS linearity: max |render(a*b1+b2) - a*render(b1)-render(b2)| = 1.91e-06
+PASS mass: sum n_eff = 5596.1 vs alpha mass 5596.1 (rel gap 0.00e+00)
+PASS per-Gaussian identity: max |R - W^T z| = 2.38e-06, max |n - W^T 1| = 1.53e-05 (max mass 241.7)
+PASS constant-direction: min cos(mu_post, z) = 1.00000, min r_bar = 1.00000 on 277 observed Gaussians
+PASS conflict: mean aleatoric under flipping semantics = 1.000 (> 0.5)
+Traceback (most recent call last):
+  File "/home/thanhnc/gauss_ws/src/uags/tests/test_gsplat_gpu.py", line 143, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/thanhnc/gauss_ws/src/uags/tests/test_gsplat_gpu.py", line 124, in main
+    assert rate > 0.9, rate
+           ^^^^^^^^^^
+AssertionError: 0.0

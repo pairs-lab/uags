@@ -1,0 +1,26 @@
+# evidence for completeness critic, Mon Sep 28 11:12:34 PM +07 2026
+## RIO10 depth files (only rendered depth)
+20:│   ├── frame-000000.rendered.depth.png
+23:│   ├── frame-000001.rendered.depth.png
+28:│   ├── frame-000000.rendered.depth.png
+32:│   ├── frame-000000.rendered.depth.png
+34:│   ├── frame-000001.rendered.depth.png
+63:Sequence `seq<scene_id>_01` is always the training sequence (with `*.color.jpg`, `*.pose.txt` and `*.rendered.depth.png`), seqXX_02 is the validation sequence (with `*.color.jpg`, `*.pose.txt` and `*.rendered.depth.png`). Please note that we do not provide the ground truth (including semantics) for our hidden test set, all seqXX_02+ are hidden sequences (only `*.color.jpg` and `*.rendered.depth.png`).
+65:Poses `*.pose.txt` of the test (rescan) sequences are aligned with the train (reference) and validation scans. These transform from the camera coordinate system to the world coordinate system. Please use our evaluation service to compute your final performance score on the hidden test set.
+## clip_dense returns per-pixel map
+        feats = x[0, 1:].reshape(gh, gw, -1)             # drop CLS
+        feats = feats.permute(2, 0, 1)[None]
+        feats = Fn.interpolate(feats, size=(H, W), mode="bilinear",
+                               align_corners=False)[0].permute(1, 2, 0)
+        return Fn.normalize(feats, dim=-1)               # (H, W, d)
+## figures still show EFE / localization
+/home/thanhnc/gauss_ws/src/uags/papers/figs/pipeline.tex:92:  {forget: decay $\lambda$\\ if $\bar r_n\le r_{\mathrm{unstable}}$};
+/home/thanhnc/gauss_ws/src/uags/papers/figs/pipeline.tex:94:  {active view\\ selection: $\mathrm{EFE}(v)$};
+/home/thanhnc/gauss_ws/src/uags/papers/figs/pipeline.tex:100:% feedback: robust subset for localization
+/home/thanhnc/gauss_ws/src/uags/papers/figs/uncertainty_plane.tex:35:% ---- small-sample bias curve: rbar biased high, decays to true value ----
+/home/thanhnc/gauss_ws/src/uags/papers/figs/uncertainty_plane.tex:57:% forget decay trajectory: rbar constant, n_eff shrinks (back toward epistemic strip)
+## author affiliation
+% \thanks{Thanh Nguyen Canh, Haolan Zhang, and Nak Young Chong are with the School of Information Science, Japan Advanced Institute of Science and Technology, Ishikawa, 923-1211, Japan. {\footnotesize
+## refs in main.pdf page 5 right column start
+18:    [3] A. Radford et al., “Learning transferable visual models from
+78:   [23] B. Glocker, S. Izadi, J. Shotton, and A. Criminisi, “Real-time

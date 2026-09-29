@@ -1,0 +1,28 @@
+== 2410.11783
+ title: ['LatentBKI: Open-Dictionary Continuous Mapping in Visual-Language Latent Spaces with Quantifiable Uncertainty']
+ authors: Wilson, Joey; Xu, Ruihan; Sun, Yile; Ewen, Parker; Zhu, Minghan; Barton, Kira; Ghaffari, Maani
+ date: ['2024/10/15']
+ versions: [('v2', 'Tue, 21 Jan 2025 21:46:26 UTC (13,161 KB)')]
+== 2411.15193
+ title: ['Gradient-Weighted Feature Back-Projection: A Fast Alternative to Feature Distillation in 3D Gaussian Splatting']
+ authors: Joseph, Joji; Amrutur, Bharadwaj; Bhatnagar, Shalabh
+ date: ['2024/11/19']
+ versions: [('v1', 'Tue, 19 Nov 2024 12:17:15 UTC (16,857 KB)')]
+== 2403.14138
+ title: ['Evidential Semantic Mapping in Off-road Environments with Uncertainty-aware Bayesian Kernel Inference']
+ authors: Kim, Junyoung; Seo, Junwon; Min, Jihong
+ date: ['2024/03/21']
+ comments: Our project website can be found at this https URL
+ versions: [('v1', 'Thu, 21 Mar 2024 05:13:34 UTC (5,370 KB)')]
+== 2310.16020
+ title: ['ConvBKI: Real-Time Probabilistic Semantic Mapping Network with Quantifiable Uncertainty']
+ authors: Wilson, Joey; Fu, Yuewei; Friesen, Joshua; Ewen, Parker; Capodieci, Andrew; Jayakumar, Paramsothy; Barton, Kira; Ghaffari, Maani
+ date: ['2023/10/24']
+ comments: arXiv admin note: text overlap with arXiv:2209.10663
+ jref: 10.1109/TRO.2024.3453771
+ versions: [('v3', 'Fri, 1 Nov 2024 13:59:05 UTC (18,424 KB)')]
+== 2209.10663
+ title: ['Convolutional Bayesian Kernel Inference for 3D Semantic Mapping']
+ authors: Wilson, Joey; Fu, Yuewei; Zhang, Arthur; Song, Jingyu; Capodieci, Andrew; Jayakumar, Paramsothy; Barton, Kira; Ghaffari, Maani
+ date: ['2022/09/21']
+ versions: [('v2', 'Wed, 31 May 2023 19:41:32 UTC (10,819 KB)')]

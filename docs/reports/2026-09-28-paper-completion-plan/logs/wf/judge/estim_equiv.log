@@ -1,0 +1,3 @@
+max|jointprior(c0=1) - NormLift(beta=1)| = 0.0
+Spearman(jointprior, NormLift) = 0.9999999999999999
+Spearman(Kish rho_hat, NormLift) on n>1 = 0.9784

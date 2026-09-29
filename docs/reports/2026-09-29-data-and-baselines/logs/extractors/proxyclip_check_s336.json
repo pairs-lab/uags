@@ -1,0 +1,169 @@
+{
+ "protocol": "(fixed before running; VALIDATION scenes only):\n  * scenes office_0 and room_2 (Semantic-NeRF Replica), Sequence_1, 20 frames each\n    (indices 0, 45, ..., 855), full resolution 640x480;\n  * vocabulary = the classes with GT pixels in these 20 frames of the scene (id 0 ignored),\n    prompts from configs/vocab_replica.json, one of two templates;\n  * every labelled pixel is classified by argmax cosine to the class text embeddings;\n    metrics: mIoU over the present classes and pixel accuracy;\n  * variants:\n      pixel      per-pixel dense CLIP (usplat.clip_dense.OpenCLIPDense, ViT-B/16 laion2b,\n                 ClearCLIP last block; run 1 of this script used a broken extractor, see report)\n      mask       FastSAM masks + CLIP crop embeddings (usgloc MaskClipEncoder, read-only\n                 import); a pixel takes its smallest covering mask, else the pixel feature\n      pixel_pca  per-pixel features through PCA-64 (fit on these frames' features, no text)\n                 scored with the decode-first text projection (F7), as the field does\n  * pass: best variant >= 15 mIoU on both scenes (plan threshold, an assumption).",
+ "results": {
+  "office_0": {
+   "n_classes": 24,
+   "classes": [
+    10,
+    12,
+    17,
+    20,
+    22,
+    31,
+    35,
+    37,
+    40,
+    44,
+    47,
+    56,
+    60,
+    63,
+    76,
+    79,
+    80,
+    82,
+    83,
+    87,
+    92,
+    93,
+    95,
+    98
+   ],
+   "frames": [
+    0,
+    45,
+    90,
+    135,
+    180,
+    225,
+    270,
+    315,
+    360,
+    405,
+    450,
+    495,
+    540,
+    585,
+    630,
+    675,
+    720,
+    765,
+    810,
+    855
+   ],
+   "metrics": {
+    "pixel/photo": {
+     "miou": 0.18405575488609707,
+     "acc": 0.619453029934403
+    },
+    "pixel_pca/photo": {
+     "miou": 0.1664691975824468,
+     "acc": 0.6210251121193866
+    },
+    "pixel/room": {
+     "miou": 0.1907141920358744,
+     "acc": 0.6329949200131604
+    },
+    "pixel_pca/room": {
+     "miou": 0.17581547900161498,
+     "acc": 0.6366079380359465
+    },
+    "pixel/ensemble": {
+     "miou": 0.18383300826057888,
+     "acc": 0.6059124329902278
+    },
+    "pixel_pca/ensemble": {
+     "miou": 0.16607402063641993,
+     "acc": 0.6078512111960331
+    }
+   }
+  },
+  "room_2": {
+   "n_classes": 21,
+   "classes": [
+    12,
+    14,
+    15,
+    16,
+    20,
+    31,
+    37,
+    40,
+    44,
+    47,
+    64,
+    70,
+    71,
+    79,
+    80,
+    91,
+    92,
+    93,
+    95,
+    97,
+    98
+   ],
+   "frames": [
+    0,
+    45,
+    90,
+    135,
+    180,
+    225,
+    270,
+    315,
+    360,
+    405,
+    450,
+    495,
+    540,
+    585,
+    630,
+    675,
+    720,
+    765,
+    810,
+    855
+   ],
+   "metrics": {
+    "pixel/photo": {
+     "miou": 0.23516267539100838,
+     "acc": 0.7375616416490406
+    },
+    "pixel_pca/photo": {
+     "miou": 0.22454946831232392,
+     "acc": 0.7391414495155267
+    },
+    "pixel/room": {
+     "miou": 0.24463790698068338,
+     "acc": 0.7631751935889705
+    },
+    "pixel_pca/room": {
+     "miou": 0.23923009323446923,
+     "acc": 0.7642200093983749
+    },
+    "pixel/ensemble": {
+     "miou": 0.2258052969594186,
+     "acc": 0.7311718726973899
+    },
+    "pixel_pca/ensemble": {
+     "miou": 0.2215139205862776,
+     "acc": 0.731930730202065
+    }
+   }
+  }
+ },
+ "worst_scene_miou": {
+  "pixel/photo": 0.18405575488609707,
+  "pixel_pca/photo": 0.1664691975824468,
+  "pixel/room": 0.1907141920358744,
+  "pixel_pca/room": 0.17581547900161498,
+  "pixel/ensemble": 0.18383300826057888,
+  "pixel_pca/ensemble": 0.16607402063641993
+ },
+ "pass_15": true,
+ "seconds": 215.86007285118103,
+ "device": "cpu",
+ "pretrained": "laion2b_s34b_b88k",
+ "extractor": "proxyclip"
+}

@@ -7,8 +7,9 @@ Plan: docs/reports/2026-09-28-paper-completion-plan/1-plan.md. Latest measured f
 ## A. Method as implemented (defaults in brackets)
 
 1. Features. Per keyframe v, a dense extractor gives unit per-pixel vision-language features z_p that are cosine-comparable
-   with text embeddings t_c. The extractor is being chosen on validation data (candidates: ClearCLIP on CLIP ViT-B/16 laion2b
-   [current], LSeg, Talk2DINO, dino.txt, ProxyCLIP) -> write "\todo{extractor}" where the name is needed.
+   with text embeddings t_c. The extractor was chosen on the Replica validation scenes (2026-09-29): LSeg [li2022lseg] (ViT-L/16 image encoder,
+   CLIP ViT-B/32 text encoder, 512-d, 60x80 token grid), PCA to 64 dims, 5-template prompt ensemble. Candidates it beat:
+   ClearCLIP (ViT-B/16 laion2b), Talk2DINO, dino.txt, ProxyCLIP. Write "LSeg" where the name is needed.
    Features are compressed to d = 64 by an uncentred PCA fit on the mapping frames only (no text, no labels). A text query is
    projected WITHOUT renormalisation: mu*^T (B^T t) equals the cosine between the decoded direction B mu* and t in the full space
    (renormalising the projected text changes the argmax label; unit test tests/test_estimators.py).
@@ -56,7 +57,7 @@ Plan: docs/reports/2026-09-28-paper-completion-plan/1-plan.md. Latest measured f
 12. FieldConfig.legacy() reproduces the original draft's method exactly (tested against git): the ablation baseline.
 
 ## B. What is measured so far (internal; NO number goes into the paper, paper numbers stay \ph placeholders)
-- Replica validation, 2D features only: best worst-scene mIoU 13.4 (ClearCLIP); extractor study running.
+- Replica validation, 2D features only: worst-scene mIoU 23.2 with LSeg (ClearCLIP 13.4); LSeg chosen. 3D Table I running.
 - 7-Scenes proxy (simulated swaps): our score = feature residual; per-scene calibrated operating point transferred between two scenes.
 - No RIO10 data yet (access form pending).
 

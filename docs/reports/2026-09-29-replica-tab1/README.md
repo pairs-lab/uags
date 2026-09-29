@@ -1,11 +1,11 @@
 # Replica Table I: open-vocabulary segmentation and calibration
-2026-09-29 | root: /home/thanhnc/gauss_ws/src/uags | git: master@5b21781 | [all reports](../INDEX.md)
+2026-09-29 | root: /home/thanhnc/gauss_ws/src/uags | git: master@778bb64 | [all reports](../INDEX.md)
 Follows: [Data, baselines and evaluation infrastructure](../2026-09-29-data-and-baselines/README.md)
-Verdict: IN PROGRESS -- validation stage queued behind USGLoc on the shared GPU (fit room_2, map office_0 + room_2, fit temperatures)
-Key result: n/a
+Verdict: IN PROGRESS -- validation done on the pre-review code; final val + one-shot test chained behind USGLoc (maps and fields being prepared)
+Key result: validation only (N=2, pre-review code a2ed2d9): ours P2 ECE 4.89 vs CSS 4.85, AURC 6.15 vs 6.46 (best), MSP AUSE 4.21 (best) ([table](#validation-table-i-pre-review-code-a2ed2d9)); test not run yet
 Attempts: n/a | Time: started 2026-09-29 13:49 +07
 
-Running: pre-test review workflow wf_ce10d633-f61 (started ~21:55; [script](logs/workflow_pretest_review.js)); the validation stage is stopped until it ends
+Running: chain (prep maps/fields -> STAGE=val -> STAGE=test) | [chain.sh copy](logs/chain.sh) | /home/thanhnc/gauss_ws/data/uags_results/tab1/{prep,chain}.log | started 23:22 / 23:45
 
 ## 0 Context
 - Ask: "continue to complete our paper" -> fill Table I (plan section 3) with measured numbers.
@@ -14,8 +14,11 @@ Running: pre-test review workflow wf_ce10d633-f61 (started ~21:55; [script](logs
   parameters); the 6 test scenes (room_0, room_1, office_1-4) run ONCE with those temperatures.
 - Features: LSeg (chosen on validation, [attempt 05](../2026-09-29-data-and-baselines/attempts/05-extractor-study.md)),
   PCA-64 fit on 20 mapping frames, 5-template ensemble; vocabulary = classes present in each scene's evaluation frames.
-- Rows: ours P0/P1/P2, ours-scalar, averaging (GradBP), NormLift (Sec. 3.3), view count, CSS (Dirichlet over the
-  present classes, given at mapping time), all fed by the same per-view sums.
+- Rows: ours P0/P1/P2 (+ P3, attempt 06), ours-scalar, 2D features per frame, averaging (GradBP), NormLift
+  (Sec. 3.3; 1-R, epi, 1-C_inter), view count, CSS (Dirichlet over the present classes, given at mapping time;
+  prior alpha0 chosen on val from {0.01, 0.1, 1, 10}), and since 2026-09-29 23:50 the trained SOTA baselines
+  Feature 3DGS (CVPR 2024) and LEGaussians (CVPR 2024), re-implemented on the same map, frames, features and PCA
+  ([usplat/distill.py](../../../usplat/distill.py); user: "I do not see any SOTA baseline").
 - 3DGS: scripts/fit_gs.py, 30k iterations, max 1M Gaussians, 640x480; office_0: held-out PSNR 41.5 dB,
   SSIM 0.989, 620,290 Gaussians, 205 s (map meta in /home/thanhnc/gauss_ws/data/uags_maps/office_0_seq1.pt).
 - Pipeline: [scripts/replica_tab1.sh](../../../scripts/replica_tab1.sh) (STAGE=val, then STAGE=test once).
@@ -55,15 +58,87 @@ The semantic baselines (averaging, NormLift, view count, CSS, 2D per frame) are 
 ## 3 Attempts
 | # | Idea | Result | Critic | Link |
 |---|---|---|---|---|
-| 06 | P3: render the per-Gaussian class predictive q_n(c) = softmax(beta_g A_d(kappa) mu*.t_c) as a mixture (like CSS, but open-vocabulary: computed at query time); motivated by CSS ECE 4.7 vs ours 7.1 on office_0 (partial val, N=1, [log](logs/eval_val_partial_2013.log)) | IN PROGRESS (implemented by the review workflow; beta_g chosen on val) | -- | -- |
+| 06 | P3: render the per-Gaussian class predictive q_n(c) = softmax(beta_g A_d(kappa) mu*.t_c) as a mixture (like CSS, but open-vocabulary: computed at query time); motivated by CSS ECE 4.7 vs ours 7.1 on office_0 (partial val, N=1, [log](logs/eval_val_partial_2013.log)) | IMPLEMENTED (8035304, usplat/rows.py FieldProbRow; beta_g in {10, 20, 40} chosen by val NLL); result pending the chained val run | -- | -- |
 
 (Attempts 01-05 are in the [data-and-baselines run](../2026-09-29-data-and-baselines/README.md).)
+
+### Validation Table I (pre-review code a2ed2d9)
+Mean over the 2 validation scenes (N=2, population std in the JSON); all pixels (coverage rule); lower is better
+except mIoU/Acc. Command: `OUT=.../tab1_pre STAGE=val scripts/replica_tab1.sh` in a clean worktree at a2ed2d9
+(23:13-23:19). Source: [logs/eval_val_pre_a2ed2d9.json](logs/eval_val_pre_a2ed2d9.json),
+[log](logs/eval_val_pre_a2ed2d9.log). These fields had no seed and no code identity; they are rebuilt for the final run.
+
+| Row | mIoU | Acc | ECE | NLL | Brier | AURC | AUSE own u | AUSE MSP |
+|---|---|---|---|---|---|---|---|---|
+| 2D features, per frame | 30.76 | 80.97 | 8.69 | 0.939 | 32.71 | 9.96 | -- | 7.78 |
+| Averaging (GradBP) | 31.42 | 81.07 | 6.61 | 0.833 | 29.27 | 6.59 | -- | 4.65 |
+| NormLift 1-R / 1-C_inter / epi | same predictive | | | | | | 7.24 / 5.07 / 11.52 | |
+| View count | same predictive | | | | | | 11.23 | |
+| CSS (alpha0 = 1) | 31.83 | 82.22 | 4.85 | 0.804 | 29.26 | 6.46 | 7.91 (var_top) | 4.74 |
+| Ours P0 | 31.49 | 81.06 | 6.53 | 0.833 | 29.25 | 6.60 | 5.03 (u_ale), 8.81 (u_epi) | 4.66 |
+| Ours P1 | 31.53 | 80.99 | 6.82 | 0.857 | 30.01 | 6.46 | 5.02 | 4.51 |
+| Ours P2 | 31.49 | 81.06 | 4.89 | 0.824 | 29.45 | 6.15 | 5.03 | 4.21 |
+
+Per scene: CSS is better calibrated on office_0 (ECE 4.65 vs P2 7.05), P2 on room_2 (2.73 vs 5.04). u_ale is
+undefined on 9.6% (office_0) and 15.8% (room_2) of the evaluated pixels (ranked most uncertain, three-tier rule).
+AUSE here is against the 0/1 error; the e_red / e_irr split is the views figure (not run yet).
+
+### Pre-test review (workflow wf_ce10d633-f61)
+6 reviewers -> 43 raw findings -> 30 merged ([summary](logs/pretest_review/summary.md),
+[merged](logs/pretest_review/merged_findings.json), [votes](logs/pretest_review/verification_votes.json)).
+Verification stopped at the subagent session limit (45 of 100 agents failed); the fixer, P3 and critic agents did
+not run, so I applied the fixes myself (f7fa9a7, 4c268ad, eeb6e87):
+
+| Finding | Fix | Commit |
+|---|---|---|
+| F01 Tab III variants fit their own PCA basis | run_mapping --pca-from <main>; ablation_rows refuses another basis | f7fa9a7 |
+| F02 no pipeline for the Tab III e_red/e_irr columns | caption changed: Tab III AUSE is against the 0/1 error; the split stays in the views figure | eeb6e87 |
+| F03 undefined-u tier not stated | stated in the metrics text (rule unchanged, fixed before any val run) | eeb6e87 |
+| F04 CSS vocabulary misdescribed | docstring + paper: CSS gets the classes present in the eval frames | f7fa9a7, eeb6e87 |
+| F05 CSS prior untuned | read-outs css_a{0.01,0.1,10} next to alpha0=1; lowest val NLL picks the Table I row | f7fa9a7 |
+| F06/F08/F26 test-once guards | STAGE validated; test refuses a failed/betas-less val record, an existing eval_test.json, a dirty tree; logs timestamped | f7fa9a7 |
+| F07 no partial results | <out>.partial.json after every scene | f7fa9a7 |
+| F10 3 GB pinned by the PCA sample | samples cloned, buffers freed | f7fa9a7 |
+| F11/F27 reservation skewed peaks, could crash | peak counters reset after the reservation; halving retry | f7fa9a7 |
+| F13 no code identity | fields carry a mapping-code hash; eval_seg --betas refuses test fields built differently | f7fa9a7 |
+| F16 wrong templates recorded | records the LSeg 5-template ensemble | f7fa9a7 |
+| F18 no seed | --seed 0 | f7fa9a7 |
+| F19 table generator layout | midrule, P2 "as P0", val-chosen CSS/P3 rows, status check | 8035304 |
+| F28 NaN channels not shared | NaN-aware sharing | f7fa9a7 |
+| F30 tiny-evidence mu* not unit, support 0 | exact normalisation, Kish with W2 > 0 | f7fa9a7 |
+| F09/F14/F15/F22/F29 paper wording | frame counts, population std, tau_cov fixed in advance, 2D row covers every pixel, stale comment | eeb6e87, 778bb64 |
+| F12 timing fields vs paper breakdown; F17 policy; F20/F21/F23/F24/F25 | F17/F24/F25 fixed; F12/F20/F21/F23 open (section 7) | f7fa9a7 |
+
+### Trained SOTA baselines (added 23:50 at the user's request)
+Feature 3DGS (L1 feature distillation) and LEGaussians (128-code quantization, 8-D codes + MLP decoder, learned
+u in [0,1] with its Eq. 10-12, lambda_u = 1), both on our map, frames, LSeg PCA-64 features, Adam 1e-3, up to 30k
+iterations with a stopping rule fixed in advance (loss gain < 1% over 5k, min 5k). Paper details checked in
+arXiv 2311.18482 (LEGaussians; codebook N=128, u initialized to 0, all lambdas 1, lr 1e-3, 30k iterations).
+Tests: [tests/test_distill.py](../../../tests/test_distill.py) (4 CPU tests). Not yet run on Replica.
 
 ## 5 Verification
 (filled at the end)
 
 ## 7 Open issues
-(filled at the end)
+- The test split has not run. The chain runs it once, after the final validation evaluation, with the frozen
+  temperatures and val-chosen rows (CSS prior, P3 beta_g by NLL; LEGaussians uses its published lambda_u = 1).
+- CSS beats ours P2 on validation NLL (0.804 vs 0.824) and ties on ECE (4.85 vs 4.89); ours P2 is better on AURC and
+  MSP AUSE. Keep these rows even where the baseline wins.
+- Feature 3DGS / LEGaussians are re-implementations on shared features (no SAM/CLIP+DINO pipelines, no LEGaussians
+  smoothing MLP); their original pipelines are not run.
+- Open review items: F12 (timing fields: field-only time needs a no-baselines run), F20 (Tab III full-method
+  temperatures differ slightly from Tab I because the fitter's pixel subsets change with the rows), F21 (ablation rows
+  exist for P0/P2 only), F23 (views figure M=180 point).
+- GPU: USGLoc batches take the card back to back; our jobs start only in gaps (never beside a USGLoc job).
+- Disk: 97% full (28 GB free before the test fields).
 
 ## 8 Files
-(filled at the end)
+- Code (this run): scripts/replica_tab1.sh, scripts/replica_tab3.sh, scripts/replica_views.sh, scripts/eval_seg.py,
+  scripts/eval_views.py, scripts/run_mapping.py, scripts/make_tables.py, scripts/distill_features.py,
+  usplat/distill.py, usplat/rows.py, usplat/seg_eval.py, usplat/baselines.py, usplat/ablation_rows.py,
+  usplat/vmf_field.py, usplat/gpu_reserve.py, scripts/gpu_gate.sh, tests/ (149 CPU tests pass at 5eb9f9a).
+- Paper: papers/main.tex (journal class; review fixes; new baseline rows; 8 pages at 778bb64).
+- This folder: logs/ (memory probes, OOM logs, mapping logs, support stats, partial and pre-review validation
+  results, pretest_review/, workflow_pretest_review.js, chain.sh).
+- Data (not in git): /home/thanhnc/gauss_ws/data/uags_maps/*_seq1.pt (35-55 MB each),
+  /home/thanhnc/gauss_ws/data/uags_fields/*_lseg*.pt (0.8-1.3 GB each), /home/thanhnc/gauss_ws/data/uags_results/.

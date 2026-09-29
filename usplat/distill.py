@@ -87,13 +87,26 @@ class LEGDecoder(torch.nn.Module):
         return torch.softmax(self.mlp(r.to(self.codebook.dtype)), -1) @ self.codebook
 
 
-def train_features(views: Sequence, N: int, d: int, method="f3dgs", iters=10000, lr=1e-3,
+def converged(history, window=5, tol=0.01):
+    """Stopping rule: the mean loss of the last `window` log points improved by less than
+    `tol` (relative) on the `window` points before them."""
+    if len(history) < 2 * window:
+        return False
+    recent = sum(h[1] for h in history[-window:]) / window
+    prev = sum(h[1] for h in history[-2 * window:-window]) / window
+    return prev <= 0 or (prev - recent) / prev < tol
+
+
+def train_features(views: Sequence, N: int, d: int, method="f3dgs", iters=30000, lr=1e-3,
                    lam_u=1.0, alpha_min=0.5, seed=0, device="cpu", n_codes=LEGS_CODES,
-                   code_samples=2000, log_every=1000, log=print):
+                   code_samples=2000, log_every=1000, min_iters=5000, window=5, tol=0.01,
+                   log=print):
     """views: list of (rasterizer, target_fn): rasterizer(buffer (N, C)) -> (P, C), linear
     and differentiable in the buffer; target_fn() -> (P, d) unit feature map of that view.
-    f3dgs: returns dict(features (N, d), history). legs: dict(features = codes (N, 8),
-    u (N,), decoder (LEGDecoder, cpu), history)."""
+    Trains for at most `iters` iterations (the papers' 30k) and stops earlier, after
+    `min_iters`, once the loss improved by less than `tol` over the last window x log_every
+    iterations (converged()). f3dgs: returns dict(features (N, d), history, iters_run).
+    legs: dict(features = codes (N, 8), u (N,), decoder (LEGDecoder, cpu), history, iters_run)."""
     if method not in METHODS:
         raise ValueError(f"method {method!r} not in {METHODS}")
     g = torch.Generator().manual_seed(seed)
@@ -141,7 +154,10 @@ def train_features(views: Sequence, N: int, d: int, method="f3dgs", iters=10000,
             history.append((it, sum(run) / len(run)))
             log(f"[distill {method}] iter {it}/{iters} loss {history[-1][1]:.4f}")
             run = []
-    out = dict(features=f.detach(), history=history, u=None, decoder=None)
+            if it >= min_iters and converged(history, window, tol):
+                log(f"[distill {method}] converged at iter {it}")
+                break
+    out = dict(features=f.detach(), history=history, u=None, decoder=None, iters_run=it)
     if u is not None:
         out.update(u=u.detach(), decoder=dec.cpu().eval())
     return out

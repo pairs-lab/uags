@@ -636,7 +636,8 @@ NormLift defines no epistemic or aleatoric uncertainty. From its quantities
 we build the reference scores $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$
 and $1-\mathcal{R}$. Two baselines train the features instead of fusing them,
 on the same map, frames, features and PCA, with Adam at the learning rate of
-their papers ($10^{-3}$, $10^4$ iterations on the fixed geometry).
+their papers ($10^{-3}$) on the fixed geometry, for at most 30k iterations
+and until the loss improves by less than 1\% over 5k iterations.
 \emph{Feature 3DGS}~\cite{zhou2024feature} fits a feature per Gaussian so that
 the rendered feature image matches the 2D feature map under an $L_1$ loss.
 \emph{LEGaussians}~\cite{shi2024legaussians} quantizes the mapping features

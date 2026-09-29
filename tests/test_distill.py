@@ -77,3 +77,17 @@ def test_row_factory_reads_files_and_checks_basis(tmp_path):
         D.row_factory(dict(config=dict(out=main), pca=dict(basis=basis.flip(1))), None, "cpu")
     assert D.row_factory(dict(config=dict(out=str(tmp_path / "other.pt")), pca=pca), None, "cpu") == []
     print("PASS distill row factory: rows, legs_u channel, basis check, aux identities")
+
+
+def test_stopping_rule():
+    """Training stops once the loss improves by less than tol over the last window."""
+    assert not D.converged([(i, 1.0) for i in range(9)])                 # too short
+    flat = [(i, 1.0 - 0.1 * min(i, 5) / 5) for i in range(20)]
+    assert D.converged(flat)                                              # plateau
+    falling = [(i, 1.0 / (1 + i)) for i in range(10)]
+    assert not D.converged(falling)
+    views, true, N, d = _toy()
+    res = D.train_features(views, N, d, method="f3dgs", iters=20000, lr=2e-2, log_every=100,
+                           min_iters=500, log=lambda s: None)
+    assert res["iters_run"] < 20000, res["iters_run"]
+    print(f"PASS stopping rule: toy converged at {res['iters_run']} iterations")

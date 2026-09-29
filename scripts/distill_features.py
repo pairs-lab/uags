@@ -65,7 +65,10 @@ def main(argv=None):
     ap.add_argument("--field", required=True, help="the scene's main field (run_mapping --out)")
     ap.add_argument("--method", choices=D.METHODS, required=True)
     ap.add_argument("--lam-u", type=float, default=1.0, help="LEGaussians lambda_u (its value: 1)")
-    ap.add_argument("--iters", type=int, default=10000)
+    ap.add_argument("--iters", type=int, default=30000, help="at most (the papers' count)")
+    ap.add_argument("--min-iters", type=int, default=5000)
+    ap.add_argument("--tol", type=float, default=0.01,
+                    help="stop when the loss improves less than this over 5k iterations")
     ap.add_argument("--lr", type=float, default=1e-3, help="Adam lr (both papers: 1e-3)")
     ap.add_argument("--alpha-min", type=float, default=0.5)
     ap.add_argument("--codes", type=int, default=D.LEGS_CODES, help="LEGaussians codebook size")
@@ -119,13 +122,15 @@ def main(argv=None):
     t1 = time.time()
     res = D.train_features(views, N, d, method=args.method, iters=args.iters, lr=args.lr,
                            lam_u=args.lam_u, alpha_min=args.alpha_min, seed=args.seed,
-                           device=device, n_codes=args.codes)
+                           device=device, n_codes=args.codes, min_iters=args.min_iters,
+                           tol=args.tol)
     if torch.cuda.is_available():
         torch.cuda.synchronize()
     t_train = time.time() - t1
     conf = dict(method=args.method, lam_u=args.lam_u if args.method == "legs" else None,
                 codes=args.codes if args.method == "legs" else None,
-                iters=args.iters, lr=args.lr, alpha_min=args.alpha_min, seed=args.seed)
+                iters=args.iters, min_iters=args.min_iters, tol=args.tol, lr=args.lr,
+                alpha_min=args.alpha_min, seed=args.seed)
     code = code_sha256()
     ident = hashlib.sha256(json.dumps(dict(code=code, **conf), sort_keys=True).encode()).hexdigest()
     rec = dict(name=name, features=res["features"].cpu(),
@@ -134,16 +139,17 @@ def main(argv=None):
                decoder_hidden=D.LEGS_HIDDEN,
                config=conf, identity=ident, code_sha256=code, main_field=os.path.abspath(args.field),
                pca_basis_sha256=D.basis_sha256(ck["pca"]), n_frames=len(idx),
-               timing=dict(extract_s=t_ext, train_s=t_train, iters=args.iters,
-                           ms_per_iter=1000 * t_train / max(args.iters, 1),
+               iters_run=res["iters_run"],
+               timing=dict(extract_s=t_ext, train_s=t_train, iters=res["iters_run"],
+                           ms_per_iter=1000 * t_train / max(res["iters_run"], 1),
                            peak_alloc_mib=(torch.cuda.max_memory_allocated() / 2 ** 20
                                            if torch.cuda.is_available() else None),
                            gpu_reserved_mib=held))
     tmp = f"{out}.tmp{os.getpid()}"
     torch.save(rec, tmp)
     os.replace(tmp, out)
-    print(f"saved {name} -> {out} (train {t_train:.0f} s, {rec['timing']['ms_per_iter']:.1f} ms/iter, "
-          f"final loss {res['history'][-1][1]:.4f})")
+    print(f"saved {name} -> {out} ({res['iters_run']} iterations, train {t_train:.0f} s, "
+          f"{rec['timing']['ms_per_iter']:.1f} ms/iter, final loss {res['history'][-1][1]:.4f})")
     return rec
 
 

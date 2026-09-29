@@ -1,180 +1,252 @@
 """
 run_mapping.py — orchestration of the uncertainty-aware semantic mapping loop.
 
-Pipeline per frame:
-    1. dense CLIP feature map  z_obs : (P, d)
-    2. accumulate vMF stats through the (differentiable) feature rasterizer
-    3. read posterior + uncertainty
-    4. (optional) EFE next-best-view planning
-    5. (optional) consolidation / forgetting step
+Pipeline per keyframe:
+    1. dense CLIP features (token grid at full resolution, upsampled to the accumulation
+       resolution), projected to the PCA subspace       z_obs : (P, d)
+    2. one render + one backward through the feature rasterizer gives the per-view sums;
+       the field turns them into ONE view observation per Gaussian (F1), runs the change
+       test on the centred channel (F3, F4) and updates the posterior
+    3. read posterior, uncertainty, change flags, robust set
 
 Backends:
-    --backend mock   : pure-CPU, no CUDA, uses MockFeatureRasterizer + MockDenseCLIP
-    --backend gsplat : real (needs GPU + your dataset loader + camera poses)
+    --backend mock   : pure-CPU, MockFeatureRasterizer + MockDenseCLIP, with a scene change
+    --backend gsplat : real (GPU + a 3DGS checkpoint + a posed RGB(-D) sequence)
 
-The mock backend executes the entire control flow so you can validate logic and
-the calibration harness before touching CUDA. The gsplat path is the same code
-with the two adapters swapped in (see TODOs).
+Change handling needs two sequences: the MAPPING sequence (--data) is run with the change
+test recording scores only (change_thr = inf); the field then calibrates its own threshold
+(the q-quantile of its mapping-pass scores, --change-quantile), and the UPDATE sequence
+(--update-data, same scene after a change) runs with that threshold.
+
+The PCA basis and the centre zbar are fit on the first --pca-frames MAPPING frames only
+(no text, no labels). Text queries are projected without renormalisation (F7).
 """
 from __future__ import annotations
 import argparse
+import json
+import math
 import torch
 
-from usplat.vmf_field import DirectionalSemanticField
+from usplat.vmf_field import DirectionalSemanticField, FieldConfig
 from usplat.efe_planner import EFEPlanner
-from usplat.consolidation import Consolidator
-from usplat.evaluation import sparsification_curve, semantic_error_vs_text
+from usplat.evaluation import sparsification_curve, semantic_error_vs_text, auroc
 
 
-def run_mock(num_gaussians=200, feat_dim=32, num_frames=15, num_protos=6, seed=0):
+def run_mock(num_gaussians=200, feat_dim=32, num_frames=16, num_protos=6, seed=0,
+             field_config="", change_quantile=0.999):
     torch.manual_seed(seed)
     from usplat.mock_rasterizer import MockFeatureRasterizer
     from usplat.clip_dense import MockDenseCLIP
 
     clip = MockDenseCLIP(feat_dim=feat_dim, num_protos=num_protos, noise=0.12, seed=seed)
-    field = DirectionalSemanticField(num_gaussians, feat_dim, kappa_lik=10.0)
+    cfg = FieldConfig(**json.loads(field_config)) if field_config else FieldConfig()
+    cfg.change_thr = float("inf")                       # mapping pass: record only
+    field = DirectionalSemanticField(num_gaussians, feat_dim, cfg)
 
-    # fixed mock screen geometry for the Gaussians
     means2d = torch.rand(num_gaussians, 2) * 64
     sigmas = 1.0 + torch.rand(num_gaussians) * 2.0
     opacities = 0.3 + 0.6 * torch.rand(num_gaussians)
     depths = torch.rand(num_gaussians)
-
-    # assign each Gaussian a hidden "true" semantic prototype, SPATIALLY COHERENT
-    # (neighbors share a prototype, as in a real scene), some are DYNAMIC.
+    # hidden "true" prototype, spatially coherent; 20% change identity half-way through
     true_proto = (means2d[:, 0] / 64.0 * num_protos).long().clamp(0, num_protos - 1)
-    dynamic = torch.rand(num_gaussians) < 0.2          # 20% change identity over time
+    dynamic = torch.rand(num_gaussians) < 0.2
+    new_proto = true_proto.clone()
+    new_proto[dynamic] = (new_proto[dynamic] + 1) % num_protos
 
     H = W = 48
     pix = torch.stack(torch.meshgrid(torch.arange(W), torch.arange(H), indexing="xy"), -1)
-    pixels = pix.reshape(-1, 2).float()                # (P,2)
-
+    ras = MockFeatureRasterizer(means2d, sigmas, opacities, depths, pix.reshape(-1, 2).float())
+    Wm = ras.weights()
+    dom = Wm.argmax(dim=1)                              # dominant Gaussian per pixel
+    half = num_frames // 2
+    # centre = mean feature of the mapping frames (here: the pre-change content)
+    field.set_centre(clip.extract_from_labels(true_proto[dom].reshape(H, W)).reshape(-1, feat_dim).mean(0))
     for t in range(num_frames):
-        # observed per-pixel labels: each pixel takes the proto of its dominant Gaussian
-        ras = MockFeatureRasterizer(means2d, sigmas, opacities, depths, pixels)
-        W_mat = ras.weights()                          # (P, N)
-        dom = W_mat.argmax(dim=1)                       # dominant gaussian per pixel
-        proto_t = true_proto.clone()
-        # dynamic Gaussians flip prototype on later frames -> conflicting evidence
-        if t > num_frames // 2:
-            proto_t[dynamic] = (proto_t[dynamic] + 1) % num_protos
-        pixel_labels = proto_t[dom]                     # (P,)
-        z_obs = clip.extract_from_labels(pixel_labels.reshape(H, W)).reshape(-1, feat_dim)
+        if t == half:                                   # end of the mapping sequence
+            thr = field.calibrate_change_threshold(change_quantile)
+            print(f"calibrated change threshold (q={change_quantile}): {thr:.3f}")
+        proto_t = new_proto if t >= half else true_proto
+        z_obs = clip.extract_from_labels(proto_t[dom].reshape(H, W)).reshape(-1, feat_dim)
+        field.update_view(ras, z_obs)
 
-        field.update_from_rasterizer(ras, z_obs)        # <-- gradient-trick accumulation
-
-    # ---- uncertainty readout -------------------------------------------------
+    # observable change: share of each Gaussian's splat weight on pixels that changed
+    pix_changed = (true_proto[dom] != new_proto[dom]).float()
+    frac = (Wm.t() @ pix_changed) / Wm.sum(0).clamp_min(1e-12)
+    well = field.pixel_mass / num_frames >= field.cfg.view_mass_frac * H * W
+    changed_gt, static_gt = (frac > 0.5) & well, (frac < 0.1) & well
     epi = field.epistemic()
-    ale, valid = field.aleatoric(min_obs=5.0)
-    rbar = field.mean_resultant_length()
-    print(f"gaussians: {num_gaussians} | mean n_eff: {field.n_eff.mean():.1f}")
-    print(f"mean epistemic: {epi.mean():.3f} | mean aleatoric (valid): "
-          f"{ale[valid].mean():.3f}")
+    ale, valid = field.aleatoric()
+    print(f"gaussians: {num_gaussians} | views: {num_frames} | mean support "
+          f"{field.support('raw').mean():.1f} | well-observed {int(well.sum())}")
+    print(f"mean epistemic {epi.mean():.3f} | mean aleatoric (valid) {ale[valid].mean():.3f}")
+    fired = field.n_resets >= 1
+    sel = changed_gt | static_gt
+    print(f"change test: AUROC(c_max) {auroc(field.c_max[sel], changed_gt[sel].float()):.3f} | "
+          f"flagged {fired[changed_gt].float().mean() * 100:.0f}% of changed, "
+          f"{fired[static_gt].float().mean() * 100:.0f}% of unchanged "
+          f"(n={int(changed_gt.sum())}/{int(static_gt.sum())})")
+    print(f"robust set: {int(field.robust_mask().sum())} Gaussians")
 
-    # ---- does aleatoric flag the dynamic Gaussians? --------------------------
-    dyn_valid = dynamic & valid
-    sta_valid = (~dynamic) & valid
-    if dyn_valid.any() and sta_valid.any():
-        print(f"aleatoric  dynamic={ale[dyn_valid].mean():.3f}  "
-              f"static={ale[sta_valid].mean():.3f}   "
-              f"(dynamic should be higher)")
-
-    # ---- consolidation -------------------------------------------------------
-    cons = Consolidator(field, min_obs=5.0, r_unstable=0.55, r_stable=0.8)
-    masks = cons.step()
-    print(f"robust(stable) Gaussians: {int(cons.robust_mask().sum())} | "
-          f"flagged unstable: {int(masks['unstable'].sum())}")
-
-    # ---- EFE planning over a few candidate viewpoints ------------------------
     V = 5
     visibility = torch.rand(V, num_gaussians)          # mock expected blending mass
-    planner = EFEPlanner(field, lam=1.0)
-    query = clip.text_embedding(0)                      # "find prototype-0 stuff"
-    efe, best = planner.score(visibility, query_embed=query)
-    print(f"EFE per candidate view: {[round(x,3) for x in efe.tolist()]} | best=v{best}")
+    efe, best = EFEPlanner(field, lam=1.0).score(visibility, query_embed=clip.text_embedding(0))
+    print(f"EFE per candidate view: {[round(x, 3) for x in efe.tolist()]} | best=v{best}")
 
-    # ---- calibration: aleatoric vs semantic error ----------------------------
-    gt_dirs = clip.protos[true_proto]                   # (N, d) ground-truth text dir
+    gt_dirs = clip.protos[new_proto]                    # current content
     err = semantic_error_vs_text(field.mu_post(), gt_dirs)
-    out = sparsification_curve(err[valid], ale[valid], num_bins=10)
-    print(f"AUSE(aleatoric -> semantic error): {out['ause']:.4f}  (lower=better)")
+    ok = valid & well
+    out = sparsification_curve(err[ok], ale[ok], num_bins=10)
+    print(f"AUSE(aleatoric -> semantic error): {out['ause']:.4f} "
+          f"(random gap {out['random_gap']:.4f}; lower = better)")
     print("done.")
 
 
+def css_vocabulary(args):
+    """CSS is closed-set: it receives, at mapping time, the classes present in the scene's
+    evaluation frames (the same rule as the queries of scripts/eval_seg.py), in vocabulary
+    order, with the extractor's frozen templates."""
+    from usplat.datasets import make_dataset
+    v = json.load(open(args.vocab))
+    ignore = set(int(i) for i in (v.get("ignore") or v.get("ignore_ids") or []))
+    order = [int(k) for k in v["classes"]]
+    ds = make_dataset(args.dataset, args.css_eval_data, stride=args.css_eval_stride)
+    present = set()
+    for i in range(len(ds)):
+        present |= set(torch.unique(ds[i]["labels"]).tolist())
+    ids = [c for c in order if c in present and c not in ignore]
+    prompts = [v["classes"][str(c)].get("prompt", v["classes"][str(c)]["name"]) for c in ids]
+    tpl = (v.get("templates_by_extractor") or {}).get(args.extractor) \
+        or v.get("templates") or [v.get("template", "a photo of a {}.")]
+    return ids, prompts, tpl
+
+
+def _pose_gap(c2w_a, c2w_b):
+    dt = (c2w_a[:3, 3] - c2w_b[:3, 3]).norm().item()
+    cos = ((c2w_a[:3, :3].t() @ c2w_b[:3, :3]).trace().item() - 1.0) / 2.0
+    return dt, math.degrees(math.acos(max(-1.0, min(1.0, cos))))
+
+
 def run_gsplat(args):
-    """Real pipeline: pre-trained 3DGS checkpoint + posed RGB stream + dense CLIP."""
+    """Real pipeline: pre-trained 3DGS checkpoint + posed RGB(-D) stream + dense CLIP."""
     import os
     from tqdm import tqdm
     from usplat.gs_io import load_gaussians
     from usplat.datasets import make_dataset, downscale
-    from usplat.clip_dense import OpenCLIPDense
-    from usplat.feature_pca import StreamingPCA
+    from usplat.clip_dense import upsample_tokens
+    from usplat.feature_pca import StreamingPCA, RunningMean
     from usplat.gsplat_adapter import GSplatFeatureRasterizer
+    from usplat.extractors import get_extractor
+    from usplat import baselines as B
 
     device = "cuda"
+    frac = os.environ.get("UAGS_GPU_MEM_FRACTION")          # set by scripts/gpu_gate.sh
+    if frac:
+        torch.cuda.set_per_process_memory_fraction(float(frac))
     splats = load_gaussians(args.ply, device=device)
     N = splats["means"].shape[0]
     print(f"loaded {N} Gaussians from {args.ply}")
-
     ds = make_dataset(args.dataset, args.data, stride=args.stride)
     print(f"dataset {args.dataset}: {len(ds)} frames (stride {args.stride})")
+    kw = (dict(model_name=args.clip_model, pretrained=args.clip_pretrained)
+          if args.extractor == "clearclip" else {})
+    clip = get_extractor(args.extractor, device=device, **kw)
+    print(f"extractor {args.extractor}: {clip.d}-d features")
 
-    clip = OpenCLIPDense(args.clip_model, args.clip_pretrained, device=device)
+    def feats(frame_full, hw):
+        tok = clip.extract_tokens(frame_full["image"])          # full-resolution tokens
+        return upsample_tokens(tok, hw)
 
-    # ---- pass 1 (first few frames): fit the PCA basis for compression --------
+    # ---- PCA basis + centre from the first mapping frames (no text, no labels) ----
     pca = StreamingPCA(clip.d, args.feat_dim, device=device)
+    raw = []
     for i in range(min(args.pca_frames, len(ds))):
-        fr = downscale(ds[i], args.downscale)
-        pca.accumulate(clip.extract(fr["image"]))
+        fr = ds[i]
+        h, w = downscale(fr, args.downscale)["image"].shape[:2]
+        z = feats(fr, (h, w))
+        pca.accumulate(z)
+        raw.append(z.reshape(-1, clip.d)[:: max(1, (h * w) // 5000)])
     explained = pca.fit()
-    print(f"PCA {clip.d} -> {args.feat_dim} dims "
-          f"(explained second moment: {explained:.3f})")
+    centre = RunningMean(args.feat_dim, device=device)
+    for z in raw:
+        centre.add(pca.project(z))
+    print(f"PCA {clip.d} -> {args.feat_dim} dims (explained second moment {explained:.3f}); "
+          f"||zbar|| = {centre.mean().norm():.3f}")
 
-    field = DirectionalSemanticField(N, args.feat_dim, kappa_lik=args.kappa,
-                                     device=device)
-    cons = Consolidator(field, min_obs=args.min_obs,
-                        r_unstable=args.r_unstable, r_stable=args.r_stable,
-                        forget_lambda=args.forget_lambda)
+    cfg = FieldConfig(**json.loads(args.field_config)) \
+        if args.field_config else FieldConfig()
+    if not args.use_depth and cfg.readmit_depth is not None:
+        print("no --use-depth: re-admission after a change uses views only")
+        cfg.readmit_depth = None
+    cfg.change_thr = float("inf")                               # mapping pass: record only
+    field = DirectionalSemanticField(N, args.feat_dim, cfg, device=device)
+    field.set_centre(centre.mean())
 
-    # ---- mapping loop ---------------------------------------------------------
-    for i in tqdm(range(len(ds)), desc="mapping"):
-        fr = downscale(ds[i], args.downscale)
-        c2w = fr["c2w"]
-        if not torch.isfinite(c2w).all():
-            continue
-        h, w = fr["image"].shape[:2]
-        z = pca.project(clip.extract(fr["image"])).reshape(-1, args.feat_dim)
-        viewmat = torch.linalg.inv(c2w.double()).float().to(device)
-        ras = GSplatFeatureRasterizer.from_splats(
-            splats, viewmat, fr["K"].to(device), w, h,
-            channel_chunk=args.channel_chunk)
-        field.update_from_rasterizer(ras, z)
-        if args.consolidate_every > 0 and (i + 1) % args.consolidate_every == 0:
-            cons.step()
+    # ---- baselines fed by the same per-view sums (plan K11) --------------------------
+    bs, css_ids = [], None
+    if args.baselines:
+        text = None
+        if args.vocab and args.css_eval_data:
+            css_ids, prompts, tpl = css_vocabulary(args)
+            text = pca.project_text(clip.text_embedding(prompts, templates=tuple(tpl)))
+            print(f"CSS vocabulary: {len(css_ids)} classes present in {args.css_eval_data}")
+        bs = B.default_baselines(field, text=text, class_ids=css_ids)
+    css = [b for b in bs if isinstance(b, B.CSS)]
 
-    # ---- readout --------------------------------------------------------------
+    def run_sequence(seq, desc):
+        last, used = None, 0
+        for i in tqdm(range(len(seq)), desc=desc):
+            fr_full = seq[i]
+            c2w = fr_full["c2w"]
+            if not torch.isfinite(c2w).all():
+                continue
+            if last is not None:                                # drop near-duplicates
+                dt, dr = _pose_gap(c2w, last)
+                if dt < args.kf_trans and dr < args.kf_rot:
+                    continue
+            last = c2w
+            fr = downscale(fr_full, args.downscale)
+            h, w = fr["image"].shape[:2]
+            z = pca.project(feats(fr_full, (h, w))).reshape(-1, args.feat_dim)
+            viewmat = torch.linalg.inv(c2w.double()).float().to(device)
+            ras = GSplatFeatureRasterizer.from_splats(splats, viewmat, fr["K"].to(device),
+                                                      w, h, channel_chunk=args.channel_chunk)
+            kw = {}
+            if args.use_depth and fr.get("depth") is not None:
+                kw = dict(depth_obs=fr["depth"].reshape(-1).to(device),
+                          gauss_depth=ras.gaussian_depths())
+            field.update_view(ras, z, num_pixels=h * w, **kw)
+            for c in css:                                       # CSS: its own one-hot pass
+                c.update_view(ras, z)
+            used += 1
+        return used
+
+    used = run_sequence(ds, "mapping")
+    if args.update_data:
+        thr = field.calibrate_change_threshold(args.change_quantile)
+        print(f"calibrated change threshold (q={args.change_quantile}): {thr:.4f}")
+        upd = make_dataset(args.dataset, args.update_data, stride=args.update_stride)
+        used += run_sequence(upd, "update")
+
+    # ---- readout ------------------------------------------------------------------
     epi = field.epistemic()
-    ale, valid = field.aleatoric(min_obs=args.min_obs)
-    rbar = field.mean_resultant_length()
-    print(f"mean n_eff {field.n_eff.mean():.1f} | observed (n_eff>0): "
-          f"{(field.n_eff > 0).float().mean() * 100:.1f}%")
-    print(f"epistemic mean {epi.mean():.3f} | aleatoric mean (valid) "
-          f"{ale[valid].mean():.3f} | r_bar mean {rbar[valid].mean():.3f}")
-    print(f"robust subset: {int(cons.robust_mask().sum())}/{N}")
+    ale, valid = field.aleatoric()
+    print(f"keyframes used {used} | observed Gaussians {(field.pixel_mass > 0).float().mean() * 100:.1f}% "
+          f"| mean support {field.support('raw')[field.pixel_mass > 0].mean():.2f} views")
+    print(f"epistemic mean {epi.mean():.3f} | aleatoric mean (valid, {valid.float().mean() * 100:.1f}%) "
+          f"{ale[valid].mean():.3f} | changed {int(field.changed.sum())} | robust "
+          f"{int(field.robust_mask().sum())}/{N}")
 
     if args.query:
         prompts = [q.strip() for q in args.query.split(",")]
-        t = pca.project(clip.text_embedding(prompts))          # (K, feat_dim)
-        sims = field.query(t)                                   # (N, K)
+        t = pca.project_text(clip.text_embedding(prompts))      # no renormalisation (F7)
+        sims = field.query(t)
         for k, p in enumerate(prompts):
             s = sims[valid, k]
-            print(f"query '{p}': max {s.max():.3f} | "
-                  f">0.5 sim on {(s > 0.5).float().mean() * 100:.2f}% of valid Gaussians")
+            print(f"query '{p}': max {s.max():.3f} | mean {s.mean():.3f}")
 
-    out = dict(R=field.R.cpu(), n_eff=field.n_eff.cpu(),
-               mu_post=field.mu_post().cpu(), epistemic=epi.cpu(),
-               aleatoric=ale.cpu(), robust_mask=cons.robust_mask().cpu(),
-               pca=pca.state_dict(), config=vars(args))
+    out = dict(field=field.state_dict(), pca=pca.state_dict(), config=vars(args),
+               field_config=field.cfg.to_dict(), extractor=args.extractor,
+               baselines=B.baselines_state(bs) if bs else [], css_class_ids=css_ids)
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     torch.save(out, args.out)
     print(f"saved field -> {args.out}")
@@ -183,32 +255,41 @@ def run_gsplat(args):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--backend", choices=["mock", "gsplat"], default="mock")
-    # gsplat backend args
     ap.add_argument("--ply", help="pre-trained 3DGS checkpoint (.ply or .pt)")
     ap.add_argument("--data", help="dataset root")
-    ap.add_argument("--dataset", default="replica",
-                    choices=["replica", "scannet", "7scenes"])
+    ap.add_argument("--dataset", default="replica", choices=["replica", "replica_semnerf", "scannet", "7scenes"])
     ap.add_argument("--stride", type=int, default=5)
-    ap.add_argument("--downscale", type=int, default=4)
+    ap.add_argument("--downscale", type=int, default=4,
+                    help="accumulation resolution = image / downscale (CLIP runs at full res)")
+    ap.add_argument("--extractor", default="lseg", help="usplat.extractors name")
+    ap.add_argument("--baselines", action="store_true",
+                    help="also accumulate the K11 baselines (NormLift/averaging, view count, CSS)")
+    ap.add_argument("--vocab", default="", help="frozen vocabulary (CSS classes + templates)")
+    ap.add_argument("--css-eval-data", default="",
+                    help="evaluation sequence whose present classes form the CSS vocabulary")
+    ap.add_argument("--css-eval-stride", type=int, default=10)
     ap.add_argument("--clip-model", default="ViT-B-16")
-    ap.add_argument("--clip-pretrained", default="openai")
+    ap.add_argument("--clip-pretrained", default="laion2b_s34b_b88k")
     ap.add_argument("--feat-dim", type=int, default=64,
                     help="PCA-compressed semantic dimension on the splats")
     ap.add_argument("--pca-frames", type=int, default=10)
-    ap.add_argument("--kappa", type=float, default=10.0)
-    ap.add_argument("--min-obs", type=float, default=5.0)
-    ap.add_argument("--r-unstable", type=float, default=0.55)
-    ap.add_argument("--r-stable", type=float, default=0.85)
-    ap.add_argument("--forget-lambda", type=float, default=0.9)
-    ap.add_argument("--consolidate-every", type=int, default=10,
-                    help="frames between consolidation steps; 0 disables")
+    ap.add_argument("--field-config", default="",
+                    help='JSON overrides of FieldConfig, e.g. \'{"change_thr": 0.4}\'')
+    ap.add_argument("--kf-trans", type=float, default=0.05, help="keyframe gap [m]")
+    ap.add_argument("--kf-rot", type=float, default=5.0, help="keyframe gap [deg]")
+    ap.add_argument("--update-data", default="",
+                    help="root of the UPDATE sequence (same scene after a change)")
+    ap.add_argument("--update-stride", type=int, default=5)
+    ap.add_argument("--change-quantile", type=float, default=0.999,
+                    help="q of the mapping-pass null used to set the change threshold")
+    ap.add_argument("--use-depth", action="store_true",
+                    help="feed the dataset depth as the observed depth (re-admission check)")
     ap.add_argument("--channel-chunk", type=int, default=32)
-    ap.add_argument("--query", default="",
-                    help="comma-separated open-vocab text queries to demo")
+    ap.add_argument("--query", default="", help="comma-separated open-vocab text queries")
     ap.add_argument("--out", default="outputs/field.pt")
     args = ap.parse_args()
     if args.backend == "mock":
-        run_mock()
+        run_mock(field_config=args.field_config, change_quantile=args.change_quantile)
     else:
         if not (args.ply and args.data):
             raise SystemExit("--backend gsplat requires --ply and --data")

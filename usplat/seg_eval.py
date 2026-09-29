@@ -139,6 +139,10 @@ def render_row(row: Row, rasterizer, alpha_eps=1e-6, undef_frac=0.5) -> RowRende
             layout.append((name, 2))
     img = rasterizer(torch.cat(cols, dim=1))
     feat, alpha = img[:, :C0], img[:, C0]
+    if getattr(row, "decoder", None) is not None:      # render-then-decode rows (LEGaussians)
+        if row.kind != "feature":
+            raise ValueError(f"row {row.name!r}: a decoder needs a feature row")
+        feat = row.decoder(feat)
     seen = alpha > alpha_eps
     nan = torch.full_like(alpha, float("nan"))
     unc, i = {}, C0 + 1

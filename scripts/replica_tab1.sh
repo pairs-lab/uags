@@ -10,8 +10,10 @@
 # Every GPU step goes through scripts/gpu_gate.sh (default here: never start beside a USGLoc
 # job, poll every 5 s). Existing maps/fields are reused; eval_seg.py --betas refuses test
 # fields built with other mapping code, options or protocol than the validation fields.
-# Rows: ours P0/P1/P2, ours_scalar, baselines (usplat.baselines, with the CSS prior read-outs
-# css_a<alpha0>), and the 2D row (--with-2d: LSeg on each evaluation frame).
+# Rows: ours P0/P1/P2/P3, ours_scalar, baselines (usplat.baselines, with the CSS prior
+# read-outs css_a<alpha0>), the trained baselines Feature 3DGS and LEGaussians (usplat.distill,
+# trained by scripts/distill_features.py on the same map, frames, features and PCA), and the
+# 2D row (--with-2d: LSeg on each evaluation frame).
 # Logs: $OUT/<step>_<scene>.<timestamp>.log (never overwritten); the stage log records the git
 # state. Results: $OUT/eval_<stage>.json (+ .partial.json after every scene).
 set -euo pipefail
@@ -32,6 +34,8 @@ TAU_COV=${TAU_COV:-0.5}          # coverage rule, fixed before any validation ru
 # (room_2, 954k: 5.7 GB); the evaluation holds LSeg, then the frozen rows
 MAP_NEED=${MAP_NEED:-9000}
 EVAL_NEED=${EVAL_NEED:-7000}
+DISTILL_NEED=${DISTILL_NEED:-7000}
+DISTILL=${DISTILL:-"f3dgs legs"}
 TS=$(date +%Y%m%d-%H%M%S)
 mkdir -p "$MAPS" "$FIELDS" "$OUT"
 case "$STAGE" in
@@ -76,10 +80,17 @@ for s in $SCENES; do
     grep -E "gpu_gate|PCA|CSS|keyframes used|timing|saved" "$L"
     ls -la "$FIELDS/${s}_lseg.pt"
   fi
+  for m in $DISTILL; do                  # trained baselines (Feature 3DGS, LEGaussians)
+    [ -f "$FIELDS/${s}_lseg_${m}.pt" ] && continue
+    L="$OUT/distill_${s}_${m}.$TS.log"
+    scripts/gpu_gate.sh "$DISTILL_NEED" python3 scripts/distill_features.py \
+      --field "$FIELDS/${s}_lseg.pt" --method "$m" > "$L" 2>&1 || { tail -20 "$L"; exit 1; }
+    grep -E "gpu_gate|mapping frames|iter [0-9]+0000/|saved" "$L"
+  done
 done
 
 [ "$EVAL" = 1 ] || { echo "done: $STAGE maps and fields only (EVAL=0)"; exit 0; }
-COMMON=(--vocab configs/vocab_replica.json --row-factory usplat.baselines:row_factory
+COMMON=(--vocab configs/vocab_replica.json --row-factory usplat.baselines:row_factory,usplat.distill:row_factory
         --extractor lseg --dataset replica_semnerf --stride 10 --downscale "$DOWNSCALE"
         --tau-cov "$TAU_COV" --text-cache "$FIELDS/text_cache_lseg.pt" --with-2d)
 L="$OUT/eval_${STAGE}.$TS.log"

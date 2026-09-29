@@ -309,6 +309,8 @@ def field_identity(ckpt):
                extractor_options=ckpt.get("extractor_options"),
                field_config=ckpt.get("field_config"),
                args={k: cfg.get(k) for k in IDENTITY_ARGS})
+    if ckpt.get("_aux_identities"):          # files a row factory read (e.g. distilled rows)
+        key["aux"] = sorted(ckpt["_aux_identities"])
     return hashlib.sha256(json.dumps(_plain_json(key), sort_keys=True).encode()).hexdigest()
 
 
@@ -351,8 +353,9 @@ def frozen_on(rows, device):
         return y
     out = []
     for r in freeze_rows(rows):
+        dec = r.decoder.to(device) if hasattr(r.decoder, "to") else r.decoder
         out.append(TensorRow(r.name, r.kind, adaptive=r.adaptive,
-                             p2_channels=tuple(r.p2_channels), buf=share(r.buf),
+                             p2_channels=tuple(r.p2_channels), decoder=dec, buf=share(r.buf),
                              unc={k: share(v) for k, v in r.unc.items()}))
     return out
 
@@ -362,10 +365,10 @@ def candidate_rows(field, ckpt, device, args, class_ids=None, text=None):
     rows.append(FieldRow("ours_scalar", "feature", field=field, mode="P0", channels=("spread",)))
     if text is not None and not getattr(args, "no_p3", False):
         rows += p3_rows(field, text.to(field.device))  # P3: mixture of per-Gaussian predictives
-    if args.row_factory:
-        mod, fn = args.row_factory.split(":")
+    import inspect
+    for spec in [s.strip() for s in (args.row_factory or "").split(",") if s.strip()]:
+        mod, fn = spec.split(":")
         factory = getattr(importlib.import_module(mod), fn)
-        import inspect
         if "class_ids" in inspect.signature(factory).parameters:   # CSS columns = queries
             rows += list(factory(ckpt, field, device, class_ids=class_ids))
         else:
@@ -633,7 +636,8 @@ def build_parser():
     ap.add_argument("--max-views", type=int, default=None, help="first n frames (smoke runs)")
     ap.add_argument("--queries", choices=["present", "all"], default="present")
     ap.add_argument("--rows", default="", help="comma-separated row names (default: all)")
-    ap.add_argument("--row-factory", default="", help="module:function -> extra rows")
+    ap.add_argument("--row-factory", default="",
+                    help="module:function[,module:function...] -> extra rows")
     ap.add_argument("--allow-field-mismatch", action="store_true",
                     help="with --betas: evaluate fields built differently from the val fields")
     ap.add_argument("--no-p3", action="store_true", help="leave out the P3 mixture rows")

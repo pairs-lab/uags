@@ -10,7 +10,8 @@ mIoU, Acc., ECE, AURC and AUSE in %, Brier x100, NLL in nats. Variant "all" appl
 coverage rule (uncovered pixels count as wrong).
 AUSE_u = AUSE of the row's own uncertainty against the 0/1 error:
     NormLift rows  normlift_1-R / normlift_1-Cinter      CSS  css_var_top (its Eq. 10)
-    ours           u_ale                                 2D / averaging: none ("--")
+    LEGaussians    legs_u (its learned uncertainty)      ours u_ale
+    2D, averaging, Feature 3DGS: none ("--")
 Choices made on the VALIDATION file only (--val; lowest mean validation NLL): the CSS prior
 read-out (css or css_a<alpha0>) and the P3 temperature (ours_P3_b<beta_g>). Without --val the
 defaults css and ours_P3_b20 are used and a comment says so.
@@ -27,6 +28,8 @@ TAB1 = [
     ("Averaging~\\cite{joseph2025gradbp}\\reimpl", "averaging", None, "all"),
     ("NormLift~\\cite{zang2026normlift}\\reimpl, $1-\\mathcal{R}$", "normlift", "normlift_1-R", "same"),
     ("NormLift\\reimpl, $1-C_{\\mathrm{inter}}$", "normlift", "normlift_1-Cinter", "same"),
+    ("Feature 3DGS~\\cite{zhou2024feature}\\reimpl", "f3dgs", None, "all"),
+    ("LEGaussians~\\cite{shi2024legaussians}\\reimpl", "legs", "legs_u", "all"),
     ("CSS (Dirichlet)~\\cite{wilson2025css}\\reimpl", "@css", "css_var_top", "all"),
     None,                                                     # \midrule
     ("Ours P0 (plug-in)", "ours_P0", "u_ale", "all"),

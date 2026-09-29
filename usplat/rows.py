@@ -24,7 +24,7 @@ fixed tensors in a TensorRow).
 """
 from __future__ import annotations
 from dataclasses import dataclass, field as dc_field
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Callable, Dict, Optional, Sequence, Tuple
 import torch
 
 KINDS = ("feature", "probs")
@@ -37,6 +37,9 @@ class Row:
     kind: str = "feature"                              # "feature" | "probs"
     adaptive: bool = False                             # P2: per-pixel beta from p2_channels
     p2_channels: Tuple[str, str] = ("u_epi", "u_ale")
+    # optional per-pixel decoder applied AFTER compositing (feature rows only): (P, C) -> (P, d)
+    # e.g. LEGaussians renders an 8-d code and decodes it (usplat.distill); None = identity
+    decoder: Optional[Callable] = None
 
     def __post_init__(self):
         if self.kind not in KINDS:
@@ -180,4 +183,4 @@ def freeze(row: Row) -> TensorRow:
     buf = row.buffer().detach()
     unc = {k: v.detach().reshape(-1) for k, v in row.uncertainties().items()}
     return TensorRow(row.name, row.kind, adaptive=row.adaptive,
-                     p2_channels=tuple(row.p2_channels), buf=buf, unc=unc)
+                     p2_channels=tuple(row.p2_channels), decoder=row.decoder, buf=buf, unc=unc)

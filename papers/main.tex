@@ -634,7 +634,17 @@ $\mathcal{R}=\lVert\mathbf{f}\rVert N_{\mathrm{eff}}/(N_{\mathrm{eff}}+1)$. We
 implement it as its paper defines it, without its KNN voting refinement.
 NormLift defines no epistemic or aleatoric uncertainty. From its quantities
 we build the reference scores $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$
-and $1-\mathcal{R}$. \emph{CSS}~\cite{wilson2025css} keeps a Dirichlet
+and $1-\mathcal{R}$. Two baselines train the features instead of fusing them,
+on the same map, frames, features and PCA, with Adam at the learning rate of
+their papers ($10^{-3}$, $10^4$ iterations on the fixed geometry).
+\emph{Feature 3DGS}~\cite{zhou2024feature} fits a feature per Gaussian so that
+the rendered feature image matches the 2D feature map under an $L_1$ loss.
+\emph{LEGaussians}~\cite{shi2024legaussians} quantizes the mapping features
+into 128 codes, renders an 8-D code per Gaussian that an MLP decodes into the
+codes, and learns a per-Gaussian uncertainty $u\in[0,1]$ that down-weights the
+cross-entropy of a pixel at the price $\lambda_u\bar U$, $\lambda_u=1$, as in
+its paper. We quantize our features rather than CLIP and DINO features and omit
+its smoothing term. \emph{CSS}~\cite{wilson2025css} keeps a Dirichlet
 posterior over a closed label set, and each pixel votes for the class whose
 text is closest to its feature. CSS receives, at mapping time, the classes present in the scene's evaluation
 frames (the set every row is queried with), which the open-vocabulary rows do
@@ -727,8 +737,8 @@ labels that our row does not use.
 \caption{Segmentation and calibration on the Replica test scenes (mean $\pm$
 std, $N=6$). mIoU, accuracy, ECE, AURC and AUSE in \%, Brier $\times100$, NLL
 in nats. OV: accepts queries that were not known at mapping time. AUSE$_u$:
-AUSE of the row's own uncertainty against the 0/1 error (the variance for CSS,
-$u^{\mathrm{ale}}$ for ours). \reimpl Our re-implementation from the paper.
+AUSE of the row's own uncertainty against the 0/1 error (the learned
+uncertainty for LEGaussians, the variance for CSS, $u^{\mathrm{ale}}$ for ours). \reimpl Our re-implementation from the paper.
 \todo{replace placeholders.}}
 \label{tab:replica}
 \footnotesize
@@ -744,6 +754,8 @@ NormLift~\cite{zang2026normlift}\reimpl, $1-\mathcal{R}$ & \checkmark
   & \multicolumn{6}{c}{same predictive as averaging} & \phs\\
 NormLift\reimpl, $1-C_{\mathrm{inter}}$     & \checkmark
   & \multicolumn{6}{c}{same predictive as averaging} & \phs\\
+Feature 3DGS~\cite{zhou2024feature}\reimpl  & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & --\\
+LEGaussians~\cite{shi2024legaussians}\reimpl & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
 CSS (Dirichlet)~\cite{wilson2025css}\reimpl & $\times$   & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
 \midrule
 Ours P0 (plug-in)                           & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
@@ -990,6 +1002,6 @@ and test the field with other feature extractors.
 %% the IEEEtran.bst control entry (written by the preamble on the first pass).
 %% ============================================================================
 \bibliographystyle{IEEEtran}
-\bibliography{ieeectl,ref}
+\bibliography{ref}
 
 \end{document}

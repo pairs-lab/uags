@@ -1,0 +1,31 @@
+# build of papers/ at 6cebc7d: cp -r papers/. build/ && rm -f main.aux && tectonic --keep-logs main.tex
+Tue Sep 29 02:19:22 PM +07 2026
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: algorithmic.sty:11: 
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: main.tex:273: Underfull \hbox (badness 1484) in paragraph at lines 257--273
+warning: main.tex:849: Underfull \vbox (badness 10000) has occurred while \output is active
+warning: main.tex:942: Underfull \vbox (badness 3460) has occurred while \output is active
+note: Rerunning TeX because "main.aux" changed ...
+warning: algorithm.sty:11: 
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: algorithmic.sty:11: 
+Invalid UTF-8 byte or sequence at line 11 replaced by U+FFFD.
+warning: main.tex:273: Underfull \hbox (badness 1484) in paragraph at lines 257--273
+warning: main.tex:849: Underfull \vbox (badness 10000) has occurred while \output is active
+warning: main.tex:942: Underfull \vbox (badness 3460) has occurred while \output is active
+warning: warnings were issued by the TeX engine; use --print and/or --keep-logs for details.
+note: Running xdvipdfmx ...
+note: Writing `main.pdf` (203.5400390625 KiB)
+note: Writing `main.log` (17.0615234375 KiB)
+note: Writing `main.blg` (467 B)
+note: Skipped writing 4 intermediate files (use --keep-intermediates to keep them)
+--- pdfinfo
+Pages:           8
+Page size:       612 x 792 pts (letter)
+--- warnings in main.log
+435:Underfull \hbox (badness 1484) in paragraph at lines 257--273
+450:Underfull \vbox (badness 10000) has occurred while \output is active []
+453:Underfull \vbox (badness 3460) has occurred while \output is active []
+--- todo count in main.tex
+24

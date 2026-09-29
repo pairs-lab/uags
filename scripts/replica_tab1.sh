@@ -6,6 +6,7 @@
 #   STAGE=val  : fit + map + evaluate the validation scenes, fit betas -> $OUT/eval_val.json
 #   STAGE=test : fit + map the test scenes, evaluate them with the frozen betas (run ONCE:
 #                refused when $OUT/eval_test.json exists, unless FORCE_TEST=1)
+#   EVAL=0     : build the maps and fields only (label-free preparation), no evaluation
 # Every GPU step goes through scripts/gpu_gate.sh (default here: never start beside a USGLoc
 # job, poll every 5 s). Existing maps/fields are reused; eval_seg.py --betas refuses test
 # fields built with other mapping code, options or protocol than the validation fields.
@@ -23,6 +24,7 @@ MAPS=/home/thanhnc/gauss_ws/data/uags_maps
 FIELDS=/home/thanhnc/gauss_ws/data/uags_fields
 OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/tab1}
 STAGE=${STAGE:-val}
+EVAL=${EVAL:-1}
 ITERS=${ITERS:-30000}
 DOWNSCALE=${DOWNSCALE:-2}
 TAU_COV=${TAU_COV:-0.5}          # coverage rule, fixed before any validation run
@@ -42,7 +44,7 @@ if [ "$STAGE" = test ]; then
   if [ -n "$(git status --porcelain --untracked-files=no -- scripts usplat configs)" ]; then
     echo "refused: uncommitted changes in scripts/ usplat/ configs/ (the test run must name a commit)"; exit 1
   fi
-  python3 - "$OUT/eval_val.json" <<'PY' || exit 1
+  [ "$EVAL" = 1 ] && { python3 - "$OUT/eval_val.json" <<'PY' || exit 1; }
 import json, sys
 d = json.load(open(sys.argv[1]))
 body = d.get("metrics") if isinstance(d.get("metrics"), dict) else d
@@ -51,7 +53,7 @@ if d.get("status", "ok") not in ("ok", "success", "finished") or not body.get("b
              f"(status {d.get('status')}, betas {bool(body.get('betas'))})")
 print(f"validation fit: {len(body['betas'])} rows, fields {[i[:12] for i in body['beta_fit_settings'].get('field_identities', [])]}")
 PY
-  if [ -f "$OUT/eval_test.json" ] && [ "${FORCE_TEST:-0}" != 1 ]; then
+  if [ "$EVAL" = 1 ] && [ -f "$OUT/eval_test.json" ] && [ "${FORCE_TEST:-0}" != 1 ]; then
     echo "refused: $OUT/eval_test.json exists (the test split runs once; FORCE_TEST=1 to override)"; exit 1
   fi
 fi
@@ -76,6 +78,7 @@ for s in $SCENES; do
   fi
 done
 
+[ "$EVAL" = 1 ] || { echo "done: $STAGE maps and fields only (EVAL=0)"; exit 0; }
 COMMON=(--vocab configs/vocab_replica.json --row-factory usplat.baselines:row_factory
         --extractor lseg --dataset replica_semnerf --stride 10 --downscale "$DOWNSCALE"
         --tau-cov "$TAU_COV" --text-cache "$FIELDS/text_cache_lseg.pt" --with-2d)

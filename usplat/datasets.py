@@ -127,7 +127,56 @@ class SevenScenesDataset(_PosedRGBD):
         return dict(image=img, depth=depth, c2w=c2w, K=self.K.clone())
 
 
+class ReplicaSemNeRFDataset(_PosedRGBD):
+    """Replica as rendered by Semantic-NeRF (Zhi et al., ICCV 2021):
+        <root>/<scene>/Sequence_<k>/{rgb/rgb_<i>.png, depth/depth_<i>.png,
+                                     semantic_class/semantic_class_<i>.png, traj_w_c.txt}
+        <root>/semantic_info/<scene>/info_semantic.json
+    640x480, 90 deg horizontal FoV (fx = fy = 320, c = ((W-1)/2, (H-1)/2)), depth in mm,
+    traj_w_c = camera-to-world in the OpenCV convention (the dataset readme). Labels are the
+    ids of info_semantic.json "classes" (1..101); 0 = unlabelled.
+    `root` may be the scene's Sequence_<k> folder or (root, scene, sequence) via make()."""
+    W, H = 640, 480
+    HFOV_DEG = 90.0
+    DEPTH_SCALE = 1000.0
+
+    def __init__(self, root, stride=1):
+        super().__init__(stride)
+        import math
+        import re
+        self.root = root
+        num = lambda p: int(re.findall(r"(\d+)\.png$", p)[0])
+        self.rgb = sorted(glob.glob(os.path.join(root, "rgb", "rgb_*.png")), key=num)
+        self.dep = sorted(glob.glob(os.path.join(root, "depth", "depth_*.png")), key=num)
+        self.sem = sorted(glob.glob(os.path.join(root, "semantic_class", "semantic_class_*.png")),
+                          key=num)
+        self._n = len(self.rgb)
+        self.poses = np.loadtxt(os.path.join(root, "traj_w_c.txt")).reshape(-1, 4, 4)
+        assert len(self.poses) == self._n, (len(self.poses), self._n)
+        f = self.W / 2.0 / math.tan(math.radians(self.HFOV_DEG / 2.0))
+        self.K = torch.tensor([[f, 0, (self.W - 1) / 2.0],
+                               [0, f, (self.H - 1) / 2.0],
+                               [0, 0, 1]], dtype=torch.float32)
+
+    def frame(self, idx):
+        img = torch.from_numpy(_imread(self.rgb[idx]))
+        depth = torch.from_numpy(_imread(self.dep[idx]).astype(np.float32) / self.DEPTH_SCALE)
+        labels = torch.from_numpy(_imread(self.sem[idx]).astype(np.int64)) if self.sem else None
+        c2w = torch.from_numpy(self.poses[idx].astype(np.float32))
+        return dict(image=img, depth=depth, c2w=c2w, K=self.K.clone(), labels=labels,
+                    index=idx)
+
+    @staticmethod
+    def classes(dataset_root, scene):
+        """{class id: name} from semantic_info/<scene>/info_semantic.json (0 = unlabelled)."""
+        import json
+        info = json.load(open(os.path.join(dataset_root, "semantic_info", scene,
+                                           "info_semantic.json")))
+        return {int(c["id"]): c["name"] for c in info["classes"]}
+
+
 DATASETS = {
+    "replica_semnerf": ReplicaSemNeRFDataset,
     "replica": ReplicaDataset,
     "scannet": ScanNetDataset,
     "7scenes": SevenScenesDataset,
@@ -143,10 +192,17 @@ def make_dataset(name, root, stride=1):
 def downscale(frame, factor):
     """Downscale image/depth/K by an integer factor (for feature-resolution work)."""
     import cv2
-    if factor <= 1:
-        return frame
     img = frame["image"].numpy()
     H, W = img.shape[:2]
+    if factor <= 1:
+        dep = frame.get("depth")
+        if dep is not None and tuple(dep.shape) != (H, W):
+            # e.g. ScanNet: 480x640 depth vs 968x1296 colour -> depth on the colour grid
+            out = dict(frame)
+            out["depth"] = torch.from_numpy(cv2.resize(dep.numpy(), (W, H),
+                                                       interpolation=cv2.INTER_NEAREST))
+            return out
+        return frame
     h, w = H // factor, W // factor
     out = dict(frame)
     out["image"] = torch.from_numpy(

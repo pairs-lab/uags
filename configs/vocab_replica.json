@@ -1,0 +1,431 @@
+{
+ "source": "Replica (Semantic-NeRF renders), semantic_info/*/info_semantic.json (identical in all 8 scenes)",
+ "ignore_ids": [
+  0
+ ],
+ "ignore_note": "0 = unlabelled pixels",
+ "merges": {},
+ "merges_note": "none",
+ "template": "a photo of a {} in a room.",
+ "template_note": "FROZEN 2026-09-29 on validation scenes office_0 and room_2 (scripts/check_clip2d.py): extractor LSeg (worst-scene mIoU 23.2 with the 5-template ensemble, PCA-64 23.2; ClearCLIP best 13.4 with 'a photo of a {} in a room.'). 'template' is kept for the ClearCLIP ablation.",
+ "query_rule": "the classes present (GT pixels > 0) in each evaluated scene's evaluation frames",
+ "classes": {
+  "1": {
+   "name": "backpack",
+   "prompt": "backpack"
+  },
+  "2": {
+   "name": "base-cabinet",
+   "prompt": "base cabinet"
+  },
+  "3": {
+   "name": "basket",
+   "prompt": "basket"
+  },
+  "4": {
+   "name": "bathtub",
+   "prompt": "bathtub"
+  },
+  "5": {
+   "name": "beam",
+   "prompt": "beam"
+  },
+  "6": {
+   "name": "beanbag",
+   "prompt": "beanbag"
+  },
+  "7": {
+   "name": "bed",
+   "prompt": "bed"
+  },
+  "8": {
+   "name": "bench",
+   "prompt": "bench"
+  },
+  "9": {
+   "name": "bike",
+   "prompt": "bike"
+  },
+  "10": {
+   "name": "bin",
+   "prompt": "bin"
+  },
+  "11": {
+   "name": "blanket",
+   "prompt": "blanket"
+  },
+  "12": {
+   "name": "blinds",
+   "prompt": "blinds"
+  },
+  "13": {
+   "name": "book",
+   "prompt": "book"
+  },
+  "14": {
+   "name": "bottle",
+   "prompt": "bottle"
+  },
+  "15": {
+   "name": "box",
+   "prompt": "box"
+  },
+  "16": {
+   "name": "bowl",
+   "prompt": "bowl"
+  },
+  "17": {
+   "name": "camera",
+   "prompt": "camera"
+  },
+  "18": {
+   "name": "cabinet",
+   "prompt": "cabinet"
+  },
+  "19": {
+   "name": "candle",
+   "prompt": "candle"
+  },
+  "20": {
+   "name": "chair",
+   "prompt": "chair"
+  },
+  "21": {
+   "name": "chopping-board",
+   "prompt": "chopping board"
+  },
+  "22": {
+   "name": "clock",
+   "prompt": "clock"
+  },
+  "23": {
+   "name": "cloth",
+   "prompt": "cloth"
+  },
+  "24": {
+   "name": "clothing",
+   "prompt": "clothing"
+  },
+  "25": {
+   "name": "coaster",
+   "prompt": "coaster"
+  },
+  "26": {
+   "name": "comforter",
+   "prompt": "comforter"
+  },
+  "27": {
+   "name": "computer-keyboard",
+   "prompt": "computer keyboard"
+  },
+  "28": {
+   "name": "cup",
+   "prompt": "cup"
+  },
+  "29": {
+   "name": "cushion",
+   "prompt": "cushion"
+  },
+  "30": {
+   "name": "curtain",
+   "prompt": "curtain"
+  },
+  "31": {
+   "name": "ceiling",
+   "prompt": "ceiling"
+  },
+  "32": {
+   "name": "cooktop",
+   "prompt": "cooktop"
+  },
+  "33": {
+   "name": "countertop",
+   "prompt": "countertop"
+  },
+  "34": {
+   "name": "desk",
+   "prompt": "desk"
+  },
+  "35": {
+   "name": "desk-organizer",
+   "prompt": "desk organizer"
+  },
+  "36": {
+   "name": "desktop-computer",
+   "prompt": "desktop computer"
+  },
+  "37": {
+   "name": "door",
+   "prompt": "door"
+  },
+  "38": {
+   "name": "exercise-ball",
+   "prompt": "exercise ball"
+  },
+  "39": {
+   "name": "faucet",
+   "prompt": "faucet"
+  },
+  "40": {
+   "name": "floor",
+   "prompt": "floor"
+  },
+  "41": {
+   "name": "handbag",
+   "prompt": "handbag"
+  },
+  "42": {
+   "name": "hair-dryer",
+   "prompt": "hair dryer"
+  },
+  "43": {
+   "name": "handrail",
+   "prompt": "handrail"
+  },
+  "44": {
+   "name": "indoor-plant",
+   "prompt": "indoor plant"
+  },
+  "45": {
+   "name": "knife-block",
+   "prompt": "knife block"
+  },
+  "46": {
+   "name": "kitchen-utensil",
+   "prompt": "kitchen utensil"
+  },
+  "47": {
+   "name": "lamp",
+   "prompt": "lamp"
+  },
+  "48": {
+   "name": "laptop",
+   "prompt": "laptop"
+  },
+  "49": {
+   "name": "major-appliance",
+   "prompt": "major appliance"
+  },
+  "50": {
+   "name": "mat",
+   "prompt": "mat"
+  },
+  "51": {
+   "name": "microwave",
+   "prompt": "microwave"
+  },
+  "52": {
+   "name": "monitor",
+   "prompt": "monitor"
+  },
+  "53": {
+   "name": "mouse",
+   "prompt": "mouse"
+  },
+  "54": {
+   "name": "nightstand",
+   "prompt": "nightstand"
+  },
+  "55": {
+   "name": "pan",
+   "prompt": "pan"
+  },
+  "56": {
+   "name": "panel",
+   "prompt": "panel"
+  },
+  "57": {
+   "name": "paper-towel",
+   "prompt": "paper towel"
+  },
+  "58": {
+   "name": "phone",
+   "prompt": "phone"
+  },
+  "59": {
+   "name": "picture",
+   "prompt": "picture"
+  },
+  "60": {
+   "name": "pillar",
+   "prompt": "pillar"
+  },
+  "61": {
+   "name": "pillow",
+   "prompt": "pillow"
+  },
+  "62": {
+   "name": "pipe",
+   "prompt": "pipe"
+  },
+  "63": {
+   "name": "plant-stand",
+   "prompt": "plant stand"
+  },
+  "64": {
+   "name": "plate",
+   "prompt": "plate"
+  },
+  "65": {
+   "name": "pot",
+   "prompt": "pot"
+  },
+  "66": {
+   "name": "rack",
+   "prompt": "rack"
+  },
+  "67": {
+   "name": "refrigerator",
+   "prompt": "refrigerator"
+  },
+  "68": {
+   "name": "remote-control",
+   "prompt": "remote control"
+  },
+  "69": {
+   "name": "scarf",
+   "prompt": "scarf"
+  },
+  "70": {
+   "name": "sculpture",
+   "prompt": "sculpture"
+  },
+  "71": {
+   "name": "shelf",
+   "prompt": "shelf"
+  },
+  "72": {
+   "name": "shoe",
+   "prompt": "shoe"
+  },
+  "73": {
+   "name": "shower-stall",
+   "prompt": "shower stall"
+  },
+  "74": {
+   "name": "sink",
+   "prompt": "sink"
+  },
+  "75": {
+   "name": "small-appliance",
+   "prompt": "small appliance"
+  },
+  "76": {
+   "name": "sofa",
+   "prompt": "sofa"
+  },
+  "77": {
+   "name": "stair",
+   "prompt": "stair"
+  },
+  "78": {
+   "name": "stool",
+   "prompt": "stool"
+  },
+  "79": {
+   "name": "switch",
+   "prompt": "switch"
+  },
+  "80": {
+   "name": "table",
+   "prompt": "table"
+  },
+  "81": {
+   "name": "table-runner",
+   "prompt": "table runner"
+  },
+  "82": {
+   "name": "tablet",
+   "prompt": "tablet"
+  },
+  "83": {
+   "name": "tissue-paper",
+   "prompt": "tissue paper"
+  },
+  "84": {
+   "name": "toilet",
+   "prompt": "toilet"
+  },
+  "85": {
+   "name": "toothbrush",
+   "prompt": "toothbrush"
+  },
+  "86": {
+   "name": "towel",
+   "prompt": "towel"
+  },
+  "87": {
+   "name": "tv-screen",
+   "prompt": "tv screen"
+  },
+  "88": {
+   "name": "tv-stand",
+   "prompt": "tv stand"
+  },
+  "89": {
+   "name": "umbrella",
+   "prompt": "umbrella"
+  },
+  "90": {
+   "name": "utensil-holder",
+   "prompt": "utensil holder"
+  },
+  "91": {
+   "name": "vase",
+   "prompt": "vase"
+  },
+  "92": {
+   "name": "vent",
+   "prompt": "vent"
+  },
+  "93": {
+   "name": "wall",
+   "prompt": "wall"
+  },
+  "94": {
+   "name": "wall-cabinet",
+   "prompt": "wall cabinet"
+  },
+  "95": {
+   "name": "wall-plug",
+   "prompt": "wall plug"
+  },
+  "96": {
+   "name": "wardrobe",
+   "prompt": "wardrobe"
+  },
+  "97": {
+   "name": "window",
+   "prompt": "window"
+  },
+  "98": {
+   "name": "rug",
+   "prompt": "rug"
+  },
+  "99": {
+   "name": "logo",
+   "prompt": "logo"
+  },
+  "100": {
+   "name": "bag",
+   "prompt": "bag"
+  },
+  "101": {
+   "name": "set-of-clothing",
+   "prompt": "set of clothing"
+  }
+ },
+ "extractor": "lseg",
+ "templates_by_extractor": {
+  "lseg": [
+   "a photo of a {}.",
+   "a photo of the {}.",
+   "there is a {} in the scene.",
+   "a photo of a {} in a room.",
+   "a cropped photo of a {}."
+  ],
+  "clearclip": [
+   "a photo of a {} in a room."
+  ]
+ }
+}

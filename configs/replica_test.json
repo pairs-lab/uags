@@ -1,0 +1,50 @@
+[
+ {
+  "name": "room_0",
+  "field": "/home/thanhnc/gauss_ws/data/uags_fields/room_0_lseg.pt",
+  "ply": "/home/thanhnc/gauss_ws/data/uags_maps/room_0_seq1.pt",
+  "data": "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_0/Sequence_2",
+  "dataset": "replica_semnerf",
+  "stride": 10
+ },
+ {
+  "name": "room_1",
+  "field": "/home/thanhnc/gauss_ws/data/uags_fields/room_1_lseg.pt",
+  "ply": "/home/thanhnc/gauss_ws/data/uags_maps/room_1_seq1.pt",
+  "data": "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_1/Sequence_2",
+  "dataset": "replica_semnerf",
+  "stride": 10
+ },
+ {
+  "name": "office_1",
+  "field": "/home/thanhnc/gauss_ws/data/uags_fields/office_1_lseg.pt",
+  "ply": "/home/thanhnc/gauss_ws/data/uags_maps/office_1_seq1.pt",
+  "data": "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/office_1/Sequence_2",
+  "dataset": "replica_semnerf",
+  "stride": 10
+ },
+ {
+  "name": "office_2",
+  "field": "/home/thanhnc/gauss_ws/data/uags_fields/office_2_lseg.pt",
+  "ply": "/home/thanhnc/gauss_ws/data/uags_maps/office_2_seq1.pt",
+  "data": "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/office_2/Sequence_2",
+  "dataset": "replica_semnerf",
+  "stride": 10
+ },
+ {
+  "name": "office_3",
+  "field": "/home/thanhnc/gauss_ws/data/uags_fields/office_3_lseg.pt",
+  "ply": "/home/thanhnc/gauss_ws/data/uags_maps/office_3_seq1.pt",
+  "data": "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/office_3/Sequence_2",
+  "dataset": "replica_semnerf",
+  "stride": 10
+ },
+ {
+  "name": "office_4",
+  "field": "/home/thanhnc/gauss_ws/data/uags_fields/office_4_lseg.pt",
+  "ply": "/home/thanhnc/gauss_ws/data/uags_maps/office_4_seq1.pt",
+  "data": "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/office_4/Sequence_2",
+  "dataset": "replica_semnerf",
+  "stride": 10
+ }
+]

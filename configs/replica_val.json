@@ -1,0 +1,18 @@
+[
+ {
+  "name": "office_0",
+  "field": "/home/thanhnc/gauss_ws/data/uags_fields/office_0_lseg.pt",
+  "ply": "/home/thanhnc/gauss_ws/data/uags_maps/office_0_seq1.pt",
+  "data": "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/office_0/Sequence_2",
+  "dataset": "replica_semnerf",
+  "stride": 10
+ },
+ {
+  "name": "room_2",
+  "field": "/home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg.pt",
+  "ply": "/home/thanhnc/gauss_ws/data/uags_maps/room_2_seq1.pt",
+  "data": "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_2/Sequence_2",
+  "dataset": "replica_semnerf",
+  "stride": 10
+ }
+]

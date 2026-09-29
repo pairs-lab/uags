@@ -15,6 +15,10 @@ OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/tab3}
 STAGE=${STAGE:-val}
 DOWNSCALE=${DOWNSCALE:-2}
 TAU_COV=${TAU_COV:-0.5}
+# GPU memory caps (MiB): mapping peaks at ~4.8 GB for 620k Gaussians and grows with N
+# (room_2, 954k, went past 5.7 GB); the evaluation holds LSeg and the field together
+MAP_NEED=${MAP_NEED:-9000}
+EVAL_NEED=${EVAL_NEED:-9000}
 VARIANTS=${VARIANTS:-"pixels centre legacy"}
 mkdir -p "$OUT"
 if [ "$STAGE" = val ]; then SCENES="office_0 room_2"; CFG=configs/replica_val.json
@@ -27,7 +31,7 @@ for s in $SCENES; do
     [ -f "$f" ] && continue
     # segmentation-only fields: no change test (its buckets would double the file size)
     fc=$(python3 -c "import json; from usplat.ablation_rows import field_config_json as f; c = json.loads(f('$v')); c['change_test'] = False; print(json.dumps(c))")
-    scripts/gpu_gate.sh 6000 python3 scripts/run_mapping.py --backend gsplat \
+    scripts/gpu_gate.sh "$MAP_NEED" python3 scripts/run_mapping.py --backend gsplat \
       --dataset replica_semnerf --data "$ROOT/$s/Sequence_1" --stride 5 --downscale "$DOWNSCALE" \
       --ply "$MAPS/${s}_seq1.pt" --extractor lseg --feat-dim 64 --pca-frames 20 \
       --field-config "$fc" --out "$f" > "$OUT/map_${s}_${v}.log" 2>&1
@@ -39,11 +43,11 @@ COMMON=(--vocab configs/vocab_replica.json --row-factory usplat.ablation_rows:ro
         --extractor lseg --dataset replica_semnerf --stride 10 --downscale "$DOWNSCALE"
         --tau-cov "$TAU_COV" --text-cache "$FIELDS/text_cache_lseg.pt")
 if [ "$STAGE" = val ]; then
-  scripts/gpu_gate.sh 6000 python3 scripts/eval_seg.py "${COMMON[@]}" \
+  scripts/gpu_gate.sh "$EVAL_NEED" python3 scripts/eval_seg.py "${COMMON[@]}" \
     --val-scenes "$CFG" --scenes "$CFG" --out "$OUT/eval_val.json"
 else
   [ -f "$OUT/eval_val.json" ] || { echo "run STAGE=val first"; exit 1; }
-  scripts/gpu_gate.sh 6000 python3 scripts/eval_seg.py "${COMMON[@]}" \
+  scripts/gpu_gate.sh "$EVAL_NEED" python3 scripts/eval_seg.py "${COMMON[@]}" \
     --betas "$OUT/eval_val.json" --scenes "$CFG" --out "$OUT/eval_test.json"
 fi
 echo "done: tab3 $STAGE -> $OUT"

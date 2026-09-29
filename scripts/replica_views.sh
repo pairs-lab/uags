@@ -18,6 +18,10 @@ STAGE=${STAGE:-val}
 KS=${KS:-"10 30 90"}
 DOWNSCALE=${DOWNSCALE:-2}
 TAU_COV=${TAU_COV:-0.5}
+# GPU memory caps (MiB): mapping peaks at ~4.8 GB for 620k Gaussians and grows with N
+# (room_2, 954k, went past 5.7 GB); the evaluation holds LSeg and the field together
+MAP_NEED=${MAP_NEED:-9000}
+EVAL_NEED=${EVAL_NEED:-9000}
 KEEP=${KEEP:-0}
 mkdir -p "$OUT"
 [ -f "$TAB1/eval_val.json" ] || { echo "no $TAB1/eval_val.json: run replica_tab1.sh STAGE=val first"; exit 1; }
@@ -28,7 +32,7 @@ for s in $SCENES; do
   for k in $KS; do
     f="$FIELDS/${s}_lseg_k${k}.pt"
     [ -f "$f" ] && continue
-    scripts/gpu_gate.sh 6000 python3 scripts/run_mapping.py --backend gsplat \
+    scripts/gpu_gate.sh "$MAP_NEED" python3 scripts/run_mapping.py --backend gsplat \
       --dataset replica_semnerf --data "$ROOT/$s/Sequence_1" --stride 5 --downscale "$DOWNSCALE" \
       --ply "$MAPS/${s}_seq1.pt" --extractor lseg --baselines --feat-dim 64 --pca-frames 20 \
       --field-config '{"change_test": false}' --max-keyframes "$k" --out "$f" \
@@ -45,7 +49,7 @@ json.dump([dict(name=s, field=f"{F}/{s}_lseg.pt", ply=f"{M}/{s}_seq1.pt",
                 data=f"{R}/{s}/Sequence_2", dataset="replica_semnerf", stride=10,
                 fields={k: f"{F}/{s}_lseg_k{k}.pt" for k in ks})], open(out, "w"), indent=1)
 PY
-  scripts/gpu_gate.sh 4000 python3 scripts/eval_views.py --vocab configs/vocab_replica.json \
+  scripts/gpu_gate.sh "$EVAL_NEED" python3 scripts/eval_views.py --vocab configs/vocab_replica.json \
     --row-factory usplat.baselines:row_factory --extractor lseg --dataset replica_semnerf \
     --stride 10 --downscale "$DOWNSCALE" --tau-cov "$TAU_COV" --text-cache "$FIELDS/text_cache_lseg.pt" \
     --rows ours_P0,ours_P2,averaging,normlift,viewcount \

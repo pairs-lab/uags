@@ -1,0 +1,95 @@
+{
+ "findings": [
+  {
+   "where": "papers/main.tex:120-122 (abstract), 235-240 (intro), 969-970 (conclusion)",
+   "severity": "major",
+   "problem": "The abstract and introduction say, as done work, that the paper evaluates stale-content detection on real rearrangements in RIO10. The data do not exist yet. The only warning in the introduction is a LaTeX comment, which does not show in the PDF, and the abstract has no marker at all. All the evidence for the change-handling contribution depends on this dataset.",
+   "evidence": "Fact sheet B: 'No RIO10 data yet (access form pending)'. main.tex:121-122 'We evaluate on Replica and on real rearrangements in RIO10.' has no \\todo. main.tex:235-236 is only a %% comment ('Keep the RIO10 clause only if the data arrive'). The Setup section does carry a \\todo (main.tex:582-583), so the draft is inconsistent about this.",
+   "fix": "Add a visible \\todo{RIO10 access pending: keep only if the data arrive} to the abstract sentence and to intro lines 237-240. Also prepare a fallback wording ('on Replica, and on \\todo{rearrangement dataset}') so that no unconditional RIO10 claim can reach submission."
+  },
+  {
+   "where": "papers/main.tex:217-222 (contribution 2); also 473-478 and 950-951 (Limitations)",
+   "severity": "major",
+   "problem": "The contribution says the mapping-pass quantile 'sets a per-view false-alarm rate without labels' as long as the mapping sequence is static. This is a guarantee. It holds only if mapping-pass scores and update-pass scores of static content follow the same null. They need not. The 3D-GS geometry and the PCA are fit on the mapping frames, so splat footprints line up better on those frames than on new views. RIO10 rescans also differ in day, lighting and pose registration. The Method and Metrics sections correctly say 'nominal', but the contribution drops that word. Limitations names only content that moves during mapping.",
+   "evidence": "main.tex:219-220 'If the mapping sequence is static, this sets a per-view false-alarm rate without labels.' Compare main.tex:477-478 ('a nominal per-view false-alarm rate') and main.tex:690 ('nominal'). vmf_field.py:423-426 fills the null from the mapping pass itself (in-sample). Fact sheet B: the transfer was checked only on a 2-scene 7-Scenes proxy with simulated swaps.",
+   "fix": "Contribution 2 should say: 'This targets a nominal per-view false-alarm rate on static content without labels. We measure the actual rate (FA, Table II).' In Limitations, add that mapping-pass scores are in-sample (the map and PCA are fit on those frames), so the false-alarm rate on a new sequence can exceed the nominal rate."
+  },
+  {
+   "where": "papers/main.tex:228-232 (contribution 4); also 120-121 (abstract) and 968-969 (conclusion)",
+   "severity": "major",
+   "problem": "'One backward pass for all statistics' is still listed as one of four contributions, and the abstract and conclusion repeat it as a feature. The SOTA audit judged this item scooped. Its only difference from the prior work, merging the numerator and denominator passes with a ones channel and adding a depth channel, was judged trivial, and the audit asked for it to be demoted to an implementation detail. The credit to joseph2025gradbp is present, but listing it as a contribution still overclaims.",
+   "evidence": "report_sota.md:55: 'C3 gradient trick | Scooped | ... Our only delta is fusing both into one pass with a ones-channel ..., which is trivial. Demote this to an implementation detail that cites that paper.' The GradBP code does two renders and two backward passes per view (scratchpad/wf/sota/gradbp_backproject.py:115-150).",
+   "fix": "Remove the fourth contribution bullet. Keep Sec. III-H as the implementation note that cites joseph2025gradbp, and move the code-link \\todo elsewhere. In the abstract and conclusion, either drop the one-pass sentence or add 'following [gradbp]'. This also saves a few lines toward the page limit."
+  },
+  {
+   "where": "papers/main.tex:256-264 (Related Work, NormLift); 283-284; 360-362 (Method, view mean)",
+   "severity": "major",
+   "problem": "The draft does not describe NormLift fairly. (a) NormLift already forms per-view means f_j^(v) = sum A B / W^(v), which equal our u_v = R_v/m_v. It also factors the norm into within-view concentration C_intra and cross-view agreement C_inter (a weighted mean resultant length). Our 'view mean whose length is the coherence inside the view' is therefore their decomposition, and the draft does not credit it. (b) 'We differ in an agreement estimate that keeps the amount of evidence out of the dispersion' is inaccurate. NormLift's C_inter has no shrinkage either. Only its reliability R includes the N_eff/(N_eff+1) factor. The real difference is the bias correction (C_inter, like r-bar, is biased upward at few views). (c) 'scores reliability by that mean's norm': 'that mean' refers to the normalized weighted mean, whose norm is always 1.",
+   "evidence": "arxiv.org/html/2609.18898 (WebFetch): Eq. 6 per-view features, Eq. 7 ||f_j|| = C_intra * C_inter, Eq. 8 R(j) = ||f_j|| N_eff/(N_eff+beta). The team's own code documents the same: usplat/baselines.py:19-27 ('C_intra = sum_v W ||f^(v)|| / sum_v W, C_inter = ||f_j|| / C_intra (Eq. 7)'). report_sota.md:26 'Splits the norm into intra-view x inter-view consistency.' Notes saved in scratchpad/review_claims/web_evidence.txt.",
+   "fix": "Rewrite the NormLift sentences, for example: 'NormLift ... averages per-view mean features, factors the norm of the un-normalized mean into within-view and cross-view consistency, and scores reliability by that norm shrunk by a Kish count of effective views.' State the difference as: 'our cross-view agreement is bias-corrected (unbiased rho^2 under independent views) and enters a vMF posterior, and we handle change.' At main.tex:361-362, credit NormLift for the per-view mean and its length."
+  },
+  {
+   "where": "papers/main.tex:760-766 (Fig. 3 text), 708-709 (Table I caption), 750-751; Table III 859-861",
+   "severity": "major",
+   "problem": "The aleatoric channel is only compared with NormLift's shrunk reliability R, which mixes in the amount of evidence by design. It is not compared with NormLift's own cross-view agreement C_inter or with the un-shrunk norm ||f||, which are the direct counterparts of rho-hat. The sentence 'NormLift's R shrinks with scarce evidence, while rho-hat does not' therefore beats a weaker proxy. Table III also has no plain mean-resultant-length row r-bar, even though the Method claims r-bar is biased upward. That leaves the headline 'bias-corrected' claim without its simplest baseline.",
+   "evidence": "usplat/baselines.py:227 defines c_inter(), but uncertainties() (baselines.py:240-242) exposes only 'normlift_1-R' and 'normlift_epi'. The Fig. 3 placeholder lists only '1/(1+N_eff) and 1-R' (main.tex:750-751). The Table III agreement rows are only 'Prior-shrunk agreement' and 'Shrunk mean length r~' (main.tex:860-861). The user's CLAUDE.md insight 3 requires the strongest fair baseline.",
+   "fix": "Add 1 - C_inter (and/or 1 - ||f||) as a NormLift aleatoric reference curve in Fig. 3 and in the AUSE_u column of Table I. Add an 'Uncorrected mean length r-bar' row to Table III. Then rephrase main.tex:764-766 to compare rho-hat with C_inter (bias) as well as with R (shrinkage)."
+  },
+  {
+   "where": "papers/main.tex:779-780 (Table II caption), 799 (Yager row), 643-647 (text), 952-953 (Limitations)",
+   "severity": "major",
+   "problem": "The 'Yager conflict' row is presented as a re-implementation of E2-BKI's scoring rule. The Table II caption says '(for ... and [kim2025e2bki], of the scoring rule only)', and Limitations says 'We re-implemented ... the scoring rules of [jiang2026mif, ackermann2025clsplats, kim2025e2bki]'. E2-BKI does not use Yager's rule and has no change or stale-content score. It fuses opinions with Dempster's rule and uses the conflict eta only as a normalizer. The row is our own construction, and Yager's rule itself is not cited.",
+   "evidence": "arxiv.org/html/2509.11964 (WebFetch): fusion is Dempster-Shafer (Eq. 5), b = (b1 b2 + b1 u2 + b2 u1)/(1 - eta), with eta the conflict. 'Yager' was not found, and there is no change, dynamic or stale content. usplat/baselines.py:55-61 already cites Yager (Inf. Sci. 41(2):93-137, 1987, doi:10.1016/0020-0255(87)90007-7) and names E2-BKI only as related. The text at main.tex:647 ('motivates this row') is fair, but the caption and Limitations are not.",
+   "fix": "Remove kim2025e2bki from the 'scoring rule' clause of the Table II caption and from the Limitations list. Mark the row as our adaptation, for example 'Yager conflict (our adaptation; evidential fusion as in [kim2025e2bki])'. Give the Yager 1987 DOI to the lead, because the key is not in ref.bib. As an alternative, switch the row to E2-BKI's own Dempster conflict eta so that the attribution holds."
+  },
+  {
+   "where": "papers/main.tex:639-642, 796, 779-780, 952-953; also 306-308",
+   "severity": "minor",
+   "problem": "The per-pixel rendered-vs-observed feature residual is called 'the test of MIF and CL-Splats', and the text says 'for these two systems we re-implement the scoring rule only'. This matches CL-Splats (DINOv2 cosine of render vs image), but not MIF. MIF scores matched scene-graph nodes with a weighted sum of a position term and 1 - cos. Its threshold is fixed (tau = 0.45, chosen by ROC), and it has no stated multi-view persistence. Only MIF's semantic term matches. The integrator also listed this attribution as unchecked. At main.tex:306-308, the phrasing can also be read as saying that MIF and CL-Splats compare 'all earlier evidence' and require two views.",
+   "evidence": "arxiv.org/html/2605.21935 (WebFetch): Eq. 4 delta_i = Omega_i (w_pos ||c_i^loc - c_j^glob|| + w_sem (1 - cos(f_i, f_j))). Table V: tau = 0.45 is 'fixed for all scene-change trials'. CL-Splats (arXiv 2506.21117) compares DINOv2 features of render and image by cosine. Row definition: usplat/change_baselines.py:19.",
+   "fix": "Write 'the feature residual of CL-Splats, which is also the semantic term of MIF's discrepancy score' and 're-implement the per-pixel feature residual only'. Drop MIF from 'scoring rules' in the caption and Limitations, or write 'its semantic term'. At main.tex:307-308, move the definition after 'Our change score is', so that the two-view persistence is clearly ours."
+  },
+  {
+   "where": "papers/main.tex:221-222 (contribution 2), 490-491 (Method); also 118-119 (abstract), 967-968 (conclusion)",
+   "severity": "minor",
+   "problem": "'A removed object cannot return with stale geometry' is stated as absolute, but the re-admission tolerance is 5 cm. When a thin object (book, keyboard, tray, less than about 5 cm) is removed, the observed surface behind it lies within 5 cm of its Gaussian centers, so those Gaussians pass the check and re-enter the robust set at the old position. The same holds for the Gaussians of any removed object that lie within 5 cm of the supporting surface. Also, the abstract and conclusion say 'only after new views whose observed depth matches', but with no depth stream the code re-admits after views alone, as the Method itself states at main.tex:492.",
+   "evidence": "vmf_field.py:119 readmit_depth = 0.05. vmf_field.py:474-475 re-admits when mean |d_obs - d_ctr| <= 0.05. vmf_field.py:464-471: with no depth stream, re-admission falls back to views only.",
+   "fix": "Write 'is kept out while the surface behind it lies more than 5 cm from its centers', and name thin objects in Limitations. In the abstract and conclusion, write 'when depth is available, only after new views whose observed depth matches its position'."
+  },
+  {
+   "where": "papers/main.tex:419-422",
+   "severity": "minor",
+   "problem": "The text says 'the bracket is unbiased for rho_n^2', but the bracket [.]_0^1 is defined two lines earlier as the clamped value. Only the unclamped ratio is unbiased (for independent views). The clamp at 0 adds an upward bias, and the square root adds a small downward bias. The code docstring states this, but the paper does not.",
+   "evidence": "vmf_field.py:19-22: 'the argument of the sqrt is unbiased for rho^2 ... (the sqrt keeps a small downward bias at small n, and the clamp at 0 an upward one)'. figs/uncertainty_plane.tex:9-10 Monte Carlo: E[rho_hat] = 0.334 for rho = 0.35 at 3 views.",
+   "fix": "Write 'so the unclamped ratio is unbiased for rho_n^2 for two or more independent views. The clamp and the square root add a small bias at few views.'"
+  },
+  {
+   "where": "papers/main.tex:471-472 and 479-480",
+   "severity": "minor",
+   "problem": "Two measured findings are stated in the Method as general facts, with no result in the paper behind them: 'Feature noise differs between scenes, so a fixed threshold on c-bar does not transfer' and 'A null of per-Gaussian maxima ... would be inflated'. The fact sheet backs them only with internal tuning runs (a 2-scene 7-Scenes proxy). The corresponding Table III rows are still placeholders.",
+   "evidence": "Fact sheet A9: 'Reasons (measured): a fixed threshold did not transfer between scenes ...'. Fact sheet B: '7-Scenes proxy (simulated swaps) ... transferred between two scenes'. The Table III rows 'Fixed threshold (val.)' and 'Per-Gaussian max null' are \\ph (main.tex:877-878).",
+   "fix": "Hedge the sentences and point them to the ablation, for example: 'In tuning, a fixed threshold on c-bar did not transfer between scenes (Table III, fixed-threshold row).' Keep the \\todo until the row is measured."
+  },
+  {
+   "where": "papers/main.tex:760-762 and 750-751",
+   "severity": "minor",
+   "problem": "'NormLift's 1/(1+N_eff)' treats an epistemic score as NormLift's own. NormLift defines no epistemic or aleatoric uncertainty. The quantity is our parity construct built from its N_eff.",
+   "evidence": "arxiv.org/html/2609.18898 (WebFetch): 'The paper does not define epistemic or aleatoric uncertainty'. usplat/baselines.py:27 and rows.py:82 label it 'NormLift parity'.",
+   "fix": "Write '1/(1+N_eff), built from NormLift's Kish count' in the text and in the Fig. 3 placeholder."
+  },
+  {
+   "where": "papers/main.tex:578-579",
+   "severity": "minor",
+   "problem": "'One prompt template, chosen on the validation scenes, serves all scenes' contradicts the frozen configuration. The vocabulary file freezes the extractor as LSeg with a 5-template ensemble. A single template is used only for the ClearCLIP ablation.",
+   "evidence": "configs/vocab_replica.json: extractor 'lseg'. templates_by_extractor.lseg lists 5 templates. The template_note says 'FROZEN 2026-09-29 on validation scenes ... extractor LSeg (... 5-template ensemble ...)'.",
+   "fix": "Write 'One prompt set (\\todo{template ensemble or single template, per extractor}), chosen on the validation scenes, serves all scenes', and make it consistent once \\todo{extractor} is resolved."
+  },
+  {
+   "where": "papers/figs/pipeline.tex:125 (rendered in Fig. 1)",
+   "severity": "minor",
+   "problem": "Fig. 1 still has a box titled 'calibration' for the mapping-pass threshold. This breaks fact sheet rule C ('Calibrated' only for the predictive), which the main text now follows, and it shows in the PDF.",
+   "evidence": "pdftotext of papers/figs/pipeline.pdf shows 'calibration / null of c-bar from the static mapping pass, per history size h / theta(h): 0.999-quantile'. pipeline.tex:125 reads \\textbf{calibration}.",
+   "fix": "Rename the box to 'threshold from mapping pass' (or 'null and threshold') and rebuild figs/pipeline.pdf."
+  }
+ ]
+}

@@ -1,0 +1,1341 @@
+--- /tmp/claude-1005/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/fix/orig/main.tex	2026-09-29 14:03:02.840343129 +0700
++++ main.tex	2026-09-29 14:14:04.409794110 +0700
+@@ -4,13 +4,16 @@
+ %%  experiments, preamble). Source of every claim: the 2026-09-29 fact sheet
+ %%  (docs/reports/2026-09-29-paper-revision-1/logs/fact_sheet.md); the code
+ %%  under usplat/ is the ground truth for every formula.
++%%  Revised 2026-09-29 after the math, claims and form reviews (fix pass).
+ %%
+ %%  >>> READ ME BEFORE SUBMITTING <<<
+-%%  * Every number cell is a placeholder: \ph (XX.X) or \phs (XX.X +- XX.X).
+-%%    These are NOT results. Search this file for \ph and \todo.
++%%  * Every number cell is a placeholder: \ph (XX.X), \phs (XX.X +- XX.X) or
++%%    \phn (integer). These are NOT results. Search this file for \ph and \todo.
+ %%  * Localization and active view selection (EFE) are not part of this paper.
+-%%    Their old text is parked in papers/parked_sections.tex.
+-%%  * Build: tectonic main.tex (runs BibTeX itself). References: ref.bib.
++%%    Their old text is parked in papers/parked_sections.tex, as is the old
++%%    timing table and the old fourth contribution (one backward pass).
++%%  * Build: tectonic main.tex (runs BibTeX itself). References: ref.bib, plus
++%%    ieeectl.bib, which the preamble writes on the first pass (et al. rule).
+ %% ============================================================================
+ %% Fonts under tectonic (tectonic runs XeTeX, not pdfLaTeX).
+ %% ieeeconf selects Times with \rmdefault{ptm}. XeTeX's default text encoding
+@@ -57,11 +60,39 @@
+ \usepackage[colorlinks=true,allcolors=blue]{hyperref}  % load hyperref last
+ \hypersetup{pdfauthor={Anonymous Authors}}             % keep PDF metadata anonymous
+ 
++%% IEEE reference style: at most 6 authors, then "et al.". IEEEtran.bst reads
++%% the control entry IEEEexample:BSTcontrol from ieeectl.bib through
++%% \bstctlcite (as defined in IEEEtran.cls; ieeeconf lacks it). The file is
++%% written here on the first pass only (a marker in main.aux skips it later),
++%% so tectonic does not rerun TeX for a rewritten ieeectl.bib. Delete main.aux
++%% to regenerate it.
++\makeatletter
++\newwrite\uags@ctl
++\AtBeginDocument{%
++  \@ifundefined{uags@ctldone}{%
++    \immediate\openout\uags@ctl=ieeectl.bib\relax
++    \immediate\write\uags@ctl{\@percentchar\space IEEEtran.bst control entry, written by main.tex}%
++    \immediate\write\uags@ctl{@IEEEtranBSTCTL\@charlb IEEEexample:BSTcontrol,}%
++    \immediate\write\uags@ctl{\space\space CTLuse_forced_etal = "yes",}%
++    \immediate\write\uags@ctl{\space\space CTLmax_names_forced_etal = "6",}%
++    \immediate\write\uags@ctl{\space\space CTLnames_show_etal = "1"}%
++    \immediate\write\uags@ctl{\@charrb}%
++    \immediate\closeout\uags@ctl}{}%
++  \immediate\write\@auxout{\gdef\string\uags@ctldone{}}}
++\def\bstctlcite{\@ifnextchar[{\@bstctlcite}{\@bstctlcite[@auxout]}}
++\def\@bstctlcite[#1]#2{\@bsphack
++  \@for\@citeb:=#2\do{%
++    \edef\@citeb{\expandafter\@firstofone\@citeb}%
++    \if@filesw\immediate\write\csname #1\endcsname{\string\citation{\@citeb}}\fi}%
++  \@esphack}
++\makeatother
++
+ %% ---------------------------------------------------------------------------
+ %% Draft macros (same as papers/main.tex)
+ %% ---------------------------------------------------------------------------
+ \newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
+ \newcommand{\ph}{\textcolor{red}{XX.X}}      % numeric placeholder
++\newcommand{\phn}{\textcolor{red}{X}}        % integer placeholder
+ \newcommand{\R}{\mathbf{R}}
+ \newcommand{\xv}{\mathbf{x}}
+ \newcommand{\zv}{\mathbf{z}}
+@@ -70,6 +101,7 @@
+ \newcommand{\Sph}{\mathbb{S}}
+ \newcommand{\reimpl}{\textsuperscript{$\dagger$}}   % re-implemented baseline row
+ \newcommand{\phs}{\ph{\scriptsize$\,\pm\,$\ph}}     % mean +- std placeholder
++\newcommand{\secref}[1]{Sec.~\mbox{\ref{#1}}}       % keeps "III-F" on one line
+ 
+ %% ---------------------------------------------------------------------------
+ %% Title and anonymous byline (double-anonymous: no names, affiliations,
+@@ -98,6 +130,7 @@
+ %%    in the text of the last page (tune X by hand), as the official root.tex does.
+ 
+ \begin{document}
++\bstctlcite{IEEEexample:BSTcontrol}
+ 
+ \maketitle
+ \thispagestyle{empty}
+@@ -111,16 +144,17 @@
+ needs. Each Gaussian holds a von Mises--Fisher posterior over the direction of
+ its vision-language feature. Each keyframe counts as at most one observation
+ per Gaussian, because the pixels of one view are strongly correlated. The same
+-sufficient statistics give an epistemic uncertainty, from the effective number
++sufficient statistics give an epistemic uncertainty, from the weighted number
+ of views, and an aleatoric uncertainty, from a bias-corrected agreement of the
+ views. Little evidence and conflicting evidence thus stay separate. We detect
+ change with a known feature residual and set its threshold per scene, without
+ labels, from the map's own mapping pass. A Gaussian that fails the test is
+-reset. It rejoins the robust map only after new views whose observed depth matches its position.
+-A posterior predictive turns the field into per-pixel class probabilities. Per
+-keyframe, one render and one backward pass give all statistics. We evaluate on
+-Replica and on real rearrangements in RIO10.
+-%% Headline sentence: at most ~20 words (the rest is 179 words; limit 200).
++reset. When depth is available, it rejoins the robust map only after new views
++whose observed depth matches its position. A posterior predictive turns the
++field into per-pixel class probabilities. We evaluate on Replica and on real
++rearrangements in RIO10. \todo{RIO10 access pending: keep RIO10 only if the
++data arrive.}
++%% Headline sentence: at most ~20 words (the rest is about 170 words; limit 200).
+ \todo{headline result}
+ \end{abstract}
+ 
+@@ -139,109 +173,83 @@
+ queries by attaching vision-language features~\cite{radford2021} to the
+ Gaussians of the map~\cite{qin2024langsplat, zhou2024feature,
+ wu2024opengaussian, shi2024legaussians}. A robot that reuses the map needs more
+-than the most likely label at each point. It needs to know how much evidence
+-stands behind each Gaussian's semantics, whether that evidence agrees, and
+-whether it is still valid. Indoor scenes change. Objects are moved or removed,
+-and a map that keeps their old semantics answers queries with content that is
+-no longer there.
++than the most likely label. It needs to know how much evidence stands behind
++each Gaussian's semantics, whether that evidence agrees, and whether it is
++still valid. Indoor scenes change. Objects are moved or removed, and a map that
++keeps their old semantics answers queries with content that is no longer
++there.
+ 
+ %% Fig. 1. Placed after the first paragraph so that the float cannot land
+-%% above the abstract. Caption from the figure report (figures_report.md),
+-%% with "calibrated" replaced (fact sheet C: "calibrated" only for the predictive).
++%% above the abstract. "Calibration" is not used in the figure or the caption
++%% (fact sheet C: "calibrated" only for the predictive).
+ \begin{figure*}[t]
+   \centering
+   \includegraphics[width=\textwidth]{figs/pipeline.pdf}
+-  \caption{Overview of one keyframe update. (1)~A posed keyframe gives RGB and,
+-  when available, observed depth. (2)~A dense vision-language extractor gives
+-  per-pixel features, compressed by an uncentered PCA fit on the mapping
+-  frames. (3)~One render and one backward pass~\cite{joseph2025gradbp} give
+-  every Gaussian its per-view sums $\R_v$ and $m_v$ and the depth sums.
+-  (4)~Each view counts as one observation $\mathbf{u}_v$ with weight
+-  $\omega_v$. (5)~Four running sums give the von Mises--Fisher posterior, the epistemic
+-  uncertainty from the support $s$ (effective views), and the aleatoric
+-  uncertainty from the agreement $\hat\rho$. (6)~A change test compares the
+-  current view with all earlier evidence. Its threshold $\theta(h)$ is a
+-  quantile of the scores of the static mapping pass. (7)~A fired test resets
+-  the Gaussian. It re-enters the robust set only after new views that agree
+-  with the observed depth. (8)~Text queries are answered by a predictive
+-  render. All quantities are per Gaussian, and the index $n$ is dropped.}
++  \caption{One keyframe update. (1)~A posed keyframe gives RGB and, when
++  available, observed depth. (2)~Dense vision-language features, compressed by
++  a PCA fit on the mapping frames. (3)~One render and one backward
++  pass~\cite{joseph2025gradbp} give every Gaussian its per-view sums. (4)~Each
++  view is one observation $\mathbf{u}_v$ with weight $\omega_v$. (5)~Four
++  running sums give the vMF posterior, the support $s$ and the agreement
++  $\hat\rho$. (6)~A change test with a threshold $\theta(h)$ from the static
++  mapping pass. (7)~Reset, and re-admission after a depth check. (8)~A
++  predictive render answers text queries. The index $n$ is dropped.}
+   \label{fig:pipeline}
+ \end{figure*}
+ 
+ Several works attach uncertainty to such maps. Bayesian Kernel Inference
+ (BKI)~\cite{vegabrown2014, gan2020bayesian} fuses kernel-weighted observations
+-in closed form. Continuous Semantic Splatting (CSS)~\cite{wilson2025css} brings
+-BKI to 3D-GS. It uses the splat weight as the kernel and keeps a Dirichlet
+-posterior over a label set that is fixed at mapping time. CSS names a
+-continuous conjugate prior for open dictionaries as future work.
+-LatentBKI~\cite{wilson2025latentbki} performs open-dictionary BKI on voxels
+-with a Gaussian model of the features. LEGaussians~\cite{shi2024legaussians}
+-learns a per-Gaussian uncertainty, and LAMP~\cite{lee2026lamp} uses a von
+-Mises--Fisher (vMF) model of feature uncertainty in an implicit language map.
+-The concurrent
+-NormLift~\cite{zang2026normlift} counts effective views and uses a shrunk
+-feature norm as a reliability score. These methods assume a static scene.
+-Change-aware maps~\cite{lu2025gscd, ackermann2025clsplats,
++in closed form, and Continuous Semantic Splatting (CSS)~\cite{wilson2025css}
++brings it to 3D-GS with a Dirichlet posterior over a fixed label set. Other
++work fuses open-set features on voxels~\cite{wilson2025latentbki}, learns an
++uncertainty~\cite{shi2024legaussians, lee2026lamp}, or scores the reliability
++of lifted features~\cite{zang2026normlift}. These methods assume a static
++scene. Change-aware maps~\cite{lu2025gscd, ackermann2025clsplats,
+ zeng2025gaussianupdate, he2026vgmapping, jiang2026mif} detect moved or removed
+ content by comparing new observations with the map. Two questions fall
+ between these lines of work: how a detected change should enter the
+ uncertainty bookkeeping, and how to set the detection threshold on a new scene
+-without labels. The bookkeeping decides which evidence to forget and when to
+-trust a Gaussian again. A threshold tuned on one scene need not suit another,
+-because feature noise differs between scenes.
++without labels.
+ 
+ We answer both questions inside one Bayesian field. Each Gaussian holds a vMF
+-posterior~\cite{mardia2000directional} over the direction
+-of its feature. A keyframe contributes one weighted observation per Gaussian:
+-the splat-weighted mean of the pixel features that the Gaussian covers. Counting
+-pixels instead would over-state the evidence, because the pixels of one view
+-are strongly correlated. To detect change, we compare all earlier evidence of a
+-Gaussian with the current view. This statistic is the classic feature
+-residual~\cite{ackermann2025clsplats, jiang2026mif}, and we do not claim it as
+-new. Our part is what happens around it: how the threshold is set without
+-labels, which evidence is reset, and when a Gaussian is trusted again. Geometry
+-stays fixed after mapping. We forget moved content at its old place but do not
+-insert it at its new place. Fig.~\ref{fig:pipeline} shows one keyframe update.
+-
+-Our contributions are:
++posterior~\cite{mardia2000directional} over the direction of its feature. A
++keyframe contributes one weighted observation per Gaussian: the splat-weighted
++mean of the pixel features that the Gaussian covers. To detect change, we
++compare all earlier evidence of a Gaussian with the current view. This
++statistic is the classic feature residual~\cite{ackermann2025clsplats,
++jiang2026mif}, and we do not claim it as new. Our part is what happens around
++it: how the threshold is set without labels, which evidence is reset, and when
++a Gaussian is trusted again. Geometry stays fixed after mapping, so moved
++content is forgotten at its old place but not inserted at its new one.
++Fig.~\ref{fig:pipeline} shows one keyframe update. Our contributions are:
+ \begin{itemize}
+ \item \textbf{A directional posterior with view-level evidence.} Each Gaussian
+-keeps a vMF posterior that receives one weighted observation per view. With
+-one-hot features and the same weights, its sufficient statistic equals the
+-categorical BKI count. It is thus the directional counterpart of Dirichlet
+-semantic mapping, with the same statistic and MAP label but not the same
+-distribution. The epistemic read-out comes from the Kish effective number of
+-views~\cite{kish1965survey}. The aleatoric read-out is a bias-corrected
+-agreement of the views that does not shrink with the amount of evidence. Little
+-evidence and conflicting evidence therefore stay separate.
+-\item \textbf{Change handling in the Bayesian bookkeeping.} The threshold for
+-the residual is a quantile of the scores from the map's own mapping pass, taken
+-separately for each history length. If the mapping sequence is static, this
+-sets a per-view false-alarm rate without labels. A Gaussian above the threshold
+-is reset. It rejoins the robust map only after new views whose observed depth
+-matches its position, so a removed object cannot return with stale geometry.
+-\item \textbf{A posterior predictive.} Per-pixel class probabilities come from a
+-render of each Gaussian's posterior mean feature, so weakly supported Gaussians
+-flatten the prediction. The softmax temperature can also depend on the rendered
+-uncertainties. We test whether this lowers NLL and ECE compared with plug-in
+-features that have their own fitted temperature.
+-\item \textbf{One backward pass for all statistics.} We follow the gradient
+-identity of~\cite{joseph2025gradbp} and stack feature, mass and depth channels
+-in one render, so that one backward pass gives every statistic. This needs a
+-rasterizer that is affine in the per-Gaussian features.
+-\todo{anonymous code link, or remove}
++keeps a vMF posterior, the directional counterpart of Dirichlet semantic
++mapping, that receives one weighted observation per view. Its epistemic
++read-out is the weighted number of views. Its aleatoric read-out is a
++bias-corrected agreement of the views that does not shrink with the amount of
++evidence.
++\item \textbf{Change handling in the Bayesian bookkeeping.} The threshold of
++the residual is a quantile of the map's own mapping-pass scores, per history
++length. This targets a nominal per-view false-alarm rate on static content
++without labels, and we measure the actual rate. A flagged Gaussian is reset
++and rejoins the robust map only after a depth check.
++\item \textbf{A posterior predictive.} Per-pixel class probabilities come from
++a render of each Gaussian's posterior mean feature, so weakly supported
++Gaussians flatten the prediction. The temperature can also depend on the
++rendered uncertainties. We test whether this lowers NLL and ECE compared with
++plug-in features at their own fitted temperature.
+ \end{itemize}
+ 
+-%% RIO10 access is still pending (fact sheet E). Keep the RIO10 clause only if
+-%% the data arrive.
+ We evaluate segmentation, uncertainty ranking and calibration on 8 Replica
+ scenes~\cite{straub2019replica, zhi2021semanticnerf}, and stale-content
+ detection on real object rearrangements in RIO10~\cite{wald2020rio10,
+-wald2019rio}. \todo{one sentence on the main measured finding}
++wald2019rio}. \todo{RIO10 access pending: keep this clause only if the data
++arrive, else name the fallback dataset. Add one sentence on the main measured
++finding, and the anonymous code link or nothing.}
+ 
+ %% ============================================================================
+-%% Related Work (draft-related, 2026-09-29). About 0.59 page in
+-%% ieeeconf 10pt two-column. 27 \cite keys, all in papers/ref.bib.
++%% Related Work
+ %% ============================================================================
+ \section{Related Work}
+ \label{sec:related}
+@@ -253,15 +261,15 @@
+ features or masks. LEGaussians also learns a per-Gaussian uncertainty.
+ Training-free methods~\cite{cheng2025occam, joseph2025gradbp} give each
+ Gaussian the splat-weighted average of its pixel features,
+-which~\cite{joseph2025gradbp} reads from one render's gradient. The concurrent
+-NormLift~\cite{zang2026normlift} derives the normalized weighted mean from a
+-cosine alignment problem. On static scenes, it scores reliability by that
+-mean's norm, shrunk by a Kish count~\cite{kish1965survey} of effective views.
+-We reuse this gradient identity. With no text prior, our mean direction is a
+-view-weighted form of the same mean, and our view count uses the same Kish
+-formula. We differ in an agreement estimate that keeps the amount of evidence
+-out of the dispersion, a predictive whose calibration we test, and in handling
+-scene change.
++which~\cite{joseph2025gradbp} reads from the gradient of one render. The
++concurrent NormLift~\cite{zang2026normlift} averages per-view mean features.
++It factors the norm of the un-normalized mean into within-view and cross-view
++consistency. On static scenes it scores reliability by that norm, shrunk by a
++Kish count~\cite{kish1965survey} of effective views. We reuse the gradient
++identity and NormLift's per-view mean. We differ in three ways. Our cross-view
++agreement is bias-corrected and does not shrink with the amount of evidence.
++It enters a vMF posterior with a predictive whose calibration we test. We also
++handle scene change.
+ 
+ \textbf{Probabilistic semantic mapping.}
+ BKI~\cite{vegabrown2014} updates a conjugate
+@@ -269,19 +277,16 @@
+ keeps a Dirichlet posterior over classes in voxels, and
+ E2-BKI~\cite{kim2025e2bki} adds evidential reasoning and ellipsoidal kernels.
+ CSS~\cite{wilson2025css} brings the Dirichlet model to 3D-GS with the splat
+-weight as the kernel, as we do. It separates sparse from conflicting
+-observations over a closed label set fixed at mapping time, and names an
+-open-dictionary conjugate prior as future work.
+-LatentBKI~\cite{wilson2025latentbki} and SLIM-VDB~\cite{sheppard2026slimvdb}
+-fuse open-set features on voxels under Gaussian models.
+-Bayesian Fields~\cite{maggio2025bayesian} updates per-Gaussian relevance
+-probabilities for tasks given at mapping time.
++weight as the kernel. It separates sparse from conflicting observations over a
++closed label set fixed at mapping time, and names an open-dictionary conjugate
++prior as future work. LatentBKI~\cite{wilson2025latentbki} and
++SLIM-VDB~\cite{sheppard2026slimvdb} fuse open-set features on voxels under
++Gaussian models. Bayesian Fields~\cite{maggio2025bayesian} updates
++per-Gaussian relevance probabilities for tasks given at mapping time.
+ PhysGS~\cite{chopra2026physgs} splits aleatoric from epistemic
+ variance~\cite{kendall2017uncertainties} for physical properties in 3D-GS. We
+-keep the kernel of CSS but model unit features with a vMF distribution. With one-hot features and equal weights, our statistic equals the
+-categorical count increment, so both share the sufficient statistic and MAP
+-label, not the distribution. We also count a view, not a pixel, as one
+-observation, since pixels of one view are strongly correlated.
++start from the splat-weight kernel of CSS, normalize it per view, and model
++unit features with a vMF distribution (\secref{sec:posterior}).
+ 
+ \textbf{Directional statistics.}
+ The vMF distribution is the standard model for unit
+@@ -290,9 +295,7 @@
+ vectors~\cite{banerjee2005vmf}. The implicit language field of
+ LAMP~\cite{lee2026lamp} outputs a vMF mean and a concentration, read as
+ aleatoric uncertainty. We train no network. Each Gaussian keeps additive
+-sufficient statistics, which give an epistemic score from the effective number
+-of views and a separate aleatoric score from a bias-corrected agreement
+-estimate.
++sufficient statistics instead.
+ 
+ \textbf{Change detection and long-term maps.}
+ 3DGS-CD~\cite{lu2025gscd} finds rearranged objects from render-image
+@@ -301,24 +304,26 @@
+ regions. GaussianUpdate~\cite{zeng2025gaussianupdate} uses continual learning
+ with generative replay, and VG-Mapping~\cite{he2026vgmapping} adds and removes
+ Gaussians in changed regions of semi-static scenes. MIF~\cite{jiang2026mif}
+-updates its scene memory where a discrepancy score shows a persistent change.
+-Chu and Kim~\cite{chu2026semantic} let a language model pick stable objects to
++updates its scene memory where the discrepancy of matched scene-graph nodes, a
++position term plus a feature-cosine term, exceeds a fixed threshold. Chu and
++Kim~\cite{chu2026semantic} let a language model pick stable objects to
+ localize in changing indoor scenes. Our change score is the same kind of
+-feature residual as in MIF and CL-Splats: one minus the cosine between all
+-earlier evidence and the current view, required over two views. We differ in
+-the threshold and the response. The threshold is a quantile of the map's own
+-mapping-pass scores per history size, so it needs no labels or per-scene
+-tuning. A detection resets the Gaussian's semantic evidence, and new views with
+-a depth check gate its return. Unlike CL-Splats, GaussianUpdate and VG-Mapping,
+-we keep geometry fixed: moved content is forgotten at its old place, not
+-inserted at its new one.
++feature residual as that of CL-Splats and the semantic term of MIF. It is one
++minus the cosine between all earlier evidence of a Gaussian and the current
++view, and a change must persist over two views. We differ in the threshold and
++the response. The threshold is a quantile of the map's own mapping-pass scores
++per history size, so it needs no labels. A detection resets the Gaussian's
++semantic evidence, and new views with a depth check gate its return. Unlike
++CL-Splats, GaussianUpdate and VG-Mapping, we keep geometry fixed.
+ 
+ %% ============================================================================
+ \section{Method}
+ \label{sec:method}
+ %% ============================================================================
+ %% Symbols: w_{p,n} = splat weight, \omega_{v,n} = view weight, \lambda = retention
+-%% of the change test (fact sheet "beta"), \beta = temperature of the predictive.
++%% of the change test (fact sheet "beta"), \beta = temperature of the predictive,
++%% k = persistence window, M = number of mapping frames (Sec. metrics),
++%% \gamma_e, \gamma_a, \gamma_u = P2 coefficients (code: a, b, g).
+ Each keyframe gives every visible Gaussian one view-level observation, and a
+ few running sums hold its semantic state (Fig.~\ref{fig:pipeline},
+ Alg.~\ref{alg:update}).
+@@ -328,40 +333,51 @@
+ The map holds $N$ Gaussians~\cite{kerbl2023}, and its geometry is fixed after
+ mapping. At pixel $p$, Gaussian $n$ has opacity $\alpha_{p,n}$: its base opacity
+ times its projected 2D Gaussian evaluated at $p$. With the Gaussians sorted by
+-depth, the splat weight and the transmittance are
+-\[
+-w_{p,n}=T_{p,n}\,\alpha_{p,n},\qquad T_{p,n}=\textstyle\prod_{j<n}(1-\alpha_{p,j}).
+-\]
+-$w_{p,n}$ is the share of pixel $p$ that Gaussian $n$ explains. A per-Gaussian
+-buffer $\mathbf{f}_n$ renders to $\mathbf{F}_p=\sum_n w_{p,n}\mathbf{f}_n$, and
+-$\alpha_p=\sum_n w_{p,n}\le1$ is the rendered opacity. As in
+-CSS~\cite{wilson2025css}, $w_{p,n}$ is the BKI
+-kernel~\cite{vegabrown2014, gan2020bayesian}.
++depth, the splat weight is $w_{p,n}=T_{p,n}\,\alpha_{p,n}$ with the
++transmittance $T_{p,n}=\prod_{j<n}(1-\alpha_{p,j})$. It is the share of pixel
++$p$ that Gaussian $n$ explains. A per-Gaussian buffer $\mathbf{f}_n$ renders
++to $\mathbf{F}_p=\sum_n w_{p,n}\mathbf{f}_n$, and $\alpha_p=\sum_n
++w_{p,n}\le1$ is the rendered opacity. As in CSS~\cite{wilson2025css},
++$w_{p,n}$ is the BKI kernel~\cite{vegabrown2014, gan2020bayesian}.
+ 
+ \subsection{Features and Query Space}
+ \label{sec:features}
+-A dense extractor, \todo{extractor}, gives unit pixel features $\tilde\zv_p$
+-that are cosine-comparable with unit text embeddings
++A dense extractor, LSeg~\cite{li2022lseg}, gives unit pixel features
++$\tilde\zv_p$ that are cosine-comparable with unit CLIP text embeddings
+ $\tilde{\mathbf{t}}_c$~\cite{radford2021}. An uncentered PCA with orthonormal
+ basis $B$, fit on mapping frames only (no text, no labels), compresses them to
+ $d=64$: $\zv_p=B^\top\tilde\zv_p/\lVert B^\top\tilde\zv_p\rVert\in\Sph^{d-1}$.
+-Texts are projected without renormalization, $\mathbf{t}_c=B^\top\tilde{\mathbf{t}}_c$.
+-Then $\muv^\top\mathbf{t}_c=(B\muv)^\top\tilde{\mathbf{t}}_c$ is the full-space
++Texts are projected without renormalization,
++$\mathbf{t}_c=B^\top\tilde{\mathbf{t}}_c$, so
++$\muv^\top\mathbf{t}_c=(B\muv)^\top\tilde{\mathbf{t}}_c$ is the full-space
+ cosine between the decoded direction $B\muv$ and the text. Renormalizing
+-$\mathbf{t}_c$ would inflate texts with little energy in the image subspace, and
+-it can change the argmax label.
++$\mathbf{t}_c$ would inflate texts with little energy in the image subspace
++and can change the argmax label.
+ 
+ \subsection{View-Level Evidence}
+ \label{sec:evidence}
+ Keyframe $v$ gives every Gaussian $n$ the sums $\R_{v,n}=\sum_p w_{p,n}\zv_p$ and
+-$m_{v,n}=\sum_p w_{p,n}$ (Sec.~\ref{sec:backward}). Pixels of one view are
+-strongly correlated. For example, one token of a ViT-B/16 backbone covers
+-$16\times16$ pixels. A pixel count thus overstates the evidence and grows with the image
+-resolution, so we count views. View $v$ gives Gaussian $n$ one observation, the
+-view mean $\mathbf{u}_{v,n}=\R_{v,n}/m_{v,n}$, whose length
+-$\lVert\mathbf{u}_{v,n}\rVert\le1$ is the coherence inside the view. Its weight
+-$\omega_{v,n}=\min(1,\,m_{v,n}/(a_0HW))$ [$a_0=10^{-4}$] does not depend on the
+-resolution. Gaussian $n$ keeps four sums over the views $v$ (index $n$ dropped):
++$m_{v,n}=\sum_p w_{p,n}$. We read them from one render and one backward
++pass. With geometry and opacity detached, $\mathbf{F}_p$ is linear in the
++buffer, so the gradient of $\sum_p\mathbf{Y}_p^\top\mathbf{F}_p$ with respect
++to $\mathbf{f}_n$ is $\sum_p w_{p,n}\mathbf{Y}_p$ for any per-pixel target
++$\mathbf{Y}_p$. We take this identity from Gradient-Weighted Feature
++Back-Projection~\cite{joseph2025gradbp}, and stack $\zv_p$, a ones channel and
++the observed depth with its validity mask into one target. This gives all
++per-Gaussian sums of Alg.~\ref{alg:update}, with no per-Gaussian pixel lists.
++It needs a rasterizer affine in per-Gaussian features. We use gsplat~\cite{ye2024gsplat}
++with the buffer in place of the colors and no spherical harmonics.
++
++Pixels of one view are strongly correlated. For example, one ViT-L/16 patch of LSeg covers
++$16\times16$ pixels. A pixel count thus overstates the evidence and grows with
++the image resolution, so we count views. View $v$ gives Gaussian $n$ one
++observation, the view mean $\mathbf{u}_{v,n}=\R_{v,n}/m_{v,n}$, as in
++NormLift~\cite{zang2026normlift}. Its length $\lVert\mathbf{u}_{v,n}\rVert\le1$
++is the coherence inside the view. Its weight
++$\omega_{v,n}=\min(1,\,m_{v,n}/(a_0HW))$ (default $a_0=10^{-4}$) does not depend
++on the resolution, and a view with a smaller footprint counts fractionally.
++Gaussian $n$ keeps four sums over its views, written without the indices on
++the right:
+ \[
+ \R_n=\textstyle\sum\omega\mathbf{u},\;
+ W_1=\sum\omega,\;
+@@ -385,8 +401,9 @@
+ ($\kappa_0=0$), so $\muv^\star_n=\R_n/\lVert\R_n\rVert$. For $\kappa_n$ we use
+ the joint conjugate prior
+ $p(\muv,\kappa)\propto C_d(\kappa)^{c_0}e^{\kappa\mathbf{m}_0^\top\muv}$ with
+-$\mathbf{m}_0=\mathbf{0}$ [$c_0=1$]. The joint posterior is proportional to
+-$C_d(\kappa)^{W_1+c_0}e^{\kappa\muv^\top\R_n}$, and its MAP concentration solves
++$\mathbf{m}_0=\mathbf{0}$ (default $c_0=1$). The joint posterior is
++proportional to $C_d(\kappa)^{W_1+c_0}e^{\kappa\muv^\top\R_n}$, and its MAP
++concentration solves
+ \begin{equation}
+ A_d(\hat\kappa_n)=\frac{\lVert\R_n\rVert}{W_1+c_0},\qquad
+ A_d(\kappa)=\frac{I_{d/2}(\kappa)}{I_{d/2-1}(\kappa)},
+@@ -395,18 +412,20 @@
+ where $A_d(\kappa)=\mathbb{E}[\muv^\top\zv]$ is the mean cosine of a vMF. We set
+ $\kappa_n=\hat\kappa_n$, so $\kappa^{\mathrm{post}}_n=\hat\kappa_n\lVert\R_n\rVert$.
+ The concentration never changes $\muv^\star_n$ or the label. It only sets how
+-sharp the posterior is. With one-hot features and the same kernel, $\R_n$ equals
+-the count increment of categorical BKI (the Dirichlet update of
+-CSS~\cite{wilson2025css}). The two models share the sufficient statistic and the MAP label but not the
+-distribution, so the vMF model is the directional counterpart.
++sharp the posterior is. With one-hot features, $\R_n$ equals the count
++increment of categorical BKI run with our view-level kernel.
++(CSS~\cite{wilson2025css} uses the pixel kernel $w_{p,n}$, so its counts
++differ.) The two models share the sufficient statistic and the MAP label but
++not the distribution, so the vMF model is the directional counterpart of
++Dirichlet semantic mapping.
+ 
+ \subsection{Epistemic and Aleatoric Uncertainty}
+ \label{sec:uncertainty}
+-\textbf{Epistemic.} The Kish effective number of
+-views~\cite{kish1965survey} is $n_K=W_1^2/W_2$. We use the support
+-$s_n=\min(n_K,W_1)$, the effective number of views capped by the total view
+-weight, so many weak views count as little evidence, and set
+-$u^{\mathrm{epi}}_n=1/(1+s_n)$.
++\textbf{Epistemic.} The support $s_n=W_1$ is the number of views, each
++weighted by $\omega\le1$, and $u^{\mathrm{epi}}_n=1/(1+s_n)$. Because
++$\omega\le1$, the Kish effective number of views~\cite{kish1965survey}
++$n_K=W_1^2/W_2$ is never below $W_1$. It ignores the scale of the weights, so
++it would count ten small partial views as much as ten full ones.
+ 
+ \textbf{Aleatoric.} Let $\rho_n=\lVert\mathbb{E}\,\mathbf{u}_{v,n}\rVert$. It is
+ one when every view shows the same unit feature and near zero when the views
+@@ -416,34 +435,33 @@
+ u^{\mathrm{ale}}_n=1-\hat\rho_n ,
+ \label{eq:rho}
+ \end{equation}
+-where $[\cdot]_0^1$ clamps to $[0,1]$. For independent views with a common mean,
+-$\mathbb{E}\lVert\R_n\rVert^2=(W_1^2-W_2)\rho_n^2+\sum_v\omega^2\,
+-\mathbb{E}\lVert\mathbf{u}_{v,n}\rVert^2$, so the bracket is unbiased for
+-$\rho_n^2$ for two or more views. $u^{\mathrm{ale}}_n$ is defined once
+-$s_n\ge\tau_{\min}$ [3 views]. Two simpler estimates mix the amount of evidence
+-into the dispersion. The mean resultant length $\bar r_n=\lVert\R_n\rVert/W_1$ is
+-biased upward, by up to about $1/\sqrt{n_K}$. A prior-shrunk agreement such as
+-$\lVert\R_n\rVert/(W_1+c_0)$, the form of NormLift's reliability (feature norm
+-times $N_{\mathrm{eff}}/(N_{\mathrm{eff}}+1)$)~\cite{zang2026normlift}, is small
+-whenever evidence is scarce.
+-Estimator~\eqref{eq:rho} does neither, so little evidence and conflicting
+-evidence stay separate (Fig.~\ref{fig:plane}). The shrunk form suits
+-$\hat\kappa_n$ in~\eqref{eq:kappa}, where scarce evidence should broaden the
+-posterior.
++where $[\cdot]_0^1$ clamps to $[0,1]$. For independent views with a common
++mean, the expected squared norm is $\mathbb{E}\lVert\R_n\rVert^2=(W_1^2-W_2)\rho_n^2+\sum_v\omega^2\,
++\mathbb{E}\lVert\mathbf{u}_{v,n}\rVert^2$. The ratio inside the clamp is thus
++unbiased for $\rho_n^2$ for two or more views. The clamp and the square root
++leave a small bias at few views. The aleatoric uncertainty is defined once
++$s_n\ge\tau_{\min}$ (default 3 views). Two simpler estimates mix the amount of
++evidence into the dispersion. The mean resultant length
++$\bar r_n=\lVert\R_n\rVert/W_1$ is biased upward, by up to about
++$1/\sqrt{n_K}$. A prior-shrunk agreement such as $\lVert\R_n\rVert/(W_1+c_0)$
++is small whenever evidence is scarce. NormLift's reliability, its feature norm
++times $N_{\mathrm{eff}}/(N_{\mathrm{eff}}+1)$~\cite{zang2026normlift}, has this
++form. Estimator~\eqref{eq:rho} removes the leading bias of $\bar r_n$ and does
++not shrink, so little evidence and conflicting evidence stay separate
++(Fig.~\ref{fig:plane}). The shrunk form suits $\hat\kappa_n$
++in~\eqref{eq:kappa}, where scarce evidence should broaden the posterior.
+ 
+ \begin{figure}[t]
+   \centering
+   \includegraphics[width=\linewidth]{figs/uncertainty_plane.pdf}
+-  %% Caption from the figure report: it also explains the estimator curves.
+-  \caption{Support $s$ (effective views) against agreement $\hat\rho$ of one
+-  Gaussian (index $n$ dropped). Below $\tau_{\min}$, $u^{\mathrm{ale}}$ is
+-  undefined and more views help. Above it, $\hat\rho\ge0.6$ without a change
+-  flag gives the robust set, and a low $\hat\rho$ marks conflict that more views
+-  do not resolve. The curves are expected values for two Gaussians with true
+-  agreement $\rho$ (dotted). $\lVert\R\rVert/W_1$ makes the conflicting one look
+-  consistent at few views, and $\lVert\R\rVert/(W_1+c_0)$ makes the consistent
+-  one look conflicting. $\hat\rho$ stays at $\rho$. A change is a test over
+-  time, not a region: when it fires, $s$ drops to at most one view.}
++  \caption{Support $s$ (weighted views) against agreement $\hat\rho$ of one
++  Gaussian. The curves are root-mean-square values for two Gaussians with true
++  agreement $\rho$ (dotted). The mean length $\lVert\R\rVert/W_1$ makes the
++  conflicting one look consistent at few views, and the shrunk
++  $\lVert\R\rVert/(W_1+c_0)$ makes the consistent one look conflicting. Our
++  $\hat\rho$ is drawn at $\rho$: before the clamp $\hat\rho^2$ is unbiased, so
++  $\hat\rho$ stays close to $\rho$. A fired change test resets $s$ to at most
++  one view.}
+   \label{fig:plane}
+ \end{figure}
+ 
+@@ -452,61 +470,70 @@
+ We test each Gaussian at each view with a family of two-bucket statistics. An
+ older bucket $\R^{\mathrm{old}}_n$ and a recent bucket $\R^{\mathrm{new}}_n$
+ split $\R_n$ without overlap. Each view moves a share $1-\lambda^{\omega}$ of
+-the recent bucket into the older one and then adds $\omega_{v,n}\mathbf{u}_{v,n}$ to the
+-recent one (retention $\lambda\in[0,1)$ per full view, masses alike). The score
+-$c=1-\cos(\R^{\mathrm{old}}_n,\R^{\mathrm{new}}_n)$ is defined once the support
+-reaches $\tau_{\min}$ and each bucket holds one full view. A change must persist,
+-so the statistic $\bar c_n$ is the minimum of the last $k$ defined scores.
+-
+-On a tuning sequence not used for testing \todo{name it. The code notes
+-say 7-Scenes chess.}, we chose $\lambda=0$
++the recent bucket, and of its mass, into the older one. It then adds
++$\omega_{v,n}\mathbf{u}_{v,n}$ to the recent one (retention $\lambda\in[0,1)$
++per full view). The score
++$c_n=1-\cos(\R^{\mathrm{old}}_n,\R^{\mathrm{new}}_n)$ is defined once the
++support reaches $\tau_{\min}$ and each bucket holds one full view. A change
++must persist, so the statistic $\bar c_n$ is the minimum of the last $k$
++defined scores.
++
++%% Tuning scene: usplat/vmf_field.py:44 ("k = 2 won the chess grid") and
++%% docs/reports/2026-09-29-data-and-baselines/README.md ("chess = tuning").
++On a tuning sequence not used for testing, the 7-Scenes chess
++scene~\cite{glocker2013} with simulated object swaps, we chose $\lambda=0$
+ and $k=2$. Then $\bar c_n$ is the minimum over the last two views $t$ of
+ $1-\cos\big(\sum_{v<t}\omega_{v,n}\mathbf{u}_{v,n},\,\mathbf{u}_{t,n}\big)$, the
+ cosine distance between all earlier evidence and the current view. This member
+-is the classic feature-residual test that compares stored with observed
+-features~\cite{jiang2026mif, ackermann2025clsplats}. We do not claim the
+-statistic. Our contribution is how its threshold is set and the Bayesian
+-bookkeeping around it. Centering the features on the scene mean hurt in tuning, so it is off.
+-
+-\textbf{Threshold from the mapping pass.} Feature noise differs between
+-scenes, so a fixed threshold on $\bar c_n$ does not transfer. We set it,
+-without labels, from the map's own mapping pass. That sequence is assumed static, so its scores
+-sample the no-change null (no resets happen during mapping). Short histories
+-give noisier scores, so we keep one null histogram per history size, the
+-mass $h_n=W^{\mathrm{old}}_n$ of the older bucket, with bin edges at 4, 6, 10, 20 and 40 views. The
+-threshold $\theta(h)$ is the $q$-quantile of bin $h$ [$q=0.999$], a nominal
+-per-view false-alarm rate of $10^{-3}$ on static content. A bin with fewer than
+-200 samples borrows the nearest bin with enough. A null of per-Gaussian maxima
+-over the mapping pass would be inflated by the short early histories.
+-
++is the classic feature-residual test~\cite{jiang2026mif,
++ackermann2025clsplats}. We do not claim the statistic, only how its threshold
++is set and the bookkeeping around it. Centering the features on the scene mean
++hurt in tuning, so it is off.
++
++\textbf{Threshold from the mapping pass.} In tuning, a fixed threshold on
++$\bar c_n$ did not transfer between scenes (fixed-threshold row of
++Table~\ref{tab:ablation}). We therefore set it, without labels, from the map's
++own mapping pass. That sequence is assumed static, so its scores sample the
++no-change null (no resets happen during mapping). Short histories give noisier
++scores, so we keep one null histogram per history size, the mass
++$h_n=W^{\mathrm{old}}_n$ of the older bucket, with bin edges at 4, 6, 10, 20
++and 40 views. The threshold $\theta(h)$ is the $q$-quantile of bin $h$
++(default $q=0.999$), a nominal per-view false-alarm rate of $10^{-3}$ on static
++content. A bin with fewer than 200 samples borrows the nearest bin with
++enough. In tuning, a null of per-Gaussian maxima over the mapping pass was
++inflated by the short early histories.
++
++%% Re-admission as implemented (usplat/vmf_field.py:442-475): views_since_reset
++%% restarts at 0 and then adds the omega of the view that fired, and the depth
++%% record includes that view. The fact sheet's "3 new views" differs from this.
+ \textbf{Reset and re-admission.} When $\bar c_n>\theta(h_n)$, Gaussian $n$
+ forgets. Its four sums, buckets and depth record restart from the current
+-view, and it is flagged \emph{changed}. It is re-admitted after 3 views
+-since the reset if the mean
+-$\lvert d^{\mathrm{obs}}_{v,n}-d^{\mathrm{ctr}}_{v,n}\rvert$ over them is at most
+-5\,cm. Here $d^{\mathrm{obs}}_{v,n}$ is the observed depth (sensor or estimator,
+-never rendered from the map) averaged over the footprint with the weights
+-$w_{p,n}$, and $d^{\mathrm{ctr}}_{v,n}$ is the camera depth of the Gaussian
+-center. Gaussians of a removed object see the surface behind them, fail the
+-check and cannot return with stale geometry. A Gaussian with no valid depth since
+-its reset stays out. Without any depth stream, the views alone decide. The
+-\emph{robust set} holds the Gaussians with $s_n\ge\tau_{\min}$,
+-$\hat\rho_n\ge0.6$ and no change flag. As the geometry is fixed, moved content is
+-forgotten at its old place but not inserted at its new one.
++view, and it is flagged \emph{changed}. It is re-admitted at the first view at
++which its view weight since the reset, the view that fired included, is at
++least 3 and the view-weighted mean of
++$\lvert d^{\mathrm{obs}}_{v,n}-d^{\mathrm{ctr}}_{v,n}\rvert$ over these views
++is at most 5\,cm. Here $d^{\mathrm{obs}}_{v,n}$ is the observed depth (sensor
++or estimator, never rendered from the map) averaged over the footprint with
++the weights $w_{p,n}$, and $d^{\mathrm{ctr}}_{v,n}$ is the camera depth of the
++Gaussian center. The Gaussians of a removed object see the surface behind
++them. They stay out while that surface lies more than 5\,cm from their
++centers. A Gaussian with no valid depth since its reset stays out. Without any
++depth stream, the views alone decide. The \emph{robust set} holds the
++Gaussians with $s_n\ge\tau_{\min}$, $\hat\rho_n\ge0.6$ and no change flag.
+ 
+ \begin{algorithm}[t]
+ \caption{Update of the field with keyframe $v$}
+ \label{alg:update}
+ \begin{algorithmic}[1]
+-\STATE One render, one backward pass: $\R_{v,n}$, $m_{v,n}$, depth sums
++\STATE Render and backward pass: $\R_{v,n}$, $m_{v,n}$, depth sums
+ \FORALL{Gaussians $n$ with $m_{v,n}>0$, in parallel}
+ \STATE $\mathbf{u}\leftarrow\R_{v,n}/m_{v,n}$,\;
+ $\omega\leftarrow\min(1,m_{v,n}/(a_0HW))$
+ \STATE $\R^{\mathrm{old}}_n\mathrel{+}=(1-\lambda^{\omega})\R^{\mathrm{new}}_n$,\;
+ $\R^{\mathrm{new}}_n\leftarrow\lambda^{\omega}\R^{\mathrm{new}}_n+\omega\mathbf{u}$
+-\STATE If defined: $\bar c_n\leftarrow\min$ of the last $k$ values of
+-$1-\cos(\R^{\mathrm{old}}_n,\R^{\mathrm{new}}_n)$. Mapping: add $\bar c_n$ to
+-the null of bin $h_n$. Later: if $\bar c_n>\theta(h_n)$, reset and flag $n$.
++\STATE If defined, $\bar c_n\leftarrow$ minimum of the last $k$ scores $c_n$.
++While mapping, add $\bar c_n$ to the null of bin $h_n$. Later, reset and flag
++$n$ if $\bar c_n>\theta(h_n)$.
+ \STATE $\R_n\mathrel{+}=\omega\mathbf{u}$, $W_1\mathrel{+}=\omega$,
+ $W_2\mathrel{+}=\omega^2$, $Q\mathrel{+}=\omega^2\lVert\mathbf{u}\rVert^2$
+ \STATE Update the depth residual, unflag $n$ if re-admitted
+@@ -517,43 +544,32 @@
+ 
+ \subsection{Predictive Distribution}
+ \label{sec:predictive}
+-For pixel $p$ of a novel view,
++For pixel $p$ of a novel view, the class probabilities are
+ \[
+-p(c\mid p)=\operatorname{softmax}_c\big(\beta\,\mathbf{F}_p^\top\mathbf{t}_c\big),
++P(y_p=c)=\operatorname{softmax}_c\big(\beta\,\mathbf{F}_p^\top\mathbf{t}_c\big),
+ \qquad \mathbf{F}_p=\textstyle\sum_n w_{p,n}\mathbf{f}_n .
+ \]
+-$\mathbf{F}_p$ is not divided by $\alpha_p$, so low opacity flattens the
+-distribution. \emph{P0} (plug-in) renders $\mathbf{f}_n=\muv^\star_n$.
+-\emph{P1} (posterior) renders the vMF mean
++The render $\mathbf{F}_p$ is not divided by $\alpha_p$, so low opacity
++flattens the distribution. \emph{P0} (plug-in) renders
++$\mathbf{f}_n=\muv^\star_n$. \emph{P1} (posterior) renders the vMF mean
+ $\mathbb{E}[\muv_n]=A_d(\kappa^{\mathrm{post}}_n)\,\muv^\star_n$, a mean-field
+ treatment of the per-Gaussian posteriors, so weakly supported Gaussians pull
+ $\mathbf{F}_p$ toward zero. \emph{P2} (adaptive) keeps the P0 render with a
+ per-pixel temperature
+-$\beta_p=\beta_0\exp\!\big(-a\,u^{\mathrm{epi}}_p-b\,u^{\mathrm{ale}}_p
+--g\,\mathbf{1}[u^{\mathrm{ale}}_p\ \text{undefined}]\big)$. Here $u_p$ averages
+-$u_n$ with the weights $w_{p,n}$ over the Gaussians where $u_n$ is defined.
+-$u^{\mathrm{ale}}_p$ is undefined when more than half of $\alpha_p$ comes from
+-Gaussians with undefined $u^{\mathrm{ale}}_n$, and
+-$g$ gives such pixels their own offset instead of the most confident value
+-$u^{\mathrm{ale}}=0$. We fit $\beta$ (P0, P1), $(\beta_0,a,b,g)$ (P2) and the
+-temperature of every baseline by NLL on the validation split.
+-
+-\subsection{One Backward Pass for All Channels}
+-\label{sec:backward}
+-With geometry and opacity detached, $\mathbf{F}_p$ is linear in the buffer, so
+-$\partial\big(\sum_p\mathbf{Y}_p^\top\mathbf{F}_p\big)/\partial\mathbf{f}_n
+-=\sum_p w_{p,n}\mathbf{Y}_p$ for any per-pixel target $\mathbf{Y}_p$. We take
+-this gradient identity from Gradient-Weighted Feature
+-Back-Projection~\cite{joseph2025gradbp}. We stack $\zv_p$, a ones channel and
+-the observed depth with its validity mask into one target. One render and one
+-backward pass per keyframe then give every per-Gaussian sum of
+-Alg.~\ref{alg:update}, with no per-Gaussian pixel lists. The rasterizer
+-must be affine in per-Gaussian features. We use gsplat~\cite{ye2024gsplat} with
+-the buffer in place of the colors and no spherical harmonics.
++$\beta_p=\beta_0\exp\!\big(-\gamma_e u^{\mathrm{epi}}_p-\gamma_a u^{\mathrm{ale}}_p
++-\gamma_u\mathbf{1}[u^{\mathrm{ale}}_p\ \text{undefined}]\big)$. Here
++$u^{\mathrm{epi}}_p$ and $u^{\mathrm{ale}}_p$ average $u^{\mathrm{epi}}_n$ and
++$u^{\mathrm{ale}}_n$ with the weights $w_{p,n}$ over the Gaussians where they
++are defined. The pixel value $u^{\mathrm{ale}}_p$ is undefined when more than
++half of $\alpha_p$ comes from Gaussians with undefined $u^{\mathrm{ale}}_n$.
++The term $\gamma_u$ gives such pixels their own offset instead of the most
++confident value $u^{\mathrm{ale}}=0$. We fit $\beta$ (P0, P1),
++$(\beta_0,\gamma_e,\gamma_a,\gamma_u)$ (P2) and the temperature of every
++baseline by NLL on the validation split.
+ 
+ %% ============================================================================
+-%%  Experiments, Limitations, Conclusion. Every number cell is \ph or \phs
+-%%  (no result exists yet). Design choices: fact sheet, section E.
++%%  Experiments, Limitations, Conclusion. Every number cell is \ph, \phs or
++%%  \phn (no result exists yet). Design choices: fact sheet, section E.
+ %% ============================================================================
+ 
+ \section{Experiments}
+@@ -568,146 +584,150 @@
+ %% ----------------------------------------------------------------------------
+ \subsection{Setup}
+ \label{sec:setup}
++%% Extractor and prompts: configs/vocab_replica.json (extractor "lseg",
++%% 5-template ensemble, frozen 2026-09-29 on the validation scenes).
+ \textbf{Replica.} We use the Replica scenes~\cite{straub2019replica} as
+-rendered by Semantic-NeRF~\cite{zhi2021semanticnerf}. There are 8 scenes with
+-101 class ids. Id 0 marks unlabeled pixels, which we ignore. The validation
+-split is office\_0 and room\_2. The test split is room\_0, room\_1 and
+-office\_1 to office\_4. Each method maps on every 5th frame of Sequence\_1
+-(180 frames). We evaluate on every 10th frame of Sequence\_2 (90 frames), which
+-no method sees while mapping. The query vocabulary of a scene is the set of
+-classes present in its evaluation frames. One prompt template, chosen on the
++rendered by Semantic-NeRF~\cite{zhi2021semanticnerf}: 8 scenes with 101 class
++ids, where id 0 marks unlabeled pixels that we ignore. We validate on
++office\_0 and room\_2 and test on room\_0, room\_1 and office\_1 to office\_4.
++Each method maps on every 5th frame of Sequence\_1 (180 frames). We evaluate
++on every 10th frame of Sequence\_2 (90 frames), which no method sees while
++mapping. The query vocabulary of a scene is the set of classes present in its
++evaluation frames. One ensemble of five prompt templates, chosen on the
+ validation scenes, serves all scenes.
+ 
+ \textbf{RIO10.} RIO10~\cite{wald2020rio10} holds real rescans of 10 rooms in
+ which objects were moved or removed between visits. \todo{RIO10 access is
+-pending. This block runs once the data arrive.} The validation split is
+-scenes 01, 04 and 06, and the test split holds the other seven. Each method
+-maps on seqXX\_01 and is then updated with seqXX\_02 \todo{frame strides and
+-pose source}. Stale ground truth comes from the object
+-annotations~\cite{wald2020rio10, wald2019rio}, which no method reads
+-\todo{check that instance ids match across the two rescans. Otherwise use the
+-3RScan annotations.}. An object is stale if it was removed, or if it moved by
+-more than \ph\,cm or turned by more than \ph$^\circ$. A Gaussian is stale if
+-its nearest annotated point in seqXX\_01, within \ph\,cm, belongs to a stale
+-object. We fix these thresholds before we look at any method output. Some
+-Gaussians cannot be judged: no update view observes them, or the new surface
+-hides them in every update view. We leave them out of the change metrics and
+-report their share. Re-admission (Sec.~\ref{sec:change}) needs observed depth.
+-It comes from \todo{depth source: sensor depth or a depth estimator}, never
+-from the mesh. The depth that RIO10 renders from the mesh of each rescan
+-\todo{verify} already shows the new state of the scene. We use it only in an
+-oracle row.
++pending. This block runs once the data arrive.} We validate on scenes 01, 04
++and 06 and test on the other seven. Each method maps on seqXX\_01 and is then
++updated with seqXX\_02 \todo{frame strides and pose source}. Stale ground
++truth comes from the object annotations~\cite{wald2020rio10, wald2019rio},
++which no method reads \todo{check that instance ids match across the two
++rescans, else use the 3RScan annotations}. An object is stale if it was
++removed, moved by more than \ph\,cm or turned by more than \ph$^\circ$. A
++Gaussian is stale if its nearest annotated point in seqXX\_01, within
++\ph\,cm, belongs to a stale object. We fix these thresholds before we look at
++any method output. Gaussians that no update view observes, or that the new
++surface hides in every update view, cannot be judged. We leave them out of the
++change metrics and report their share. The observed depth for re-admission
++comes from \todo{sensor depth or a depth estimator}, never from the mesh. The
++mesh depth of each rescan \todo{verify} shows the new state of the scene, and
++we use it only in an oracle row.
+ 
+ \textbf{Map and features.} For each scene we fit one 3D-GS map on the mapping
+ frames with gsplat~\cite{ye2024gsplat}, using degree-0 color, \ph{} iterations
+ and at most \ph{} Gaussians. Every method uses this geometry, which stays fixed
+-afterwards. Every method also uses the same features: \todo{extractor},
+-compressed to $d=64$ as in Sec.~\ref{sec:features}. Method parameters are
+-those of Sec.~\ref{sec:method}. The coverage floor $\tau_{\mathrm{cov}}=\ph$
+-and all temperatures are set on the validation scenes. The change threshold
+-needs no labels (Sec.~\ref{sec:change}). We freeze every choice before the
+-test scenes run, and we run them once.
++afterwards, and the same LSeg features, compressed to $d=64$
++(\secref{sec:features}). The coverage floor $\tau_{\mathrm{cov}}=\ph$ and all
++temperatures are set on the validation scenes. We freeze every choice before
++the test scenes run, and we run them once. We report the mean and standard
++deviation over the test scenes ($N=6$ for Replica, $N=7$ for RIO10).
+ 
+ \textbf{Segmentation baselines.} All baselines share our geometry, features and
+-splat weights. Each gets its own temperature, fit by NLL on the validation
+-scenes, as our rows do (Sec.~\ref{sec:predictive}).
+-\emph{2D features} apply the extractor to the evaluation frame itself, with no
+-map.
+-\emph{Averaging} is the pixel-weighted mean feature of Gradient-Weighted
+-Feature Back-Projection~\cite{joseph2025gradbp}. It has no uncertainty of its
+-own. \todo{compare our averaging row with the authors' code on one validation
+-scene.}
+-\emph{NormLift}~\cite{zang2026normlift} counts Kish effective views
+-$N_{\mathrm{eff}}$ over per-view rendering weights and scores reliability as
+-$\mathcal{R}=\lVert\mathbf{f}\rVert N_{\mathrm{eff}}/(N_{\mathrm{eff}}+1)$. We implement
+-it as its paper defines it, without its KNN voting refinement. Its feature is
+-the averaging feature.
+-\emph{CSS}~\cite{wilson2025css} keeps a Dirichlet posterior over a closed label
+-set. Each pixel votes for the class whose text is closest to its feature. CSS
+-receives the full vocabulary at mapping time, which the open-vocabulary rows do
+-not need. CSS composites its variance with squared splat weights. We use the
+-same linear weights as for every other channel.
++splat weights, and each gets its own temperature, fit by NLL on the validation
++scenes. \emph{2D features} apply the extractor to the
++evaluation frame itself, with no map. \emph{Averaging} is the pixel-weighted
++mean feature of Gradient-Weighted Feature
++Back-Projection~\cite{joseph2025gradbp}, with no uncertainty of its own
++\todo{compare with the authors' code on one validation scene}.
++\emph{NormLift}~\cite{zang2026normlift} keeps the averaging feature. It counts
++Kish effective views $N_{\mathrm{eff}}$ over the per-view pixel masses
++$m_{v,n}$, factors the feature norm into a within-view and a cross-view
++consistency $C_{\mathrm{inter}}$, and scores reliability as
++$\mathcal{R}=\lVert\mathbf{f}\rVert N_{\mathrm{eff}}/(N_{\mathrm{eff}}+1)$. We
++implement it as its paper defines it, without its KNN voting refinement.
++NormLift defines no epistemic or aleatoric uncertainty. From its quantities
++we build the reference scores $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$
++and $1-\mathcal{R}$. \emph{CSS}~\cite{wilson2025css} keeps a Dirichlet
++posterior over a closed label set, and each pixel votes for the class whose
++text is closest to its feature. CSS receives the full vocabulary at mapping
++time, which the open-vocabulary rows do not need. We composite its variance
++with the linear splat weights of every other channel, not with squared
++weights as CSS does.
+ 
++%% Yager's rule: R. R. Yager, Inf. Sci. 41(2):93-137, 1987,
++%% doi:10.1016/0020-0255(87)90007-7 (not in ref.bib yet; see usplat/baselines.py).
+ \textbf{Change baselines.} A residual compares an update view with the map
+ rendered at the same pose. We lift every residual to the Gaussians with the
+-splat weights. As for our score, a change must persist over $k=2$ observed
+-views. \emph{NCC} is one minus the normalized cross-correlation of observed and
+-rendered grey values in small windows, so a global gain or offset of the
+-grey values does not count. The \emph{depth residual} is the absolute difference between observed
+-depth and map depth. Its non-oracle row uses the same depth as our
++splat weights and, as for our score, require it to persist over $k=2$
++observed views. \emph{NCC} is one minus the normalized cross-correlation of
++observed and rendered grey values in small windows, which ignores a global
++gain or offset. The \emph{depth residual} is the absolute difference between
++observed depth and map depth. Its non-oracle row uses the same depth as our
+ re-admission check. Its oracle row uses the RIO10 mesh depth of seqXX\_02 and
+ is an upper bound. The \emph{feature residual} is one minus the cosine of
+-rendered and observed features, the test of MIF and
+-CL-Splats~\cite{jiang2026mif, ackermann2025clsplats}. For these two systems we
+-re-implement the scoring rule only. Four rows use an uncertainty as the change
+-score. They are the CSS variance, the drop of NormLift's $\mathcal{R}$ during the update,
+-our dispersion $1-\hat\rho$, and the Yager conflict. For the last one, the CSS
+-class counts of each view form an evidential opinion. Yager's rule fuses the
+-opinions over the views and keeps the conflict mass, which we accumulate.
+-Evidential BKI~\cite{kim2025e2bki} motivates this row. The \emph{fused} row averages
+-the ranks of our score and of the non-oracle depth residual, with equal weights
+-and nothing fitted.
++rendered and observed features. It is the residual of
++CL-Splats~\cite{ackermann2025clsplats} and the semantic term of MIF's
++discrepancy score~\cite{jiang2026mif}, and we re-implement only this per-pixel
++residual. Four rows use an uncertainty as the change score: the CSS variance,
++the drop of NormLift's $\mathcal{R}$ during the update, our dispersion
++$1-\hat\rho$, and a Yager conflict of our own design. For the last one, the
++CSS class counts of each view form a subjective-logic opinion. Yager's
++rule~\todo{cite Yager 1987} fuses the opinions over the views and keeps the
++conflict mass, which we accumulate. E2-BKI~\cite{kim2025e2bki} fuses such
++opinions with Dempster's rule instead. The \emph{fused} row averages the ranks
++of our score and of the non-oracle depth residual, with equal weights and
++nothing fitted.
+ 
+ %% ----------------------------------------------------------------------------
+ \subsection{Metrics}
+ \label{sec:metrics}
+ \textbf{Segmentation and calibration.} We report mIoU over the classes in the
+-ground truth, and pixel accuracy. For the predictive we report ECE~\cite{guo2017calibration} with 15
+-equal-width bins on the maximum probability, NLL, the Brier score and AURC.
+-AURC is the area under the risk-coverage curve,
+-with pixels ranked by one minus the maximum probability. A labeled pixel with
+-rendered opacity $\alpha_p<\tau_{\mathrm{cov}}$ is not covered by the map. It
+-counts as wrong, gets the uniform predictive, and ranks as the most uncertain
+-pixel for every uncertainty. A pixel whose top class score is tied gets no
+-label and also counts as wrong.
++ground truth, and pixel accuracy. For the predictive we report
++ECE~\cite{guo2017calibration} with 15 equal-width bins on the maximum
++probability, NLL, the Brier score, and AURC, the area under the risk-coverage
++curve with pixels ranked by one minus the maximum probability. A labeled pixel
++with rendered opacity $\alpha_p<\tau_{\mathrm{cov}}$, or with a tied top class
++score, counts as wrong. An uncovered pixel also gets the uniform predictive
++and ranks as the most uncertain pixel for every uncertainty.
+ 
+ \textbf{Uncertainty ranking.} We use the area under the sparsification
+ error~\cite{ilg2018uncertainty} in its mean-gap form,
+-\[
+-\mathrm{AUSE}=\int_0^1\big[\bar e_u(f)-\bar e_\star(f)\big]\,df ,
+-\]
+-evaluated on a uniform grid of $f$. Here $\bar e_u(f)$ is the mean error of the
+-pixels left after we remove the fraction $f$ with the highest uncertainty $u$,
+-and $\bar e_\star(f)$ is the same with pixels ordered by their error. View
+-counts produce many tied values of $u$. Within a tie we use the mean error of
+-the tied pixels, which equals the expectation over a random order. We grade
+-each channel against the error it is meant for. For a field built from $k$ of
+-the 180 mapping frames, a pixel has reducible error ($e_{\mathrm{red}}=1$) if it
+-is wrong at $k$ frames and right with the full map. It has irreducible error
+-($e_{\mathrm{irr}}=1$) if it is wrong in both. All $k$-frame fields use the
+-full-map geometry, and the targets use the pixels that both maps cover.
+-$u^{\mathrm{epi}}$ should rank $e_{\mathrm{red}}$~\cite{kendall2017uncertainties},
+-and $u^{\mathrm{ale}}$ should rank $e_{\mathrm{irr}}$.
+-
++$\mathrm{AUSE}=\int_0^1[\bar e_u(f)-\bar e_\star(f)]\,df$, on a uniform grid
++of $f$. Here $\bar e_u(f)$ is the mean error of the pixels left after we
++remove the fraction $f$ with the highest uncertainty $u$, and $\bar
++e_\star(f)$ is the same with pixels ordered by their error. View counts
++produce many tied values of $u$. Within a tie we use the mean error of the
++tied pixels, which equals the expectation over a random order. We grade each
++channel against the error it is meant for. For a field built from $M$ of the
++180 mapping frames, a pixel has reducible error ($e_{\mathrm{red}}=1$) if it
++is wrong at $M$ frames and right with the full map. It has irreducible error
++($e_{\mathrm{irr}}=1$) if it is wrong in both. All $M$-frame fields use the
++full-map geometry, and the targets use the pixels that both maps cover. The
++epistemic channel should rank $e_{\mathrm{red}}$~\cite{kendall2017uncertainties},
++and the aleatoric channel should rank $e_{\mathrm{irr}}$.
++
++%% Operating point of the baselines: per-view FA 1e-3 on static val. Gaussians,
++%% the same nominal rate as ours (decision closed in the fix pass; revisit if
++%% the lead prefers another point).
+ \textbf{Change.} We report average precision (AP) and AUROC for stale content
+-at the Gaussian level and at the object level. An object's score is the mean
+-score of its Gaussians. A residual row scores a Gaussian by the largest value
+-of its persistent residual over the update. The uncertainty rows use their
+-value after the update. A Gaussian that a row never scores ranks last, and we
+-report how many there are. The false-alarm rate (FA) is the share of static
++at the Gaussian and at the object level. An object's score is the mean score
++of its Gaussians. A residual row scores a Gaussian by the largest value of its
++persistent residual over the update, and the uncertainty rows use their value
++after the update. A Gaussian that a row never scores ranks last, and we report
++how many there are. The false-alarm rate (FA) is the share of static
+ Gaussians flagged at least once during the update, and recall (Rec.) is the
+-same share for stale Gaussians. Our threshold comes from the mapping pass, with
+-no labels. It sets a nominal per-view false-alarm rate of $10^{-3}$, so FA
+-grows with the number of update views that see a Gaussian. Every other row
+-gets one threshold, set on the validation scenes with labels so that its
+-per-view false-alarm rate on static Gaussians is $10^{-3}$ \todo{confirm this
+-operating point}. The baselines thus use labels that our row does not use.
+-
+-\textbf{Statistics.} We fit one map per scene and report the mean and
+-standard deviation over the test scenes ($N=6$ for Replica, $N=7$ for RIO10).
+-We also report time per keyframe and peak GPU memory.
++same share for stale Gaussians. Our threshold targets a nominal per-view
++false-alarm rate of $10^{-3}$ (\secref{sec:change}), so FA grows with the
++number of update views that see a Gaussian. Every other row gets one
++threshold, set on the validation scenes with labels so that its per-view
++false-alarm rate on static Gaussians is $10^{-3}$. The baselines thus use
++labels that our row does not use.
+ 
+ %% ----------------------------------------------------------------------------
+ \subsection{Static Scenes: Accuracy, Calibration and Ranking}
+ \label{sec:exp-replica}
++%% NormLift 1 - C_inter row: usplat/baselines.py defines c_inter() but
++%% uncertainties() exposes only normlift_1-R and normlift_epi. Expose
++%% "normlift_1-Cinter" before this row runs.
+ \begin{table*}[t]
+ \centering
+ \caption{Segmentation and calibration on the Replica test scenes (mean $\pm$
+-std, $N=6$). mIoU, accuracy, ECE, AURC and AUSE in \%, NLL in nats.
+-OV: accepts queries that were not known at mapping time. AUSE$_u$: AUSE of the
+-row's own uncertainty against the 0/1 error ($1-\mathcal{R}$ for NormLift, the variance
+-for CSS, $u^{\mathrm{ale}}$ for ours). \reimpl Reimpl.: our re-implementation
+-from the paper. \todo{replace placeholders.}}
++std, $N=6$). mIoU, accuracy, ECE, AURC and AUSE in \%, Brier $\times100$, NLL
++in nats. OV: accepts queries that were not known at mapping time. AUSE$_u$:
++AUSE of the row's own uncertainty against the 0/1 error (the variance for CSS,
++$u^{\mathrm{ale}}$ for ours). \reimpl Our re-implementation from the paper.
++\todo{replace placeholders.}}
+ \label{tab:replica}
+ \footnotesize
+ \setlength{\tabcolsep}{4pt}
+@@ -718,7 +738,9 @@
+ \midrule
+ 2D features, per frame                      & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & --\\
+ Averaging~\cite{joseph2025gradbp}\reimpl    & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & --\\
+-NormLift~\cite{zang2026normlift}\reimpl     & \checkmark
++NormLift~\cite{zang2026normlift}\reimpl, $1-\mathcal{R}$ & \checkmark
++  & \multicolumn{6}{c}{same predictive as averaging} & \phs\\
++NormLift\reimpl, $1-C_{\mathrm{inter}}$     & \checkmark
+   & \multicolumn{6}{c}{same predictive as averaging} & \phs\\
+ CSS (Dirichlet)~\cite{wilson2025css}\reimpl & $\times$   & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
+ \midrule
+@@ -731,12 +753,10 @@
+ \end{table*}
+ 
+ Table~\ref{tab:replica} tests accuracy and the predictive. P0 renders the
+-view-weighted mean of the same features that averaging uses. Only the weights
+-differ, so we do not expect a gain in mIoU, and the accuracy columns are a
+-parity check. NormLift keeps the averaging feature, so its predictive equals
+-that of averaging and only its uncertainty differs. P2 scales the P0 logits of
+-each pixel by a positive factor. It keeps the P0 labels and changes only the
+-confidence. The question is whether P1 or P2 lowers NLL and ECE compared with
++view-weighted mean of the same features that averaging uses, so the accuracy
++columns are a parity check. NormLift keeps the averaging feature and differs
++only in its uncertainty. P2 rescales the P0 logits of each pixel, so it keeps
++the P0 labels and changes only the confidence. The question is whether P1 or P2 lowers NLL and ECE compared with
+ P0 and with averaging, each at its own temperature. \todo{interpret once
+ measured. Use the word ``calibrated'' only if P1 or P2 wins on NLL and ECE.}
+ 
+@@ -745,27 +765,32 @@
+   \fbox{\parbox[c][0.55\linewidth][c]{0.92\linewidth}{\centering\footnotesize
+   \todo{Figure: $2\times2$ panels. Rows: $u^{\mathrm{epi}}$, $u^{\mathrm{ale}}$.
+   Columns: target $e_{\mathrm{red}}$, target $e_{\mathrm{irr}}$. x-axis: mapping
+-  frames $k\in\{10,30,90\}$, plus $k=180$ in the $e_{\mathrm{irr}}$ column
+-  ($e_{\mathrm{red}}$ is empty at $k=180$). y-axis: AUSE, lower is better.
+-  Reference curves: averaging (one minus maximum probability) and NormLift
+-  ($1/(1+N_{\mathrm{eff}})$ and $1-\mathcal{R}$). Replica test, mean $\pm$ std, $N=6$.}}}
++  frames $M\in\{10,30,90\}$, plus $M=180$ in the $e_{\mathrm{irr}}$ column
++  ($e_{\mathrm{red}}$ is empty at $M=180$). y-axis: AUSE, lower is better.
++  Reference curves: averaging (one minus maximum probability) and, built from
++  NormLift's quantities, $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$ and
++  $1-\mathcal{R}$. Replica test, mean $\pm$ std, $N=6$.}}}
+   \caption{Does each uncertainty rank its own error? AUSE of the epistemic and
+   aleatoric channels against reducible error $e_{\mathrm{red}}$ and irreducible
+-  error $e_{\mathrm{irr}}$, for fields built from $k$ of the 180 mapping frames.
++  error $e_{\mathrm{irr}}$, for fields built from $M$ of the 180 mapping frames.
+   If the two channels separate, each is lower on its own target than on the
+   other one. \todo{update once measured.}}
+   \label{fig:views}
+ \end{figure}
+ 
+ Fig.~\ref{fig:views} tests whether the two channels separate. Our
+-$u^{\mathrm{epi}}$ and NormLift's $1/(1+N_{\mathrm{eff}})$ both count effective
+-views. They differ only in the view weight and in our cap $s_n\le W_1$. We
+-therefore expect them to rank $e_{\mathrm{red}}$ about equally. The two methods
+-differ in the aleatoric channel. NormLift's $\mathcal{R}$ shrinks with scarce evidence,
+-while
+-$\hat\rho$~\eqref{eq:rho} does not. \todo{interpret once measured: is each
+-channel lower on its own target, and is $u^{\mathrm{epi}}$ lower than one minus
+-the maximum probability on $e_{\mathrm{red}}$?}
++$u^{\mathrm{epi}}$ counts views with a weight that saturates at one full view,
++so views with a small footprint count fractionally. The score
++$1/(1+N_{\mathrm{eff}})$, built from NormLift's Kish count of pixel masses,
++depends only on the relative masses of the views, so ten tiny views count as
++much as ten full ones. The two can therefore rank $e_{\mathrm{red}}$
++differently for Gaussians with small footprints. For the aleatoric channel we
++compare $\hat\rho$~\eqref{eq:rho} with NormLift's cross-view consistency
++$C_{\mathrm{inter}}$, which, like $\bar r$, is biased upward at few views, and
++with its reliability $\mathcal{R}$, which shrinks with scarce evidence.
++\todo{interpret once measured: is each channel lower on its own target, and is
++$u^{\mathrm{epi}}$ lower than one minus the maximum probability on
++$e_{\mathrm{red}}$?}
+ 
+ %% ----------------------------------------------------------------------------
+ \subsection{Real Rearrangements: Stale Content}
+@@ -773,12 +798,11 @@
+ \begin{table*}[t]
+ \centering
+ \caption{Stale-content detection on the RIO10 test scenes (mean $\pm$ std,
+-$N=7$). AP and AUROC at the Gaussian (G) and object (O) level, FA and Rec.\ in
+-\%. Input: I = image, D = observed depth, F = features, V = vocabulary at
+-mapping time, M = mesh depth of the new rescan. \reimpl Reimpl.: our
+-re-implementation (for~\cite{jiang2026mif, ackermann2025clsplats}
+-and~\cite{kim2025e2bki}, of the scoring rule only). The oracle row reads the
+-new mesh, which a robot does not have. \todo{replace placeholders. RIO10
++$N=7$). AP, AUROC, FA and Rec.\ in \%. Input: I = image, D = observed depth,
++F = features, V = vocabulary at mapping time, M = mesh depth of the new
++rescan. \reimpl Our re-implementation (for~\cite{ackermann2025clsplats,
++jiang2026mif}, of the per-pixel feature residual only). The oracle row reads
++the new mesh, which a robot does not have. \todo{replace placeholders. RIO10
+ access pending.}}
+ \label{tab:rio10}
+ \footnotesize
+@@ -793,10 +817,10 @@
+ \midrule
+ NCC photometric residual                             & I   & \phs & \phs & \phs & \phs & \phs & \phs\\
+ Depth residual                                       & D   & \phs & \phs & \phs & \phs & \phs & \phs\\
+-Feature residual, $k=2$~\cite{jiang2026mif, ackermann2025clsplats}\reimpl
++Feature residual, $k=2$~\cite{ackermann2025clsplats, jiang2026mif}\reimpl
+                                                      & F   & \phs & \phs & \phs & \phs & \phs & \phs\\
+ CSS variance~\cite{wilson2025css}\reimpl             & F+V & \phs & \phs & \phs & \phs & \phs & \phs\\
+-Yager conflict~\cite{kim2025e2bki}\reimpl            & F+V & \phs & \phs & \phs & \phs & \phs & \phs\\
++Yager conflict (our design)                          & F+V & \phs & \phs & \phs & \phs & \phs & \phs\\
+ NormLift reliability drop~\cite{zang2026normlift}\reimpl
+                                                      & F   & \phs & \phs & \phs & \phs & \phs & \phs\\
+ Dispersion $1-\hat\rho$ (ours)                       & F   & \phs & \phs & \phs & \phs & \phs & \phs\\
+@@ -809,20 +833,19 @@
+ \end{tabular}
+ \end{table*}
+ 
+-Table~\ref{tab:rio10} reports stale-content detection. Our score and the
+-feature-residual row use the same statistic (Sec.~\ref{sec:change}). Both
+-compare stored with observed features. Ours takes the cosine per Gaussian,
+-against all of its earlier evidence. The baseline takes it per pixel, against
+-the rendered map. Ours also sets its threshold from the mapping pass, resets
+-the Gaussians it flags, and re-admits them only after the depth check. The
+-fused row asks whether our score adds to non-oracle depth. In the test scenes,
+-\ph\% of the Gaussians are unobserved and \ph\% are hidden. They are not in the
+-table. \todo{interpret once measured: does ours beat every non-oracle residual
+-in AP, or does it add to the depth residual in the fused row? Report the rows
+-where a baseline wins.} \todo{If the RIO10 labels map to our vocabulary, add
+-mIoU and ECE after the update on changed and unchanged regions. Otherwise keep
+-the Limitations sentence on synthetic calibration data.}
+-Fig.~\ref{fig:qual} shows examples.
++Table~\ref{tab:rio10} reports stale-content detection. Our score differs
++from the feature-residual row only in where it takes the cosine: per Gaussian
++against all of its earlier evidence, not per pixel against the rendered map.
++Ours also sets its threshold from the mapping pass, resets the Gaussians it
++flags, and re-admits them after the depth check. The fused row asks whether
++our score adds to non-oracle depth. In the test scenes, \ph\% of the
++Gaussians are unobserved and \ph\% are hidden, and they are not in the
++table. \todo{interpret once
++measured: does ours beat every non-oracle residual in AP, or does it add to
++the depth residual in the fused row? Report the rows where a baseline wins.}
++\todo{If the RIO10 labels map to our vocabulary, add mIoU and ECE after the
++update on changed and unchanged regions. Otherwise keep the Limitations
++sentence on synthetic calibration data.} Fig.~\ref{fig:qual} shows examples.
+ 
+ \begin{figure}[t]
+   \centering
+@@ -838,14 +861,24 @@
+ %% ----------------------------------------------------------------------------
+ \subsection{Ablations}
+ \label{sec:ablation}
++%% Code switches for the rows (usplat/vmf_field.py FieldConfig):
++%%  * Pixels instead of views: evidence="pixels", epistemic="pixels". With
++%%    evidence="pixels" alone, u_epi would stay the Kish view count (review
++%%    finding, check_ablation_switches.log).
++%%  * Uncorrected mean length r-bar: needs an estimator "rbar" (not in the code yet).
++%%  * Pooled null: the code's calib_mode="pooled" IS the history-conditioned
++%%    rule (thr_by_hist). A true pooled mode (thr_by_hist = None, pooled
++%%    quantile) must be added, and the mode renamed, before this row runs.
++%%  * Per-Gaussian max null: calib_mode="max".
+ \begin{table}[t]
+ \centering
+-\caption{Ablations on the test scenes, mean over $N=6$ (top) and $N=7$ (bottom). Each
+-row changes one part of the full method. AUSE: $u^{\mathrm{epi}}$ against
+-$e_{\mathrm{red}}$ (epi) and $u^{\mathrm{ale}}$ against $e_{\mathrm{irr}}$
+-(ale), averaged over the 10-, 30- and 90-frame fields. AP at the Gaussian (G)
+-and object (O) level. Kept: share of stale Gaussians in the robust set after
+-the update. All metrics except NLL in \%. \todo{replace placeholders.}}
++\caption{Ablations on the test scenes, mean over $N=6$ (top) and $N=7$
++(bottom). Each row changes one part of the full method. AUSE:
++$u^{\mathrm{epi}}$ against $e_{\mathrm{red}}$ (epi) and $u^{\mathrm{ale}}$
++against $e_{\mathrm{irr}}$ (ale), averaged over the 10-, 30- and 90-frame
++fields. AP at the Gaussian (G) and object (O) level. Kept: share of stale
++Gaussians in the robust set after the update. All metrics except NLL in \%.
++\todo{replace placeholders.}}
+ \label{tab:ablation}
+ \footnotesize
+ \setlength{\tabcolsep}{3.5pt}
+@@ -855,103 +888,86 @@
+ \cmidrule(l){5-6}
+ Variant & mIoU$\uparrow$ & ECE$\downarrow$ & NLL$\downarrow$ & epi & ale\\
+ \midrule
+-\textbf{Full method}          & \ph & \ph & \ph & \ph & \ph\\
+-Pixels instead of views      & \ph & \ph & \ph & \ph & \ph\\
+-Prior-shrunk agreement       & \ph & \ph & \ph & \ph & \ph\\
+-Shrunk mean length $\tilde r$ & \ph & \ph & \ph & \ph & \ph\\
+-Predictive P0                & \ph & \ph & \ph & \ph & \ph\\
+-Predictive P1                & \ph & \ph & \ph & \ph & \ph\\
+-Predictive P2                & \ph & \ph & \ph & \ph & \ph\\
+-Centered features            & \ph & \ph & \ph & \ph & \ph\\
+-Pixel-level variant          & \ph & \ph & \ph & \ph & \ph\\
++\textbf{Full method}            & \ph & \ph & \ph & \ph & \ph\\
++Pixels instead of views        & \ph & \ph & \ph & \ph & \ph\\
++Uncorrected mean length $\bar r$ & \ph & \ph & \ph & \ph & \ph\\
++Prior-shrunk agreement         & \ph & \ph & \ph & \ph & \ph\\
++Shrunk mean length $\tilde r$  & \ph & \ph & \ph & \ph & \ph\\
++Centered features              & \ph & \ph & \ph & \ph & \ph\\
++Pixel-level variant            & \ph & \ph & \ph & \ph & \ph\\
+ \midrule
+ \emph{RIO10 test} & \multicolumn{2}{c}{AP$\uparrow$} & & &\\
+ \cmidrule(lr){2-3}
+ Variant & G & O & FA$\downarrow$ & Rec.$\uparrow$ & Kept$\downarrow$\\
+ \midrule
+-\textbf{Full method}          & \ph & \ph & \ph & \ph & \ph\\
+-No persistence ($k=1$)       & \ph & \ph & \ph & \ph & \ph\\
+-Persistence $k=\ph$          & \ph & \ph & \ph & \ph & \ph\\
+-Two buckets, $\lambda=\ph$   & \ph & \ph & \ph & \ph & \ph\\
+-Pooled null                  & \ph & \ph & \ph & \ph & \ph\\
+-Per-Gaussian max null        & \ph & \ph & \ph & \ph & \ph\\
+-Fixed threshold (val.)       & \ph & \ph & \ph & \ph & \ph\\
+-Re-admission without depth   & \ph & \ph & \ph & \ph & \ph\\
+-Centered features            & \ph & \ph & \ph & \ph & \ph\\
+-Pixel-level variant          & \ph & \ph & \ph & \ph & \ph\\
++\textbf{Full method}            & \ph & \ph & \ph & \ph & \ph\\
++No persistence ($k=1$)         & \ph & \ph & \ph & \ph & \ph\\
++Persistence $k=\phn$           & \ph & \ph & \ph & \ph & \ph\\
++Two buckets, $\lambda=\ph$     & \ph & \ph & \ph & \ph & \ph\\
++Pooled null                    & \ph & \ph & \ph & \ph & \ph\\
++Per-Gaussian max null          & \ph & \ph & \ph & \ph & \ph\\
++Fixed threshold (val.)         & \ph & \ph & \ph & \ph & \ph\\
++Re-admission without depth     & \ph & \ph & \ph & \ph & \ph\\
++Centered features              & \ph & \ph & \ph & \ph & \ph\\
++Pixel-level variant            & \ph & \ph & \ph & \ph & \ph\\
+ \bottomrule
+ \end{tabular}
+ \end{table}
+ 
+ Table~\ref{tab:ablation} changes one part at a time and keeps the rest. The
+-top block uses Replica. \emph{Pixels instead of views} counts each pixel as an
+-observation. The two agreement rows replace $\hat\rho$~\eqref{eq:rho} by the
+-prior-shrunk $\lVert\R\rVert/(W_1+c_0)$ or by the shrunk mean length
++top block uses Replica. \emph{Pixels instead of views} uses the pixel masses
++$m_{v,n}$ in place of $\omega_{v,n}$ in the posterior and the support, with
++$u^{\mathrm{epi}}=1/(1+\sum_v m_{v,n})$. Its $\hat\rho$ still combines view
++means, now with pixel-mass weights, since a pixel-level $Q$ would need an
++extra render of squared weights. The agreement rows replace
++$\hat\rho$~\eqref{eq:rho} by the uncorrected $\bar r$, by the prior-shrunk
++$\lVert\R\rVert/(W_1+c_0)$, or by the shrunk mean length
+ $\tilde r=\bar r-(1-\bar r)/(W_1+1)$. Note that $\tilde r=1$ whenever
+-$\bar r=1$, so $\tilde r$ does not correct the one-view case. The predictive
+-rows swap P0, P1 and P2 (Sec.~\ref{sec:predictive}), and the full method uses
+-\todo{the predictive chosen on validation}. \emph{Centered features} subtract
+-the scene-mean feature before the dispersion and the change test. The bottom
+-block uses RIO10. The persistence and bucket rows vary $k$ and the retention
+-$\lambda$ of the change test. The threshold rows replace the
+-history-conditioned null by one pooled null per scene, by a null of
+-per-Gaussian maxima over the mapping pass, or by one fixed threshold from the
+-validation scenes. \emph{Re-admission without depth} re-admits a Gaussian after
+-the views alone. The \emph{pixel-level variant} turns every part off. It
+-counts pixels, uses $\tilde r$, has no change test, and forgets by decaying the
+-evidence of Gaussians with low $\bar r$. Its change score is $1-\bar r$. We
+-keep a part only if removing it hurts on the validation scenes.
+-\todo{interpret once measured, then rename the method and adjust the claims to
+-the parts that remain.}
+-
+-%% ----------------------------------------------------------------------------
+-\subsection{Run Time and Memory}
+-\label{sec:timing}
+-\begin{table}[t]
+-\centering
+-\caption{Time per keyframe and peak GPU memory. One validation scene per
+-dataset, no other job running. \todo{hardware. Extractor name in row 1.
+-Replace placeholders.}}
+-\label{tab:timing}
+-\footnotesize
+-\setlength{\tabcolsep}{4pt}
+-\begin{tabular}{@{}lccc@{}}
+-\toprule
+-& \multicolumn{2}{c}{ms per keyframe$\downarrow$} & Memory\\
+-\cmidrule(lr){2-3}
+-Step & Replica & RIO10 & [GB]$\downarrow$\\
+-\midrule
+-Feature extraction                     & \ph & \ph & \ph\\
+-Render and backward pass               & \ph & \ph & \ph\\
+-Statistics, change test, re-admission  & \ph & \ph & \ph\\
+-\textbf{Ours, total}                   & \ph & \ph & \ph\\
+-\midrule
+-Averaging and NormLift, added          & \ph & \ph & \ph\\
+-CSS, added                             & \ph & \ph & \ph\\
+-\bottomrule
+-\end{tabular}
+-\end{table}
+-
+-Table~\ref{tab:timing} lists the cost per keyframe on one \todo{GPU model}
+-with a \todo{CPU model}. Averaging and NormLift reuse the sums of our backward
+-pass and add no render or backward pass. CSS needs its own backward pass for
+-the class votes.
+-Fitting the 3D-GS map takes \ph\,min per scene. The field state takes \ph{}
+-bytes per Gaussian.
++$\bar r=1$, so $\tilde r$ does not correct the one-view case. \emph{Centered
++features} subtract the scene-mean feature before the dispersion and the
++change test. The full method uses \todo{the predictive chosen on validation
++(P0, P1 or P2, compared in Table~\ref{tab:replica})}. The bottom block uses
++RIO10. The persistence and bucket rows vary $k$ and the retention $\lambda$ of
++the change test. The threshold rows replace the history-conditioned null by
++one pooled null per scene, by a null of per-Gaussian maxima over the mapping
++pass, or by one fixed threshold from the validation scenes.
++\emph{Re-admission without depth} re-admits a Gaussian after the views alone.
++The \emph{pixel-level variant} turns every part off. It counts pixels, uses
++$\tilde r$, has no change test, forgets by decaying the evidence of Gaussians
++with low $\bar r$, and scores change by $1-\bar r$. We keep a part only if
++removing it hurts on the validation scenes. \todo{interpret once
++measured, then rename the method and adjust the claims to the parts that
++remain.}
++
++%% Run time and memory: the former Table IV is parked in parked_sections.tex.
++%% Hardware from nvidia-smi and lscpu on the mapping machine (2026-09-29).
++%% Keep it only if the timing runs on this machine.
++\textbf{Run time and memory.} We time one validation scene per dataset on one
++NVIDIA GeForce RTX 5070 Ti with an Intel Core i5-14600KF and no other job
++running. On Replica (RIO10), a keyframe takes \ph\ (\ph)\,ms in total: \ph\
++(\ph)\,ms for LSeg feature extraction, \ph\ (\ph)\,ms for the render and
++backward pass, and \ph\ (\ph)\,ms for the statistics, change test and
++re-admission. Peak GPU memory is \ph\,GB. Averaging and NormLift reuse the
++sums of our backward pass and add no render or backward pass. CSS needs its
++own backward pass for the class votes, which adds \ph\,ms. Fitting the 3D-GS
++map takes \ph\,min per scene, and the field state takes \ph{} bytes per
++Gaussian.
+ 
+ %% ----------------------------------------------------------------------------
+ \subsection{Limitations}
+ \label{sec:limitations}
+-The geometry is fixed after mapping. Content that moved is forgotten at its old
+-place, but it is not inserted at its new place. The features limit the
+-absolute accuracy. Every row uses the same extractor, \todo{extractor}, and
+-fusion cannot fix a class that the features confuse in every view. The change statistic is
+-the known feature residual. Our part is its threshold, the reset and the
+-re-admission. The threshold assumes that the mapping sequence is static.
+-Content that moves during mapping enters the null and raises the threshold.
+-We re-implemented averaging, NormLift and CSS from their papers, and the
+-scoring rules of~\cite{jiang2026mif, ackermann2025clsplats, kim2025e2bki}.
+-Differences from the authors' code may remain. \todo{Keep only if the RIO10
++The geometry is fixed after mapping, so moved content is not inserted at its
++new place. The features limit the absolute accuracy. Every row uses LSeg, and
++fusion cannot fix a class that the features confuse in every view. The change
++statistic is a known residual, and its threshold assumes a static mapping
++sequence. Content that moves during mapping enters the null and raises the
++threshold. The mapping-pass scores are also in-sample, because the map and
++the PCA are fit on those frames. The false-alarm rate on a new sequence can
++thus exceed the nominal rate. The 5\,cm depth check cannot keep out the
++Gaussians of a thin removed object, such as a book on a table, since they lie
++within 5\,cm of the surface behind them. We re-implemented averaging,
++NormLift, CSS and the feature residual of CL-Splats from their papers, and
++differences from the authors' code may remain. \todo{Keep only if the RIO10
+ class map fails:} The predictive is evaluated on synthetic data (Replica) only.
+ 
+ %% ============================================================================
+@@ -959,21 +975,18 @@
+ \label{sec:conclusion}
+ %% ============================================================================
+ We presented an open-vocabulary semantic field for 3D Gaussian Splatting that
+-counts evidence in views. Each Gaussian holds a von Mises--Fisher posterior over
+-its feature direction. The same sums give an epistemic uncertainty from the
+-effective number of views and an aleatoric uncertainty from an agreement that
+-does not shrink with the amount of evidence. A known feature residual detects
+-change. Its threshold comes from the map's own mapping pass, with no labels. A
+-flagged Gaussian is reset and rejoins the robust map only after new views whose
+-depth matches its position. One render and one backward pass per keyframe give
+-all statistics. \todo{one sentence with the main measured result on RIO10 and
+-one on Replica.} Future work should insert new geometry where content has moved
++counts evidence in views and keeps little evidence and conflicting evidence
++apart. A known feature residual, with a threshold from the map's own mapping
++pass, drives the reset and the depth-checked re-admission of changed
++Gaussians. \todo{one sentence with the main measured result on RIO10 and one
++on Replica.} Future work should insert new geometry where content has moved
+ and test the field with other feature extractors.
+ 
+ %% ============================================================================
+-%% References: papers/ref.bib (BibTeX, IEEEtran style)
++%% References: papers/ref.bib (BibTeX, IEEEtran style); ieeectl.bib holds only
++%% the IEEEtran.bst control entry (written by the preamble on the first pass).
+ %% ============================================================================
+ \bibliographystyle{IEEEtran}
+-\bibliography{ref}
++\bibliography{ieeectl,ref}
+ 
+ \end{document}

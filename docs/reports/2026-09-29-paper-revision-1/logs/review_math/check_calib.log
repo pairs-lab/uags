@@ -1,0 +1,8 @@
+0 5000 code thr 0.2505  own-bucket np.quantile 0.25013
+1 150 code thr 0.2505  own-bucket np.quantile 0.13941
+2 8000 code thr 0.145  own-bucket np.quantile 0.1446
+3 8000 code thr 0.1075  own-bucket np.quantile 0.10716
+4 50 code thr 0.1075  own-bucket np.quantile 0.06684
+5 3000 code thr 0.0795  own-bucket np.quantile 0.07917
+pooled thr returned: 0.2215  np pooled: 0.2207
+edges (4.0, 6.0, 10.0, 20.0, 40.0) bucketize(ns) of 4.0, 4.5, 40.0, 41: [0, 1, 4, 5]

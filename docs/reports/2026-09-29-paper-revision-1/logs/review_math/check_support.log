@@ -1,0 +1,5 @@
+Gaussians seen: 20000
+share with n_K < W1 (Kish binds): 0.0
+max |s - W1|: 0.0
+max |u_epi(support) - u_epi('views' = 1/(1+W1))|: 0.0
+min over seen of n_K - W1: 0.0

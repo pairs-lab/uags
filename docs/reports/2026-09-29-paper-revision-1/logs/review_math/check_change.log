@@ -1,0 +1,4 @@
+defaults: fast_memory 0.0 persist 2 tau_min 3.0 q 0.999 calib_mode pooled a0 0.0001
+max |c_bar(paper formula) - c_bar(code)| over defined views: 2.22e-16
+max |R_old + R_new - R| : 0.00e+00
+null histogram counts per history bucket: [25.0, 65.0, 139.0, 151.0, 0.0, 0.0]

@@ -1,0 +1,6 @@
+/home/thanhnc/gauss_ws/src/uags/usplat/vmf_field.py:468: UserWarning: readmit_depth is set but no depth was ever supplied: re-admission falls back to views only
+  warnings.warn("readmit_depth is set but no depth was ever supplied: "
+null samples per history bucket: [40000.0, 40000.0, 80000.0, 200000.0, 380000.0, 0.0]
+thresholds per bucket: [0.693, 0.618, 0.5945, 0.562, 0.5505, 0.5505]
+static, long histories: fires/defined-tests over 20 views = 340/400000 = 8.50e-04
+static after a reset: fires per view (N=20000): [0, 0, 0, 26, 4, 22, 23, 15, 12, 18, 9, 27]

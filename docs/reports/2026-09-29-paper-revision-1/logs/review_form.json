@@ -1,0 +1,67 @@
+{
+ "findings": [
+  {
+   "where": "papers/main.tex as a whole (compiled PDF)",
+   "severity": "critical",
+   "problem": "The PDF is 9 pages, about 8.35 pages of content. The fact sheet (C) plans 7 pages including references, and RA-L allows at most 8. To reach 7 pages, about 1.35 pages (2.7 columns, roughly 165 text lines) must go. To reach 8 pages, at least 0.35 page must go.",
+   "evidence": "Build: I copied papers/ to scratchpad/review-form/build and ran `tectonic --keep-logs --keep-intermediates main.tex`. It exits 0 with no errors and no undefined refs or cites. `pdfinfo main.pdf` gives Pages: 9, letter. The body ends on p8 at y=683 pt (\"other feature extractors.\"). References fill the p8 right column and the p9 left column down to about y=530. I measured each part's size from the heading positions (`pdftotext -bbox`; one column is about 680 pt), so these sizes are approximate:\n- Abstract and keywords: about 0.3 column.\n- Intro: about 1.75 columns, plus Fig. 1 at about 0.65 column.\n- Related Work: about 1.2 columns.\n- Method, with Fig. 2 and Alg. 1: about 3.8 columns.\n- Setup and Metrics: about 2.6 columns.\n- Results, ablations, timing, limitations and conclusion, with Tables I-IV and Figs. 3-4: about 4.4 columns.\n- References: about 1.75 columns.\nRendered pages are in scratchpad/review-form/png/p-1..9.png.",
+   "fix": "Candidate cuts with estimated savings:\n(a) Intro paragraph 2 (L171-191, about 0.37 column) repeats Related Work L249-285 almost item by item: CSS future work, LatentBKI, LEGaussians, LAMP and NormLift. Cut it to 5-6 lines (saves about 0.25 column).\n(b) The contributions (L206-233, about 0.62 column) repeat the abstract and the Method. Bullet 4 is prior work (joseph2025gradbp). Rewrite as 3 short bullets (about 0.3 column).\n(c) The Conclusion (L961-971, about 0.25 column) restates the abstract. Cut it to 3 sentences (about 0.15 column).\n(d) Replace Table IV and Sec. IV-F (L908-940, about 0.35 column) with two sentences (about 0.3 column).\n(e) Tighten Setup and Metrics: the RIO10 protocol (L581-599, about 0.4 column), change baselines (L631-649, about 0.42 column) and metrics (L654-698, about 0.86 column). Compress the tie and coverage rules and the NCC and Yager descriptions (about 0.5 column).\n(f) The \"Predictive P0/P1/P2\" rows of Table III (L862-864) duplicate Table I, and one of them equals \"Full method\" (about 0.05 column).\n(g) IEEEtran prints every author: [22] Replica takes 8 lines, and [2], [4], [6], [7], [28] and [35] take 3-4 lines each. IEEE style allows \"et al.\" after 6 authors. Add an IEEEtranBSTCTL entry (CTLuse_forced_etal=\"yes\", CTLmax_names_forced_etal=\"6\", CTLnames_show_etal=\"1\") plus \\bstctlcite (about 0.2 column).\n(h) Remove the repetitions in the next finding (about 0.3 column).\n(i) Shorten the Fig. 1 caption (5 full-width lines) and the Fig. 2 caption (8 lines) (about 0.15 column).\nThese cuts total about 2.2 columns. The rest has to come from the Method, for example by folding Sec. III-H (L541-552, prior-work identity) into III-C, or from RIO10 if access fails."
+  },
+  {
+   "where": "papers/main.tex, abstract, intro, related work, method, limitations, conclusion",
+   "severity": "major",
+   "problem": "The same statements appear 3 to 6 times across sections. This makes the paper hard to read and uses space the page budget does not have.",
+   "evidence": "- Fixed geometry, \"not inserted at its new place\": L202-204, L312-314, L328, L494-495, L945-946.\n- \"pixels of one view are strongly correlated\": L113, L197-198, L284, L357-358.\n- One-hot features give the same statistic and MAP label but not the same distribution: L209-213, L281-284, L398-401.\n- \"little evidence and conflicting evidence stay separate\": L116, L215-216, L429-430, and the Fig. 2 caption.\n- Threshold from the mapping pass without labels: L117-118, L218-220, L308-311, L471-473, L689-690, L966.\n- The feature residual is known and not claimed: L199-201, L306-308, L465-469, L949-950.\n- Intro and Related Work give the same facts twice: CSS future work at L175-176 and L273-274, LatentBKI at L177 and L275, LEGaussians at L178-179 and L253, NormLift at L181-183 and L256-259.",
+   "fix": "Keep each statement once, in its home section: the definition in the Method, the comparison in Related Work, and one sentence in the Intro. Delete the other copies. The Limitations and the Conclusion can refer back to them in one clause each."
+  },
+  {
+   "where": "papers/main.tex L343, L358, L578-579, L604, L913, L947",
+   "severity": "major",
+   "problem": "The draft no longer matches the fact sheet as updated on 2026-09-29. The extractor is now chosen: LSeg (A.1 says \"Write 'LSeg' where the name is needed\"), with a 5-template prompt ensemble. The draft still has extractor placeholders, a ViT-B/16 example that belongs to the rejected ClearCLIP, and \"one prompt template\".",
+   "evidence": "- \\todo{extractor} at L343, L604 and L947, and \"Extractor name in row 1\" in the Table IV caption at L913.\n- L358: \"one token of a ViT-B/16 backbone covers 16x16 pixels\". The docstring of usplat/extractors/lseg.py says LSeg uses a ViT-L/16 encoder with a DPT head, and its features are pooled to 8-pixel tokens (a 60x80 grid for 640x480).\n- L578-579: \"One prompt template, chosen on the validation scenes\". Fact sheet A.1 says \"5-template prompt ensemble\".",
+   "fix": "Write \"LSeg~\\cite{li2022lseg}\" (an allowed key) at L343, L604 and L947 and in the Table IV row. Make the L358 example LSeg's own: \"one ViT-L/16 patch of LSeg covers 16x16 pixels\". At L578 write \"One ensemble of five prompt templates, chosen on the validation scenes, serves all scenes.\""
+  },
+  {
+   "where": "papers/main.tex L533-534, L522, L674-677, L748, L754 vs L459-463, L633, L873-874; L363 vs L532; L364-366",
+   "severity": "minor",
+   "problem": "The integrator's report did not list these symbol clashes:\n- k is the persistence window (k=2) and also the number of mapping frames in the uncertainty-ranking protocol. Both uses sit in the Experiments section.\n- p is the pixel inside the probability p(c | p).\n- Bold u is the view mean, while u_n and u_p are uncertainties.\n- a is the P2 coefficient, while a_0 is the view-mass fraction.\n- The text says \"index n dropped\" but the next display keeps R_n.",
+   "evidence": "- k: \"persist over k=2 observed views\" (L633), \"No persistence (k=1)\" (Tab. III), \"built from k of the 180 mapping frames ... wrong at k frames\" (L674-676), and \"k in {10,30,90}\" in the Fig. 3 box.\n- p: \"p(c | p)=softmax_c(...)\" (L522 and Fig. 1 box 8).\n- u: \"Here u_p averages u_n\" (L533) next to bold u_{v,n} (L361).\n- R_n: \"(index n dropped): R_n = sum omega u\" (L364-366).",
+   "fix": "Call the frame count M (\"fields built from M of the 180 frames\"). Write the predictive as p(y_p=c) or index pixels by i. Keep the superscripts in the P2 sentence (u^{(.)}_p). Rename the P2 coefficients, for example a_e and a_a. Drop the subscript n in the L366 display or drop \"(index n dropped)\"."
+  },
+  {
+   "where": "papers/main.tex Table I caption L705-707, Table II caption L775-778 and header L788, Table III L874",
+   "severity": "minor",
+   "problem": "Some table captions leave out units or define abbreviations the table does not use. One placeholder has the wrong form.",
+   "evidence": "- Table I gives units for mIoU, Acc., ECE, AURC and AUSE (%) and for NLL (nats), but none for Brier.\n- The Table II caption gives % only for FA and Rec., not for AP and AUROC. It also defines \"(G)\" and \"(O)\", but the header says \"Gaussian level\" and \"Object level\".\n- Table III row \"Persistence k = \\ph\" prints XX.X for an integer window size.\n- Decimals are otherwise uniform (all \\ph and \\phs).",
+   "fix": "Add the Brier unit to the Table I caption, for example \"Brier x100\". State \"AP and AUROC in %\" in Table II and drop the (G)/(O) definitions there. Use \\todo{k} or an integer placeholder in Table III."
+  },
+  {
+   "where": "papers/main.tex, 32 \\todo markers (p1:1, p2:2, p3:1, p4:1, p5:7, p6:9, p7:8, p8:3)",
+   "severity": "minor",
+   "problem": "There are 32 red TODO markers. The Method has 2, and both can be closed now. Several others also need no experiment and could be closed today.",
+   "evidence": "`pdftotext -raw main.pdf | grep -c '[TODO'` gives 32. Todos that need no experiment:\n- Extractor: L343, L604, L947 and L913. LSeg is now chosen (see the stale-text finding).\n- Tuning sequence, L461: the code names it. usplat/vmf_field.py:44 says \"k = 2 won the chess grid\", and usplat/gs_fit.py:38 says \"7-Scenes chess seq-01\".\n- GPU and CPU model: L935-936.\n- Anonymous code link, L232: a decision.\n- \"confirm this operating point\", L693: a decision.",
+   "fix": "Close these now. For the tuning sequence, use \"7-Scenes chess~\\cite{glocker2013} with simulated swaps\" (allowed key) once the lead confirms. After that, only the data-dependent todos remain: RIO10, results and interpretation."
+  },
+  {
+   "where": "papers/main.tex L501-509 (Alg. 1), L595, L613, p6 left column, L249-265 and L418-433",
+   "severity": "minor",
+   "problem": "Small typesetting defects are visible in the rendered PDF.",
+   "evidence": "- Alg. 1 has an empty line after line 1, because the L501 text fills the full width and wraps (png/alg-4.png).\n- Alg. 1 line 5 breaks the formula as \"1 -\" / \"cos(...)\".\n- Two section refs break at their hyphen, \"Sec. III-\" / \"F)\" (L595) and \"Sec. III-\" / \"G)\" (L613). See `pdftotext -raw` lines 632-633 and 650-651.\n- On p6 the left column has about 3 blank lines around the IV-C heading. The log reports \"Underfull \\vbox (badness 2245) has occurred while \\output is active\" at L826.\n- The \"agreement such as ||R||/(W1+c0), the form of NormLift's\" line is visibly loose (Underfull \\hbox, badness 5374).",
+   "fix": "Shorten Alg. 1 line 1 (\"Render and backward pass: ...\"). Give the change score its own symbol in line 5 so that the formula does not break. Use \\mbox{Sec.~\\ref{...}} or reword the two refs. Recheck the p6 gap and the loose lines after the length cuts."
+  },
+  {
+   "where": "papers/figs/pipeline.tex L125 (Fig. 1); Fig. 2 caption papers/main.tex L442-446 vs papers/figs/uncertainty_plane.tex L5-10",
+   "severity": "minor",
+   "problem": "Some figure content does not match the text:\n- Fig. 1 still has a box titled \"calibration\", which fact sheet rule C forbids (already known).\n- Fig. 1 box 3 shows the target Y_p=[z_p, 1, d^obs_p] without the validity mask that Sec. III-H stacks.\n- The Fig. 2 caption says \"The curves are expected values ... rho_hat stays at rho\". But the figure source draws ||R||/W_1 as a root-mean-square, and it draws rho_hat exactly at rho although E[rho_hat]=0.334 for rho=0.35 at 3 views.",
+   "evidence": "- Fig. 1 zoom at scratchpad/review-form/png/fig1-2.png: the \"calibration\" box, and box 3 showing \"Y_p = [z_p, 1, d_p^obs]\".\n- main.tex L547-548: \"We stack z_p, a ones channel and the observed depth with its validity mask\".\n- uncertainty_plane.tex L6: \"||R||/W_1 : sqrt(rho^2 + (1 - rho^2)/s) (root mean square)\".\n- uncertainty_plane.tex L8: \"rho_hat ... drawn at rho\".\n- uncertainty_plane.tex L10: \"E[rho_hat] = 0.334 (rho = 0.35, 3 views)\".",
+   "fix": "Retitle the Fig. 1 box \"threshold\" or \"null from mapping\". Add the mask to Y_p, or drop \"with its validity mask\" from the text. In the Fig. 2 caption write \"The curves are root-mean-square values ... rho_hat^2 is unbiased, so rho_hat stays close to rho.\""
+  },
+  {
+   "where": "papers/main.tex L363, L388, L423, L477 (bracketed defaults); L456; L335, L422, L525, L535, L679",
+   "severity": "minor",
+   "problem": "Readability is mostly good: 371 sentences averaging 15 words, 11 over 30 words, no \"---\" and no semicolon chains. Three local problems remain:\n- Defaults in square brackets look like IEEE citation brackets.\n- \"masses alike\" is unclear.\n- Several sentences start with a math symbol.",
+   "evidence": "- On p3 \"[a0 = 10^-4]\" and \"[c0 = 1]\" sit in the same lines as citations such as [12] and [21]. \"[3 views]\" and \"[q = 0.999]\" do the same.\n- L456: \"(retention lambda in [0,1) per full view, masses alike)\".\n- Sentences start with $w_{p,n}$ (L335), $u^{ale}_n$ (L422), $F_p$ (L525), $u^{ale}_p$ (L535) and $u^{epi}$ (L679).",
+   "fix": "Write \"(default a_0=10^{-4})\", or collect the defaults in one sentence at the end of the Method. Replace \"masses alike\" with \"the older bucket's mass moves the same way\" or delete it. Start those sentences with a word (\"The splat weight w_{p,n} is ...\")."
+  }
+ ]
+}

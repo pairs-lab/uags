@@ -1,0 +1,7 @@
+Spearman(u_epi views, u_epi pixels[evidence only])      = 0.7175
+max |u_epi views - u_epi pixels[evidence only]|          = 0.6942874852756662
+Spearman(u_epi views, u_epi pixels[+epistemic=pixels])  = 0.8374
+Kish n_K (views weights) vs Kish n_K (pixel weights), first 5: [2.0, 6.882298596191064, 4.0, 2.0, 10.0] [1.9530495414962412, 6.842774752451483, 3.7716708111261124, 1.874839876221178, 9.045132273863958]
+u_ale defined: views 1214  pixels 1813  Gaussians with 1 view defined (pixels): 0
+u_ale on commonly defined: max |diff| = 0.23576620937508752
+gate: support>=3 (views/joint) defined: 1214 ; estimator=legacy defined: 1214 ; of those with support<3: 0

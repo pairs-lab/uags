@@ -126,7 +126,14 @@ Feature 3DGS (L1 feature distillation) and LEGaussians (128-code quantization, 8
 u in [0,1] with its Eq. 10-12, lambda_u = 1), both on our map, frames, LSeg PCA-64 features, Adam 1e-3, up to 30k
 iterations with a stopping rule fixed in advance (loss gain < 1% over 5k, min 5k). Paper details checked in
 arXiv 2311.18482 (LEGaussians; codebook N=128, u initialized to 0, all lambdas 1, lr 1e-3, 30k iterations).
-Tests: [tests/test_distill.py](../../../tests/test_distill.py) (4 CPU tests). Not yet run on Replica.
+Tests: [tests/test_distill.py](../../../tests/test_distill.py) (5 CPU tests incl. exact resume).
+
+First Replica runs (office_0, code d359bc4, discarded after the lambda_u change): Feature 3DGS converged at 16k
+iterations (L1 0.0077, 437 s, 27.3 ms/iter); LEGaussians with its lambda_u = 1 converged at 27k (loss 0.930, 357 s)
+but its u was bimodal: 67.6% of Gaussians at u > 0.99, 23.8% below 0.01 (u saturates where the per-pixel
+cross-entropy of our 128 LSeg codes stays above lambda_u). Decision, fixed before any LEGaussians evaluation:
+lambda_u in {1, 2, 4} is trained on the validation scenes and the lowest validation AUSE of its own u picks the
+test value (3c1e955; the strongest fair baseline). The paper states it.
 
 ## 5 Verification
 (filled at the end)

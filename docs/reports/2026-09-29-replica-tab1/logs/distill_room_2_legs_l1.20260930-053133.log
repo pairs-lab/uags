@@ -1,0 +1,21 @@
+[gpu_gate] 2026-09-30 06:15:57 free 11930 MiB >= 9048; running: python3 scripts/distill_features.py --field /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg.pt --method legs --lam-u 1
+legs_l1: 954119 Gaussians, 179 mapping frames of 180 (main field /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg.pt)
+[distill legs] iter 1000/30000 loss 3.1930
+[distill legs] iter 2000/30000 loss 1.6418
+[distill legs] iter 3000/30000 loss 1.2220
+[distill legs] iter 4000/30000 loss 1.0468
+[distill legs] iter 5000/30000 loss 0.9836
+[distill legs] iter 6000/30000 loss 0.9646
+[distill legs] iter 7000/30000 loss 0.9550
+[distill legs] iter 8000/30000 loss 0.9512
+[distill legs] iter 9000/30000 loss 0.9443
+[distill legs] iter 10000/30000 loss 0.9446
+[distill legs] iter 11000/30000 loss 0.9418
+[distill legs] iter 12000/30000 loss 0.9375
+[distill legs] iter 13000/30000 loss 0.9366
+[distill legs] iter 14000/30000 loss 0.9360
+[distill legs] iter 15000/30000 loss 0.9369
+[distill legs] iter 16000/30000 loss 0.9334
+[distill legs] iter 17000/30000 loss 0.9339
+[distill legs] converged at iter 17000
+saved legs_l1 -> /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg_legs_l1.pt (17000 iterations, train 298 s, 17.5 ms/iter, final loss 0.9339)

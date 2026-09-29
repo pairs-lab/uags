@@ -1,0 +1,25 @@
+[gpu_gate] 2026-09-30 05:59:56 free 11930 MiB >= 9048; running: python3 scripts/distill_features.py --field /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg.pt --method f3dgs --lam-u 1
+f3dgs: 954119 Gaussians, 179 mapping frames of 180 (main field /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg.pt)
+[distill f3dgs] iter 1000/30000 loss 0.0188
+[distill f3dgs] iter 2000/30000 loss 0.0094
+[distill f3dgs] iter 3000/30000 loss 0.0054
+[distill f3dgs] iter 4000/30000 loss 0.0045
+[distill f3dgs] iter 5000/30000 loss 0.0042
+[distill f3dgs] iter 6000/30000 loss 0.0041
+[distill f3dgs] iter 7000/30000 loss 0.0040
+[distill f3dgs] iter 8000/30000 loss 0.0039
+[distill f3dgs] iter 9000/30000 loss 0.0039
+[distill f3dgs] iter 10000/30000 loss 0.0039
+[distill f3dgs] iter 11000/30000 loss 0.0038
+[distill f3dgs] iter 12000/30000 loss 0.0038
+[distill f3dgs] iter 13000/30000 loss 0.0039
+[distill f3dgs] iter 14000/30000 loss 0.0039
+[distill f3dgs] iter 15000/30000 loss 0.0038
+[distill f3dgs] iter 16000/30000 loss 0.0038
+[distill f3dgs] iter 17000/30000 loss 0.0038
+[distill f3dgs] iter 18000/30000 loss 0.0038
+[distill f3dgs] iter 19000/30000 loss 0.0038
+[distill f3dgs] iter 20000/30000 loss 0.0037
+[distill f3dgs] iter 21000/30000 loss 0.0039
+[distill f3dgs] converged at iter 21000
+saved f3dgs -> /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg_f3dgs.pt (21000 iterations, train 930 s, 44.3 ms/iter, final loss 0.0039)

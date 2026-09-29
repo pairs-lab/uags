@@ -1,0 +1,33 @@
+[gpu_gate] 2026-09-30 06:21:23 free 11930 MiB >= 9048; running: python3 scripts/distill_features.py --field /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg.pt --method legs --lam-u 2
+legs_l2: 954119 Gaussians, 179 mapping frames of 180 (main field /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg.pt)
+[distill legs] iter 1000/30000 loss 3.3831
+[distill legs] iter 2000/30000 loss 2.0826
+[distill legs] iter 3000/30000 loss 1.8329
+[distill legs] iter 4000/30000 loss 1.7516
+[distill legs] iter 5000/30000 loss 1.6503
+[distill legs] iter 6000/30000 loss 1.5998
+[distill legs] iter 7000/30000 loss 1.5754
+[distill legs] iter 8000/30000 loss 1.5268
+[distill legs] iter 9000/30000 loss 1.4908
+[distill legs] iter 10000/30000 loss 1.4621
+[distill legs] iter 11000/30000 loss 1.4330
+[distill legs] iter 12000/30000 loss 1.4021
+[distill legs] iter 13000/30000 loss 1.4000
+[distill legs] iter 14000/30000 loss 1.3661
+[distill legs] iter 15000/30000 loss 1.3679
+[distill legs] iter 16000/30000 loss 1.3364
+[distill legs] iter 17000/30000 loss 1.3313
+[distill legs] iter 18000/30000 loss 1.2968
+[distill legs] iter 19000/30000 loss 1.2939
+[distill legs] iter 20000/30000 loss 1.2791
+[distill legs] iter 21000/30000 loss 1.2713
+[distill legs] iter 22000/30000 loss 1.2637
+[distill legs] iter 23000/30000 loss 1.2338
+[distill legs] iter 24000/30000 loss 1.2479
+[distill legs] iter 25000/30000 loss 1.2150
+[distill legs] iter 26000/30000 loss 1.1967
+[distill legs] iter 27000/30000 loss 1.1923
+[distill legs] iter 28000/30000 loss 1.1791
+[distill legs] iter 29000/30000 loss 1.1926
+[distill legs] iter 30000/30000 loss 1.1764
+saved legs_l2 -> /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg_legs_l2.pt (30000 iterations, train 521 s, 17.4 ms/iter, final loss 1.1764)

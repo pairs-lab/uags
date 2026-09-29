@@ -25,20 +25,25 @@ class DenseCLIP:
 
 
 class OpenCLIPDense(DenseCLIP):
-    """Dense per-pixel CLIP features via the MaskCLIP value-projection trick.
-
-    In the LAST transformer block of CLIP's ViT, the softmax attention pooling
-    is replaced by the value path alone: each patch token is mapped through the
-    value projection, the attention output projection, the residual MLP, then
-    ln_post and the visual projection. The resulting patch features live in the
-    joint image-text space (cosine-comparable to text embeddings) without any
-    extra training [MaskCLIP, Zhou et al., ECCV 2022].
+    """Dense per-pixel CLIP features, training-free, by changing CLIP's LAST ViT block:
+      last_block="clearclip" (default): query-query self-attention, no residual, no FFN
+                  [ClearCLIP, Lan et al., ECCV 2024]
+      last_block="value":  value path only (identity attention), no residual, no FFN
+                  [MaskCLIP, Zhou et al., ECCV 2022]
+      last_block="residual": value path + residual + FFN (the earlier choice; ablation only)
+    followed by ln_post and the visual projection, so patch features are cosine-comparable
+    to text embeddings. Chosen on the Replica VALIDATION scenes (office_0, room_2):
+    ClearCLIP and value tie on mIoU, ClearCLIP has the higher pixel accuracy; the residual
+    variant is worse on both (docs/reports/2026-09-29-data-and-baselines).
 
     Works with any open_clip ViT; non-square / non-224 inputs are handled by
     bicubic interpolation of the positional embedding.
     """
-    def __init__(self, model_name="ViT-B-16", pretrained="openai",
-                 device="cuda", dtype=torch.float32):
+    def __init__(self, model_name="ViT-B-16", pretrained="laion2b_s34b_b88k",
+                 device="cuda", dtype=torch.float32, last_block="clearclip"):
+        if last_block not in ("clearclip", "value", "residual"):
+            raise ValueError(last_block)
+        self.last_block = last_block
         import open_clip
         if pretrained in ("", "none", "None"):
             pretrained = None        # random init: offline pipeline smoke tests
@@ -70,8 +75,17 @@ class OpenCLIPDense(DenseCLIP):
         return torch.cat([cls_pos, grid_pos], dim=0)
 
     @torch.no_grad()
-    def extract(self, image):
-        """image: (H, W, 3) uint8 (or float in [0,255]). -> (H, W, d) unit feats."""
+    def extract(self, image, out_hw=None):
+        """image: (H, W, 3) uint8 (or float in [0,255]). -> (h, w, d) unit feats at
+        out_hw (default: the image size)."""
+        tokens = self.extract_tokens(image)
+        return upsample_tokens(tokens, out_hw or (int(image.shape[0]), int(image.shape[1])))
+
+    @torch.no_grad()
+    def extract_tokens(self, image):
+        """The cacheable part: (gh, gw, d) projected patch tokens, NOT normalised and
+        NOT upsampled (a 640x480 frame is 40x30x512, 1.2 MB in fp16). Upsample and
+        normalise at load time with `upsample_tokens`."""
         H, W = int(image.shape[0]), int(image.shape[1])
         # pad to a multiple of the patch size
         Hp = (H + self.patch - 1) // self.patch * self.patch
@@ -91,30 +105,41 @@ class OpenCLIPDense(DenseCLIP):
         x = x + self._interp_pos_embed(gh, gw).to(x.dtype)
         x = v.ln_pre(x)
 
-        x = x.permute(1, 0, 2)                           # LND (open_clip convention)
+        # open_clip >= 2.2x runs the transformer batch-first (N, L, D); older versions use
+        # (L, N, D). Feeding the wrong layout makes every token its own batch item, so no
+        # attention across tokens happens at all (this bug gave < 2 mIoU on Replica).
+        batch_first = getattr(v.transformer, "batch_first", True)
+        if not batch_first:
+            x = x.permute(1, 0, 2)                       # LND
         blocks = v.transformer.resblocks
         for blk in blocks[:-1]:
             x = blk(x)
-        # MaskCLIP trick on the last block: value path only, no softmax mixing
+        if not batch_first:
+            x = x.permute(1, 0, 2)                       # back to NLD for the last block
         blk = blocks[-1]
         y = blk.ln_1(x)
         attn = blk.attn
-        w_v = attn.in_proj_weight[2 * y.shape[-1]:]
-        b_v = attn.in_proj_bias[2 * y.shape[-1]:]
-        val = Fn.linear(y, w_v, b_v)
-        val = attn.out_proj(val)
-        x = x + val
-        x = x + blk.mlp(blk.ln_2(x))
-        x = x.permute(1, 0, 2)                           # NLD
+        D = y.shape[-1]
+        q, _, val = Fn.linear(y, attn.in_proj_weight, attn.in_proj_bias).split(D, dim=-1)
+        if self.last_block == "clearclip":
+            h = attn.num_heads
+            B, L = q.shape[:2]
+            qh = q.reshape(B, L, h, D // h).transpose(1, 2)            # (B, h, L, dh)
+            vh = val.reshape(B, L, h, D // h).transpose(1, 2)
+            att = torch.softmax(qh @ qh.transpose(-1, -2) / (D // h) ** 0.5, dim=-1)
+            x = attn.out_proj((att @ vh).transpose(1, 2).reshape(B, L, D))
+        elif self.last_block == "value":
+            x = attn.out_proj(val)
+        else:                                            # residual + FFN (ablation)
+            ls1 = getattr(blk, "ls_1", torch.nn.Identity())
+            ls2 = getattr(blk, "ls_2", torch.nn.Identity())
+            x = x + ls1(attn.out_proj(val))
+            x = x + ls2(blk.mlp(blk.ln_2(x)))
 
         x = v.ln_post(x)
         if v.proj is not None:
             x = x @ v.proj
-        feats = x[0, 1:].reshape(gh, gw, -1)             # drop CLS
-        feats = feats.permute(2, 0, 1)[None]
-        feats = Fn.interpolate(feats, size=(H, W), mode="bilinear",
-                               align_corners=False)[0].permute(1, 2, 0)
-        return Fn.normalize(feats, dim=-1)               # (H, W, d)
+        return x[0, 1:].reshape(gh, gw, -1)              # drop CLS -> (gh, gw, d)
 
     @torch.no_grad()
     def text_embedding(self, prompts, templates=("a photo of a {}.",)):
@@ -128,6 +153,14 @@ class OpenCLIPDense(DenseCLIP):
             e = Fn.normalize(e, dim=-1).mean(0)
             embeds.append(Fn.normalize(e, dim=0))
         return torch.stack(embeds)                       # (K, d)
+
+
+def upsample_tokens(tokens, out_hw):
+    """(gh, gw, d) token grid (any float dtype) -> (h, w, d) unit features, bilinear."""
+    t = tokens.float().permute(2, 0, 1)[None]
+    t = Fn.interpolate(t, size=tuple(int(s) for s in out_hw), mode="bilinear",
+                       align_corners=False)[0].permute(1, 2, 0)
+    return Fn.normalize(t, dim=-1)
 
 
 class MockDenseCLIP(DenseCLIP):

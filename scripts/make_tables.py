@@ -12,9 +12,11 @@ AUSE_u = AUSE of the row's own uncertainty against the 0/1 error:
     NormLift rows  normlift_1-R / normlift_1-Cinter      CSS  css_var_top (its Eq. 10)
     LEGaussians    legs_u (its learned uncertainty)      ours u_ale
     2D, averaging, Feature 3DGS: none ("--")
-Choices made on the VALIDATION file only (--val; lowest mean validation NLL): the CSS prior
-read-out (css or css_a<alpha0>) and the P3 temperature (ours_P3_b<beta_g>). Without --val the
-defaults css and ours_P3_b20 are used and a comment says so.
+Choices made on the VALIDATION file only (--val): the CSS prior read-out (css or
+css_a<alpha0>) and the P3 temperature (ours_P3_b<beta_g>) by the lowest validation NLL, and
+LEGaussians' lambda_u (legs_l<lambda>) by the lowest validation AUSE of its own u. Without
+--val the defaults css, ours_P3_b20 and legs_l1 are used and a comment says so.
+    python3 scripts/make_tables.py choose <eval_val.json> --key legs    prints the chosen row
 """
 from __future__ import annotations
 import argparse
@@ -29,7 +31,7 @@ TAB1 = [
     ("NormLift~\\cite{zang2026normlift}\\reimpl, $1-\\mathcal{R}$", "normlift", "normlift_1-R", "same"),
     ("NormLift\\reimpl, $1-C_{\\mathrm{inter}}$", "normlift", "normlift_1-Cinter", "same"),
     ("Feature 3DGS~\\cite{zhou2024feature}\\reimpl", "f3dgs", None, "all"),
-    ("LEGaussians~\\cite{shi2024legaussians}\\reimpl", "legs", "legs_u", "all"),
+    ("LEGaussians~\\cite{shi2024legaussians}\\reimpl", "@legs", "legs_u", "all"),
     ("CSS (Dirichlet)~\\cite{wilson2025css}\\reimpl", "@css", "css_var_top", "all"),
     None,                                                     # \midrule
     ("Ours P0 (plug-in)", "ours_P0", "u_ale", "all"),
@@ -39,7 +41,9 @@ TAB1 = [
 ]
 COLS = [("miou", 100.0), ("acc", 100.0), ("ece", 100.0), ("nll", 1.0), ("brier", 100.0),
         ("aurc", 100.0)]
-CHOICES = {"@css": ("css", "css"), "@p3": ("ours_P3_b", "ours_P3_b20")}   # prefix, default
+# family: (row prefix, default row, criterion on the validation summary; lower is better)
+CHOICES = {"@css": ("css", "css", "nll"), "@p3": ("ours_P3_b", "ours_P3_b20", "nll"),
+           "@legs": ("legs_l", "legs_l1", "ause:legs_u")}
 
 
 def body(path):
@@ -52,13 +56,22 @@ def body(path):
     return b
 
 
+def _crit(s, crit, variant):
+    if crit.startswith("ause:"):
+        a = s[variant]["ause"].get(crit[5:])
+        return a["mean"] if a else float("nan")
+    return s[variant][crit]["mean"]
+
+
 def choose(val_summary, key, variant="all"):
-    """The row of the family `key` with the lowest mean validation NLL."""
-    prefix, default = CHOICES[key]
-    cand = {r: s[variant]["nll"]["mean"] for r, s in val_summary.items()
-            if (r == prefix or r.startswith(prefix)) and math.isfinite(s[variant]["nll"]["mean"])}
+    """The row of the family `key` with the lowest mean validation criterion (NLL for the
+    CSS prior and the P3 temperature, AUSE of its own u for LEGaussians' lambda_u)."""
+    prefix, default, crit = CHOICES[key]
+    cand = {r: _crit(s, crit, variant) for r, s in val_summary.items()
+            if r == prefix or r.startswith(prefix)}
     if key == "@css":
         cand = {r: v for r, v in cand.items() if r == "css" or r.startswith("css_a")}
+    cand = {r: v for r, v in cand.items() if math.isfinite(v)}
     return min(cand, key=cand.get) if cand else default
 
 
@@ -103,12 +116,16 @@ def tab1(path, variant="all", val=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("table", choices=["tab1"])
+    ap.add_argument("table", choices=["tab1", "choose"])
+    ap.add_argument("--key", default="legs", choices=["css", "p3", "legs"])
     ap.add_argument("path")
     ap.add_argument("--val", default="", help="validation eval_seg JSON (row choices)")
     ap.add_argument("--variant", default="all", choices=["all", "covered"])
     a = ap.parse_args()
-    print(tab1(a.path, a.variant, a.val or None))
+    if a.table == "choose":                      # the validation choice of one row family
+        print(choose(body(a.path)["summary"], "@" + a.key, a.variant))
+    else:
+        print(tab1(a.path, a.variant, a.val or None))
 
 
 if __name__ == "__main__":

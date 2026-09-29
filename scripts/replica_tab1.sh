@@ -35,7 +35,8 @@ TAU_COV=${TAU_COV:-0.5}          # coverage rule, fixed before any validation ru
 MAP_NEED=${MAP_NEED:-9000}
 EVAL_NEED=${EVAL_NEED:-7000}
 DISTILL_NEED=${DISTILL_NEED:-7000}
-DISTILL=${DISTILL:-"f3dgs legs"}
+# trained baselines: validation trains LEGaussians for each lambda_u of usplat.distill
+# LEGS_LAMBDAS; the test stage trains only the lambda_u chosen on validation (AUSE of legs_u)
 TS=$(date +%Y%m%d-%H%M%S)
 mkdir -p "$MAPS" "$FIELDS" "$OUT"
 case "$STAGE" in
@@ -44,6 +45,17 @@ case "$STAGE" in
   *)    echo "STAGE must be val or test (got '$STAGE')"; exit 2 ;;
 esac
 echo "[$STAGE] $TS git $(git rev-parse --short HEAD) dirty: $(git status --porcelain --untracked-files=no -- scripts usplat configs | wc -l) files"
+if [ -z "${DISTILL_JOBS:-}" ]; then
+  if [ "$STAGE" = val ]; then
+    DISTILL_JOBS="f3dgs $(python3 -c "from usplat.distill import LEGS_LAMBDAS as L; print(' '.join(f'legs:{l:g}' for l in L))")"
+  elif [ "$EVAL" = 1 ]; then
+    chosen=$(python3 scripts/make_tables.py choose "$OUT/eval_val.json" --key legs) || exit 1
+    DISTILL_JOBS="f3dgs legs:${chosen#legs_l}"
+    echo "LEGaussians lambda_u chosen on validation: ${chosen#legs_l} ($chosen)"
+  else
+    DISTILL_JOBS=""                       # test maps only: the baselines wait for the val choice
+  fi
+fi
 if [ "$STAGE" = test ]; then
   if [ -n "$(git status --porcelain --untracked-files=no -- scripts usplat configs)" ]; then
     echo "refused: uncommitted changes in scripts/ usplat/ configs/ (the test run must name a commit)"; exit 1
@@ -83,14 +95,16 @@ for s in $SCENES; do
     grep -E "gpu_gate|PCA|CSS|keyframes used|timing|saved" "$L"
     ls -la "$FIELDS/${s}_lseg.pt"
   fi
-  for m in $DISTILL; do                  # trained baselines (Feature 3DGS, LEGaussians)
-    [ -f "$FIELDS/${s}_lseg_${m}.pt" ] && continue
-    L="$OUT/distill_${s}_${m}.$TS.log"
+  for job in $DISTILL_JOBS; do            # trained baselines: f3dgs, legs:<lambda_u>
+    m=${job%%:*}; lam=${job#*:}; [ "$m" = "$job" ] && lam=1
+    name=$m; [ "$m" = legs ] && name="legs_l$(python3 -c "print(f'{float($lam):g}')")"
+    [ -f "$FIELDS/${s}_lseg_${name}.pt" ] && continue
+    L="$OUT/distill_${s}_${name}.$TS.log"
     ok=0
     for try in 1 2 3; do                 # a CUDA launch time-out kills the process: resume
       scripts/gpu_gate.sh "$DISTILL_NEED" python3 scripts/distill_features.py \
-        --field "$FIELDS/${s}_lseg.pt" --method "$m" >> "$L" 2>&1 && { ok=1; break; }
-      echo "distill $s $m: attempt $try failed ($(grep -m1 -oE 'CUDA error: [^.]*' "$L" | tail -1)); resuming"
+        --field "$FIELDS/${s}_lseg.pt" --method "$m" --lam-u "$lam" >> "$L" 2>&1 && { ok=1; break; }
+      echo "distill $s $name: attempt $try failed ($(grep -m1 -oE 'CUDA error: [^.]*' "$L" | tail -1)); resuming"
     done
     [ "$ok" = 1 ] || { tail -20 "$L"; exit 1; }
     grep -E "gpu_gate|mapping frames|resumed|converged|saved" "$L"

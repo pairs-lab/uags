@@ -16,17 +16,20 @@ and the evaluation):
     shared LSeg PCA-64 features), each pixel's target is its nearest code M_p; every Gaussian
     holds an 8-d semantic code s_n and an uncertainty u_n in [0, 1] (initialized to 0, kept in
     range by projection), both alpha-composited (R_s, U); an MLP decodes R_s into a softmax
-    over the N codes, trained with its Eq. 10-12 (lambda_CE = lambda_u = 1):
+    over the N codes, trained with its Eq. 10-12 (lambda_CE = 1):
         L = mean_p CE(softmax(MLP(R_s,p)), M_p) (1 - U_p) + lambda_u mean_p U_p
+    Its paper sets lambda_u = 1 for its CLIP+DINO codes; u saturates where the cross-entropy
+    stays above lambda_u, and our codes' cross-entropy scale differs, so lambda_u is chosen on
+    the validation scenes from LEGS_LAMBDAS (1 = the paper) by the AUSE of its own u.
     Adam, lr 1e-3 (its setting). At query time the decoded feature is softmax(MLP(R_s)) S
-    (its query rule), a render-then-decode row (usplat.rows.Row.decoder); row "legs",
-    channel "legs_u".
+    (its query rule), a render-then-decode row (usplat.rows.Row.decoder); rows
+    "legs_l<lambda_u>", channel "legs_u".
     Its adaptive smoothing MLP (Eq. 13-14) is not used.
 Both are trained on random mapping views, on pixels whose rendered opacity is at least
 alpha_min (the map's covered pixels). A Gaussian that no view renders keeps its initial value.
 
 scripts/distill_features.py trains them; row_factory() below reads the files next to the
-main field (<main>_f3dgs.pt, <main>_legs.pt) for scripts/eval_seg.py.
+main field (<main>_f3dgs.pt, <main>_legs_l<lambda_u>.pt) for scripts/eval_seg.py.
 """
 from __future__ import annotations
 import glob
@@ -43,6 +46,7 @@ from .rows import TensorRow
 
 METHODS = ("f3dgs", "legs")
 LEGS_CODES, LEGS_DIM, LEGS_HIDDEN = 128, 8, 64
+LEGS_LAMBDAS = (1.0, 2.0, 4.0)          # lambda_u grid (1 = the paper); val AUSE of legs_u picks
 
 
 def basis_sha256(pca_state):
@@ -197,7 +201,7 @@ def train_features(views: Sequence, N: int, d: int, method="f3dgs", iters=30000,
 
 
 def variant_name(method, lam_u=None):
-    return method
+    return "f3dgs" if method == "f3dgs" else f"legs_l{float(lam_u):g}"
 
 
 def out_path(main_path, name):
@@ -227,7 +231,8 @@ def row_factory(ckpt, field=None, device="cpu", class_ids=None, field_path=None)
     if not main:
         return []
     stem = main[:-3] if main.endswith(".pt") else main
-    paths = sorted(p for m in METHODS for p in glob.glob(f"{glob.escape(stem)}_{m}.pt"))
+    paths = sorted(glob.glob(f"{glob.escape(stem)}_f3dgs.pt") +
+                   glob.glob(f"{glob.escape(stem)}_legs_l*.pt"))
     want = basis_sha256(ckpt["pca"]) if "pca" in ckpt else None
     rows = []
     for p in paths:

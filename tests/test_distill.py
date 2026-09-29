@@ -60,19 +60,23 @@ def test_row_factory_reads_files_and_checks_basis(tmp_path):
     pca = dict(basis=basis)
     dec = D.LEGDecoder(Fn.normalize(torch.randn(4, 8), dim=-1))
     files = (("f3dgs", torch.randn(5, 8), None, None),
-             ("legs", torch.randn(5, D.LEGS_DIM), torch.rand(5), dec.state_dict()))
+             ("legs_l2", torch.randn(5, D.LEGS_DIM), torch.rand(5), dec.state_dict()))
     for name, f, u, dstate in files:
         torch.save(dict(name=name, features=f, u=u, decoder=dstate, identity=f"id-{name}",
                         pca_basis_sha256=D.basis_sha256(pca)), D.out_path(main, name))
     ck = dict(config=dict(out=main), pca=pca)
     rows = D.row_factory(ck, None, "cpu")
-    assert [r.name for r in rows] == ["f3dgs", "legs"], [r.name for r in rows]
+    assert [r.name for r in rows] == ["f3dgs", "legs_l2"], [r.name for r in rows]
     by = {r.name: r for r in rows}
     assert by["f3dgs"].uncertainties() == {} and by["f3dgs"].decoder is None
-    assert set(by["legs"].uncertainties()) == {"legs_u"}
+    assert set(by["legs_l2"].uncertainties()) == {"legs_u"}
     r = torch.randn(3, D.LEGS_DIM)                              # the decoder round-trips
-    assert torch.allclose(by["legs"].decoder(r), dec(r))
-    assert sorted(ck["_aux_identities"]) == ["id-f3dgs", "id-legs"]
+    assert torch.allclose(by["legs_l2"].decoder(r), dec(r))
+    assert sorted(ck["_aux_identities"]) == ["id-f3dgs", "id-legs_l2"]
+    open(D.out_path(main, "legs_l2") + ".ckpt", "w").close()     # a training state is no row
+    assert [r.name for r in D.row_factory(dict(config=dict(out=main), pca=pca), None, "cpu")] \
+        == ["f3dgs", "legs_l2"]
+    assert D.variant_name("legs", 1.0) == "legs_l1" and D.variant_name("f3dgs") == "f3dgs"
     with pytest.raises(ValueError, match="PCA basis"):
         D.row_factory(dict(config=dict(out=main), pca=dict(basis=basis.flip(1))), None, "cpu")
     assert D.row_factory(dict(config=dict(out=str(tmp_path / "other.pt")), pca=pca), None, "cpu") == []

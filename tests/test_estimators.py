@@ -235,3 +235,19 @@ def test_rbar_estimator_is_uncorrected_mean_length():
     kish = f.raw.agreement("kish", 1.0)
     assert r.mean() > 0.4 and kish.nan_to_num(0).mean() < r.mean() - 0.2   # ~1/sqrt(4) bias
     print(f"PASS rbar: mean {r.mean():.3f} at rho = 0 (kish {kish.nan_to_num(0).mean():.3f})")
+
+
+def test_tiny_evidence_mu_unit_and_support_w1():
+    """A Gaussian with ~1e-7 views of evidence: mu* is unit and the support is W1 (not 0)."""
+    import torch.nn.functional as Fn
+    from usplat.vmf_field import DirectionalSemanticField, FieldConfig
+    f = DirectionalSemanticField(3, 8, FieldConfig(change_test=False))
+    z = Fn.normalize(torch.randn(3, 8), dim=-1)
+    # pixel masses 1e-9, 1, 0 with a full view at 0.01 px (view_mass_frac 1e-4, 100 px)
+    f.update_sparse(torch.arange(3), torch.tensor([1e-9, 1.0, 0.0]), z, num_pixels=100)
+    mu = f.mu_post()
+    assert torch.allclose(mu[:2].norm(dim=-1), torch.ones(2), atol=1e-5), mu.norm(dim=-1)
+    assert mu[2].abs().sum() == 0                                  # unseen: no direction
+    s = f.support()
+    assert s[0] > 0 and torch.allclose(s[0], f.raw.W1[0]), (s, f.raw.W1)
+    print(f"PASS tiny evidence: |mu*| = 1 at W1 = {float(f.raw.W1[0]):.1e}, support = W1")

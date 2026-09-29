@@ -36,7 +36,7 @@ from usplat.vmf_math import a_d
 from usplat.rows import Row, freeze, field_rows
 from usplat.seg_eval import render_row, evaluate_view
 import usplat.baselines as B
-from usplat.baselines import (Averaging, NormLift, ViewCount, CSS, make_rows, update_all,
+from usplat.baselines import (CSS_ALPHA0_GRID, Averaging, NormLift, ViewCount, CSS, make_rows, update_all,
                               opinion_from_counts, yager_fuse, default_baselines,
                               baselines_state, load_baselines, row_factory, ours_scalar_row)
 
@@ -564,9 +564,19 @@ def test_checkpoint_row_factory():
     ckpt = torch.load(buf, map_location="cpu", weights_only=False)
     rows = row_factory(ckpt, field, "cpu")
     names = [r.name for r in rows]
-    assert names == ["averaging", "normlift", "viewcount", "css"], names
+    grid = [f"css_a{a:g}" for a in CSS_ALPHA0_GRID]
+    assert names == ["averaging", "normlift", "viewcount", "css"] + grid, names
     orig = {r.name: r for r in make_rows(None, bs)}
+    # the prior read-outs: same counts, alpha0 swapped (Dirichlet mean (counts + a0) / S)
+    by = {r.name: r for r in rows}
+    for a in CSS_ALPHA0_GRID:
+        cnt = bs[2].counts
+        want = (cnt + a) / (cnt + a).sum(-1, keepdim=True)
+        assert torch.allclose(by[f"css_a{a:g}"].buffer(), want), a
+    assert bs[2].alpha0 == 0.5                                  # the copies leave CSS alone
     for r in rows:
+        if r.name.startswith("css_a"):
+            continue
         o = orig[r.name]
         assert r.kind == o.kind and torch.equal(r.buffer(), o.buffer()), r.name
         ur, uo = r.uncertainties(), o.uncertainties()

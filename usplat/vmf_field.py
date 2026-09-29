@@ -189,7 +189,10 @@ class _Channel:
         self.W2[mask] *= lam * lam; self.Q[mask] *= lam * lam
 
     def kish(self):
-        return torch.where(self.W2 > _EPS, self.W1 ** 2 / self.W2.clamp_min(_EPS),
+        # W2 > 0 (not > 1e-12): a Gaussian with W1 ~ 1e-6 views still has n_K >= W1, so its
+        # support is W1 (the paper's s = W1), not 0
+        tiny = torch.finfo(self.W2.dtype).tiny
+        return torch.where(self.W2 > 0, self.W1 ** 2 / self.W2.clamp_min(tiny),
                            torch.zeros_like(self.W1))
 
     def support(self):
@@ -611,7 +614,11 @@ class DirectionalSemanticField:
         return self.eta().norm(dim=-1)
 
     def mu_post(self):
-        return Fn.normalize(self.eta(), dim=-1)
+        """mu* = eta/||eta|| (unit for any nonzero eta: F.normalize's eps = 1e-12 would leave
+        Gaussians with ~1e-6 views of evidence shorter than 1); 0 where eta = 0 (unseen)."""
+        e = self.eta()
+        n = e.norm(dim=-1, keepdim=True)
+        return torch.where(n > 0, e / n.clamp_min(torch.finfo(e.dtype).tiny), torch.zeros_like(e))
 
     def mean_direction(self):
         """E[mu] = A_d(kappa_post) mu*: shrinks weakly supported Gaussians to 0."""

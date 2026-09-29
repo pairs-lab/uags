@@ -32,9 +32,11 @@ CSS needs one-hot label targets and runs its own bki_grad_accumulate_groups call
     (the field's full-view mass, ViewStats.ref). Uncertainty 1/(1 + n); averaging feature.
 (d) CSS, Continuous Semantic Splatting (Wilson et al., ICRA 2025,
     doi:10.1109/icra55743.2025.11128341, arXiv 2411.02547): a closed-set Dirichlet per
-    Gaussian over K classes FIXED at mapping time. CSS receives the frozen evaluation
-    vocabulary (configs/vocab_replica.json, all classes, with their global ids `class_ids`),
-    never the classes present in a test scene.
+    Gaussian over K classes FIXED at mapping time. CSS receives, at mapping time, the
+    classes PRESENT in the scene's evaluation frames (scripts/run_mapping.py css_vocabulary:
+    the same class set every row is queried with, queries="present"), with their global ids
+    `class_ids`. This is prior knowledge the open-vocabulary rows do not get at mapping time;
+    the paper states it.
     Per pixel y_p = argmax_c z_p . t_c (t in the field space, StreamingPCA.project_text) and
         alpha_{n,c} = alpha0 + sum_v sum_p w_{p,n} 1[y_p = c]                     (CSS Eq. 12)
     with an uninformative prior alpha0 > 0. Pixels without a label (non-finite z, z = 0, or
@@ -336,7 +338,8 @@ class CSS:
         """text: (K, d) class embeddings in the field space (StreamingPCA.project_text) of the
         frozen vocabulary. class_ids: the K global class ids of the text rows (vocabulary
         ids; rows(class_ids) selects columns by them). alpha0 > 0: uninformative Dirichlet
-        prior (1 = flat) [A: fixed on val]."""
+        prior (1 = flat; the default, not tuned at mapping time: scripts/eval_seg.py also scores
+        the read-outs of CSS_ALPHA0_GRID and the lowest validation NLL picks the Table I row)."""
         self.N, self.K = int(num_gaussians), int(text.shape[0])
         self.device, self.dtype = torch.device(device), dtype
         self.text = text.to(self.device, dtype)
@@ -460,13 +463,23 @@ class CSS:
                              f"({self.K} classes fixed at mapping time)")
         return torch.tensor([pos[c] for c in ids], device=self.device, dtype=torch.long)
 
-    def rows(self, class_ids=None):
+    def rows(self, class_ids=None, name="css"):
         """class_ids=None: all K columns in mapping order. Else the columns of the queried
         global ids in the query order (View.class_ids); the evaluator renormalises them."""
         if class_ids is None:
-            return [_row("css", "probs", self.mean, self.uncertainties)]
+            return [_row(name, "probs", self.mean, self.uncertainties)]
         cols = self.columns(class_ids)
-        return [_row("css", "probs", lambda: self.mean()[:, cols], self.uncertainties)]
+        return [_row(name, "probs", lambda: self.mean()[:, cols], self.uncertainties)]
+
+    def with_alpha0(self, alpha0):
+        """The same counts read out with another prior alpha0 (a shallow copy: alpha0 enters
+        only at read-out, so no second mapping pass)."""
+        import copy
+        if not float(alpha0) > 0:
+            raise ValueError(f"alpha0 must be > 0 (got {alpha0})")
+        v = copy.copy(self)
+        v.alpha0 = float(alpha0)
+        return v
 
     def state_dict(self):
         s = {k: getattr(self, k).cpu() for k in self._state}
@@ -570,6 +583,12 @@ def load_baselines(saved, device="cpu"):
     return bs
 
 
+# CSS prior read-outs evaluated next to the mapped alpha0 (row "css", alpha0 = 1): rows
+# "css_a<alpha0>". The Table I CSS row is the one with the lowest validation NLL (the
+# strongest CSS on the validation scenes); the counts are pixel masses at the mapping grid.
+CSS_ALPHA0_GRID = (0.01, 0.1, 10.0)
+
+
 def row_factory(ckpt, field=None, device="cpu", class_ids=None):
     """scripts/eval_seg.py --row-factory usplat.baselines:row_factory. Rebuilds the baselines
     saved in ckpt["baselines"] and returns their rows only (eval_seg adds ours_* itself).
@@ -582,4 +601,9 @@ def row_factory(ckpt, field=None, device="cpu", class_ids=None):
     if field is not None and any(b.N != field.N for b in bs):
         raise ValueError(f"saved baselines cover {[b.N for b in bs]} Gaussians, the field "
                          f"{field.N}")
-    return make_rows(None, bs, class_ids=class_ids)
+    rows = make_rows(None, bs, class_ids=class_ids)
+    for b in bs:
+        if isinstance(b, CSS):
+            for a0 in CSS_ALPHA0_GRID:
+                rows += b.with_alpha0(a0).rows(class_ids, name=f"css_a{a0:g}")
+    return rows

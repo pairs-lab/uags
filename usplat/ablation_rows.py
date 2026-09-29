@@ -12,9 +12,10 @@ option; no second mapping pass):
     est_legacy     "Shrunk mean length":      r_tilde = r_bar - (1 - r_bar)/(W1 + 1)
 (An epistemic read-out ablation is not listed: with view weights <= 1 the support
 min(n_K, W1) is W1, so epistemic="views" equals the default.)
-Re-mapped variants need their own mapping pass on the same 3DGS map; they are read from
-files next to the main field, <main>_<variant>.pt (run_mapping.py --field-config), and are
-skipped with a warning when the file is missing:
+Re-mapped variants need their own mapping pass on the same 3DGS map, with the main field's
+PCA basis (run_mapping.py --pca-from <main> --field-config ...; a different basis is refused);
+they are read from files next to the main field, <main>_<variant>.pt, and are skipped with a
+warning when the file is missing:
     pixels   "Pixels instead of views" (FieldConfig(evidence="pixels", epistemic="pixels"))
     centre   "Centered features" (FieldConfig(centre=True))
     legacy   "Pixel-level variant", the original draft's method (FieldConfig.legacy())
@@ -90,6 +91,11 @@ def row_factory(ckpt, field, device, class_ids=None, field_path=None, variants=N
             warnings.warn(f"ablation variant {name!r}: no field at {p}; row skipped")
             continue
         ck = torch.load(p, map_location="cpu", weights_only=False)
+        # the rows are scored with the text projected by the MAIN field's PCA: a variant with
+        # its own basis would compare coordinates of two different subspaces
+        if "pca" in ckpt and not torch.equal(ck["pca"]["basis"].cpu(), ckpt["pca"]["basis"].cpu()):
+            raise ValueError(f"variant {name!r} at {p} has another PCA basis than the main field; "
+                             f"map it with run_mapping.py --pca-from <main field>")
         f = DirectionalSemanticField.from_state(ck["field"], device=device)
         if f.N != field.N:
             raise ValueError(f"variant {name!r} has {f.N} Gaussians, the main field {field.N}")

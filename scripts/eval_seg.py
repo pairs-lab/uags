@@ -284,10 +284,44 @@ def load_scene(sc, vocab, args, device):
     rows2d = []
     if want2d:
         rows2d = [TensorRow(ROW_2D, "feature", buf=torch.zeros(1, field.d, device=device))]
+    code = (ckpt.get("code") or {}).get("mapping_code_sha256")
     return dict(name=sc["name"], field=field, splats=splats, frames=frames, text=text, pca=pca,
+                field_identity=field_identity(ckpt), field_code=code,
                 rows2d=rows2d,
                 class_ids=[vocab["ids"][i] for i in q], class_names=[vocab["names"][i] for i in q],
                 rows=rows, n_unknown=n_unknown, n_skipped=skipped)
+
+
+IDENTITY_ARGS = ("extractor", "feat_dim", "pca_frames", "downscale", "stride", "kf_trans",
+                 "kf_rot", "max_keyframes", "seed", "baselines", "channel_chunk")
+
+
+def field_identity(ckpt):
+    """sha256 of what decides a field besides its scene: mapping code hash, extractor options,
+    FieldConfig and the protocol arguments of run_mapping.py. The validation fields (which
+    set the temperatures) and the test fields must share it."""
+    import hashlib
+    cfg = ckpt.get("config") or {}
+    key = dict(code=(ckpt.get("code") or {}).get("mapping_code_sha256"),
+               extractor_options=ckpt.get("extractor_options"),
+               field_config=ckpt.get("field_config"),
+               args={k: cfg.get(k) for k in IDENTITY_ARGS})
+    return hashlib.sha256(json.dumps(_plain_json(key), sort_keys=True).encode()).hexdigest()
+
+
+def check_field_identity(ident, settings, scene, args):
+    """In --betas mode, refuse a field built differently from the fields the betas were fit
+    on (a field without a recorded code version counts as different)."""
+    if not args.betas or getattr(args, "allow_field_mismatch", False):
+        return
+    val = (settings or {}).get("field_identities")
+    if not val:
+        raise ValueError(f"{args.betas}: records no field identities; refit the betas with this "
+                         f"eval_seg.py (or pass --allow-field-mismatch)")
+    if ident not in val:
+        raise ValueError(f"scene {scene}: field identity {ident[:12]} is not one of the "
+                         f"validation fields' {[v[:12] for v in val]} (different mapping code, "
+                         f"extractor options, FieldConfig or protocol); rebuild the fields")
 
 
 @torch.no_grad()
@@ -297,9 +331,17 @@ def frozen_on(rows, device):
     baselines, u_epi / u_ale of every ours row) so each is stored once."""
     kept = []
 
+    def same(a, b):                          # NaN-aware: u_ale is NaN where undefined
+        if a.shape != b.shape or a.dtype != b.dtype:
+            return False
+        if a.is_floating_point():
+            na, nb = torch.isnan(a), torch.isnan(b)
+            return torch.equal(na, nb) and torch.equal(a[~na], b[~nb])
+        return torch.equal(a, b)
+
     def share(x):
         for y_cpu, y_dev in kept:
-            if y_cpu.shape == x.shape and y_cpu.dtype == x.dtype and torch.equal(y_cpu, x):
+            if same(y_cpu, x):
                 return y_dev
         y = x.to(device)
         kept.append((x, y))
@@ -390,14 +432,20 @@ def scene_views_2d(S, args):
 def fit_on(scenes, vocab, args, device):
     fitter = BetaFitter(args.tau_cov, max_pixels_per_view=args.fit_pixels, seed=args.seed,
                         undef_frac=args.undef_frac)
+    ids = set()
     for sc in scenes:
         S = load_scene(sc, vocab, args, device)
+        ids.add(S["field_identity"])
         fitter.add(S["rows"], scene_views(S, args))
         if S["rows2d"]:
             fitter.add(S["rows2d"], scene_views_2d(S, args))
         del S
+    if len(ids) > 1:
+        warnings.warn(f"validation fields were built differently ({len(ids)} identities): "
+                      f"rebuild them with one code version")
     betas = fitter.fit()
-    return betas, fitter.info, fitter.settings
+    settings = dict(fitter.settings, field_identities=sorted(ids))
+    return betas, fitter.info, settings
 
 
 def _raw_probs(args):
@@ -439,6 +487,7 @@ def evaluate_scene(sc, vocab, betas, args, device):
                                      args.tau_cov, undef_frac=args.undef_frac, raw_probs=raw))
         acc.add(out)
     return dict(n_views=acc.n_views, classes=S["class_names"], class_ids=S["class_ids"],
+                field_identity=S["field_identity"], field_code=S["field_code"],
                 betas_used=used, raw_probs=sorted(raw & set(used)),
                 n_unknown_label_pixels=S["n_unknown"], n_skipped_frames=S["n_skipped"],
                 eval_s=time.perf_counter() - t0, rows=acc.metrics(args.ece_bins, args.ause_bins))
@@ -523,7 +572,9 @@ def run(args, rec=None):
             print(f"reserved {held} MiB of GPU memory")
     vocab = load_vocab(args.vocab)
     out = dict(vocab=dict(path=os.path.abspath(args.vocab), n_classes=len(vocab["ids"]),
-                          templates=vocab["templates"], ignore=sorted(vocab["ignore"])))
+                          extractor=args.extractor,
+                          templates=extractor_templates(vocab, args.extractor),
+                          ignore=sorted(vocab["ignore"])))
     if args.val_scenes and args.betas:
         raise ValueError("give --val-scenes (fit) or --betas (read a fit), not both")
     if args.val_scenes:
@@ -539,8 +590,13 @@ def run(args, rec=None):
         out["betas"] = {}
     if args.scenes:
         res = {}
+        partial = f"{args.out}.partial.json"
         for sc in _load_structured(args.scenes):
             res[sc["name"]] = evaluate_scene(sc, vocab, out["betas"], args, device)
+            check_field_identity(res[sc["name"]]["field_identity"], out.get("beta_fit_settings"),
+                                 sc["name"], args)
+            with open(partial, "w") as f:           # a crash later keeps the finished scenes
+                json.dump(_plain_json(dict(out, scenes=res)), f, indent=1)
             for r, m in res[sc["name"]]["rows"].items():
                 a = m["all"]
                 print(f"{sc['name']:>10} {r:>14}: mIoU {a.get('miou', float('nan')):.4f} "
@@ -548,6 +604,7 @@ def run(args, rec=None):
                       f"NLL {a.get('nll', float('nan')):.4f} coverage {a.get('coverage', 0):.3f}")
         out["scenes"] = res
         out["summary"] = summarize_scenes(res)
+        out["field_identities"] = sorted({r["field_identity"] for r in res.values()})
     if rec is not None:
         for k, v in out.items():
             rec.add(k, v)
@@ -572,6 +629,8 @@ def build_parser():
     ap.add_argument("--queries", choices=["present", "all"], default="present")
     ap.add_argument("--rows", default="", help="comma-separated row names (default: all)")
     ap.add_argument("--row-factory", default="", help="module:function -> extra rows")
+    ap.add_argument("--allow-field-mismatch", action="store_true",
+                    help="with --betas: evaluate fields built differently from the val fields")
     ap.add_argument("--with-2d", action="store_true",
                     help="add the 2D row: the extractor on each evaluation frame (no map)")
     ap.add_argument("--raw-probs", default="",

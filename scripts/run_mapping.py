@@ -24,6 +24,7 @@ The PCA basis and the centre zbar are fit on the first --pca-frames MAPPING fram
 from __future__ import annotations
 import argparse
 import json
+import os
 import math
 import torch
 
@@ -120,6 +121,32 @@ def css_vocabulary(args):
     return ids, prompts, tpl
 
 
+# files whose content decides a field (mapping + extractor + field code): their hash must be
+# equal for the validation fields (temperatures) and the test fields (checked by eval_seg)
+MAPPING_CODE = ("scripts/run_mapping.py", "usplat/vmf_field.py", "usplat/vmf_math.py",
+                "usplat/bki_accumulate.py", "usplat/feature_pca.py", "usplat/gsplat_adapter.py",
+                "usplat/baselines.py", "usplat/datasets.py", "usplat/clip_dense.py",
+                "usplat/gs_io.py", "usplat/extractors/__init__.py", "usplat/extractors/lseg.py")
+
+
+def mapping_code_state():
+    """{mapping_code_sha256, files: {path: sha256}, git: commit/dirty (usplat.runlog)}."""
+    import hashlib
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    files = {}
+    for rel in MAPPING_CODE:
+        with open(os.path.join(repo, rel), "rb") as f:
+            files[rel] = hashlib.sha256(f.read()).hexdigest()
+    total = hashlib.sha256("".join(f"{k}\0{v}\n" for k, v in sorted(files.items())).encode())
+    try:
+        from usplat.runlog import git_state
+        g = git_state(repo)
+        git = {k: g.get(k) for k in ("commit", "dirty", "code_sha256")}
+    except Exception as e:                                  # provenance only
+        git = {"error": str(e)}
+    return dict(mapping_code_sha256=total.hexdigest(), files=files, git=git)
+
+
 def _pose_gap(c2w_a, c2w_b):
     dt = (c2w_a[:3, 3] - c2w_b[:3, 3]).norm().item()
     cos = ((c2w_a[:3, :3].t() @ c2w_b[:3, :3]).trace().item() - 1.0) / 2.0
@@ -139,6 +166,7 @@ def run_gsplat(args):
     from usplat import baselines as B
 
     device = "cuda"
+    torch.manual_seed(args.seed)                            # PCA pixel subsample (randperm)
     from usplat import gpu_reserve                          # fraction from scripts/gpu_gate.sh
     held = gpu_reserve.apply(device)
     if held:
@@ -151,27 +179,45 @@ def run_gsplat(args):
     kw = (dict(model_name=args.clip_model, pretrained=args.clip_pretrained)
           if args.extractor == "clearclip" else {})
     clip = get_extractor(args.extractor, device=device, **kw)
-    print(f"extractor {args.extractor}: {clip.d}-d features")
+    ext_opts = {k: getattr(clip, k) for k in ("token_stride", "flip", "scales", "half",
+                                                "base_size", "crop_size") if hasattr(clip, k)}
+    print(f"extractor {args.extractor}: {clip.d}-d features {ext_opts}")
 
     def feats(frame_full, hw):
         tok = clip.extract_tokens(frame_full["image"])          # full-resolution tokens
         return upsample_tokens(tok, hw)
 
     # ---- PCA basis + centre from the first mapping frames (no text, no labels) ----
-    pca = StreamingPCA(clip.d, args.feat_dim, device=device)
-    raw = []
-    for i in range(min(args.pca_frames, len(ds))):
-        fr = ds[i]
-        h, w = downscale(fr, args.downscale)["image"].shape[:2]
-        z = feats(fr, (h, w))
-        pca.accumulate(z)
-        raw.append(z.reshape(-1, clip.d)[:: max(1, (h * w) // 5000)])
-    explained = pca.fit()
-    centre = RunningMean(args.feat_dim, device=device)
-    for z in raw:
-        centre.add(pca.project(z))
-    print(f"PCA {clip.d} -> {args.feat_dim} dims (explained second moment {explained:.3f}); "
-          f"||zbar|| = {centre.mean().norm():.3f}")
+    # --pca-from <field.pt>: reuse another field's basis and centre (the k-view and ablation
+    # fields of a scene must share the main field's basis: its text projection scores them)
+    if args.pca_from:
+        src = torch.load(args.pca_from, map_location="cpu", weights_only=False)
+        pca = StreamingPCA.from_state(src["pca"], device=device)
+        if pca.basis.shape != (clip.d, args.feat_dim):
+            raise ValueError(f"--pca-from basis {tuple(pca.basis.shape)} != ({clip.d}, {args.feat_dim})")
+        zbar = src["field"]["zbar"].to(device)
+        explained = src.get("pca_explained")
+        del src
+        print(f"PCA {clip.d} -> {args.feat_dim} dims from {args.pca_from}; ||zbar|| = {zbar.norm():.3f}")
+    else:
+        pca = StreamingPCA(clip.d, args.feat_dim, device=device)
+        raw = []
+        for i in range(min(args.pca_frames, len(ds))):
+            fr = ds[i]
+            h, w = downscale(fr, args.downscale)["image"].shape[:2]
+            z = feats(fr, (h, w))
+            pca.accumulate(z)
+            # a strided view would keep the whole (h*w, D) frame alive: copy the sample
+            raw.append(z.reshape(-1, clip.d)[:: max(1, (h * w) // 5000)].clone())
+            del z
+        explained = pca.fit()
+        centre = RunningMean(args.feat_dim, device=device)
+        for zs in raw:
+            centre.add(pca.project(zs))
+        del raw
+        zbar = centre.mean()
+        print(f"PCA {clip.d} -> {args.feat_dim} dims (explained second moment {explained:.3f}); "
+              f"||zbar|| = {zbar.norm():.3f}")
 
     import time
     times, field_times, ext_times = [], [], []
@@ -239,7 +285,7 @@ def run_gsplat(args):
         cfg.readmit_depth = None
     cfg.change_thr = float("inf")                               # mapping pass: record only
     field = DirectionalSemanticField(N, args.feat_dim, cfg, device=device)
-    field.set_centre(centre.mean())
+    field.set_centre(zbar)
 
     # ---- baselines fed by the same per-view sums (plan K11) --------------------------
     bs = []
@@ -318,10 +364,14 @@ def run_gsplat(args):
     print(f"timing: {timing}")
     out = dict(field=field.state_dict(), pca=pca.state_dict(), config=vars(args), timing=timing,
                field_config=field.cfg.to_dict(), extractor=args.extractor,
+               extractor_options=ext_opts, pca_explained=explained,
+               code=mapping_code_state(), gpu_reserved_mib=held,
                baselines=B.baselines_state(bs) if bs else [], css_class_ids=css_ids)
-    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    torch.save(out, args.out)
-    print(f"saved field -> {args.out}")
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+    tmp = f"{args.out}.tmp{os.getpid()}"                      # atomic: never a truncated field
+    torch.save(out, tmp)
+    os.replace(tmp, args.out)
+    print(f"saved field -> {args.out} (mapping code {out['code']['mapping_code_sha256'][:12]})")
 
 
 def main():
@@ -345,6 +395,9 @@ def main():
     ap.add_argument("--feat-dim", type=int, default=64,
                     help="PCA-compressed semantic dimension on the splats")
     ap.add_argument("--pca-frames", type=int, default=10)
+    ap.add_argument("--pca-from", default="",
+                    help="field .pt whose PCA basis and centre to reuse (no PCA fit)")
+    ap.add_argument("--seed", type=int, default=0, help="torch seed (PCA pixel subsample)")
     ap.add_argument("--field-config", default="",
                     help='JSON overrides of FieldConfig, e.g. \'{"change_thr": 0.4}\'')
     ap.add_argument("--kf-trans", type=float, default=0.05, help="keyframe gap [m]")

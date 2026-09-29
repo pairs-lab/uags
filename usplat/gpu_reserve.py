@@ -7,7 +7,10 @@ scenes) on the CPU; another project's batch that polls for free memory would sta
 a gap and the job would then run out of memory. apply() caps the process at the fraction
 and reserves the cap minus a margin at once: one allocation that is freed at once but stays
 in PyTorch's caching allocator, so the memory stays with this process (never call
-torch.cuda.empty_cache() after it) and later allocations are carved out of it.
+torch.cuda.empty_cache() after it) and later allocations are carved out of it. If the card
+filled up since the gate's check, it reserves half as much, down to 256 MiB, then nothing.
+The peak counters are reset after the reservation, so max_memory_allocated() is the job's
+own peak; memory_reserved() includes the reservation and is not a measure of the job.
 """
 from __future__ import annotations
 import os
@@ -28,6 +31,17 @@ def apply(device="cuda", margin_mib=MARGIN_MIB):
     mib = int(frac * total / 2 ** 20) - int(margin_mib)
     if mib <= 0 or os.environ.get("UAGS_GPU_RESERVE", "1") == "0":
         return 0
-    block = torch.empty(mib * 2 ** 20, dtype=torch.uint8, device=device)
+    while mib >= 256:                           # the card may have filled since the gate
+        try:
+            block = torch.empty(mib * 2 ** 20, dtype=torch.uint8, device=device)
+            break
+        except torch.OutOfMemoryError:
+            mib //= 2
+    else:
+        import warnings
+        warnings.warn("gpu_reserve: nothing reserved (the GPU is full); running without")
+        return 0
     del block                                   # back to the cache, still reserved
+    # the reservation is not the job's own use: start the peak counters after it
+    torch.cuda.reset_peak_memory_stats(torch.device(device))
     return mib

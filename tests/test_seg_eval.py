@@ -778,3 +778,45 @@ def test_frozen_on_shares_identical_tensors():
     assert torch.equal(fr["ours_P1"].buf, rows[1].buffer())
     assert fr["ours_P2"].adaptive and not fr["ours_P0"].adaptive
     print("PASS frozen_on: shared mu*, u_epi, u_ale across ours rows")
+
+
+def test_cli_field_identity_partial_and_templates(tmp_path):
+    """--betas refuses a field built differently from the validation fields; each finished
+    scene is saved to <out>.partial.json; the record lists the templates actually used."""
+    cli = _load_cli()
+    base = _cli_toy(tmp_path)
+    scenes = str(tmp_path / "scenes.json")
+    fit = tmp_path / "fit.json"
+    out = cli.main(base + ["--val-scenes", scenes, "--scenes", scenes, "--plain-json",
+                           "--out", str(fit)])
+    assert (tmp_path / "fit.json.partial.json").exists()
+    assert out["vocab"]["templates"] == ["a photo of a {}."] and out["vocab"]["extractor"] == "clearclip"
+    ids = out["beta_fit_settings"]["field_identities"]
+    assert len(ids) == 1 and out["field_identities"] == ids
+    # the same field passes; a field with another FieldConfig is refused
+    cli.main(base + ["--scenes", scenes, "--betas", str(fit), "--plain-json",
+                     "--out", str(tmp_path / "ok.json")])
+    ck = torch.load(tmp_path / "field.pt", weights_only=False)
+    ck["field_config"] = dict(ck.get("field_config") or {}, tau_min=5.0)
+    torch.save(ck, tmp_path / "field.pt")
+    with pytest.raises(ValueError, match="field identity"):
+        cli.main(base + ["--scenes", scenes, "--betas", str(fit), "--plain-json",
+                         "--out", str(tmp_path / "bad.json")])
+    cli.main(base + ["--scenes", scenes, "--betas", str(fit), "--allow-field-mismatch",
+                     "--plain-json", "--out", str(tmp_path / "forced.json")])
+    print("PASS field identity check, partial saves, templates record")
+
+
+def test_frozen_on_shares_nan_channels():
+    """u_ale is NaN where undefined: frozen_on must still store it once."""
+    from usplat.rows import TensorRow
+    cli = _load_cli()
+    u = torch.tensor([0.1, float("nan"), 0.3])
+    a = TensorRow("a", "feature", buf=torch.ones(3, 2), unc={"u_ale": u.clone()})
+    b = TensorRow("b", "feature", buf=torch.ones(3, 2), unc={"u_ale": u.clone()})
+    c = TensorRow("c", "feature", buf=torch.ones(3, 2), unc={"u_ale": torch.tensor([0.1, 0.2, 0.3])})
+    fr = {r.name: r for r in cli.frozen_on([a, b, c], "cpu")}
+    assert fr["a"].unc["u_ale"] is fr["b"].unc["u_ale"]
+    assert fr["c"].unc["u_ale"] is not fr["a"].unc["u_ale"]
+    assert fr["a"].buf is fr["b"].buf is fr["c"].buf
+    print("PASS NaN-aware sharing")

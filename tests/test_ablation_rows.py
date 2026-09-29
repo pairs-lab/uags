@@ -52,9 +52,15 @@ def test_remapped_variant_is_loaded(tmp_path):
     f = _field()
     main = str(tmp_path / "scene_lseg.pt")
     pix = _field(FieldConfig(change_test=False, evidence="pixels", epistemic="pixels"))
-    torch.save(dict(field=pix.state_dict()), AR.variant_path(main, "pixels"))
-    rows = AR.row_factory(dict(config=dict(out=main)), f, "cpu", variants=["pixels"])
+    basis = torch.linalg.qr(torch.randn(16, 8))[0]
+    torch.save(dict(field=pix.state_dict(), pca=dict(basis=basis)), AR.variant_path(main, "pixels"))
+    rows = AR.row_factory(dict(config=dict(out=main), pca=dict(basis=basis)), f, "cpu",
+                          variants=["pixels"])
     assert [r.name for r in rows] == ["abl_pixels_P0", "abl_pixels_P2"]
     u = rows[0].uncertainties()["u_epi"]
     assert torch.allclose(u, pix.epistemic()) and not torch.allclose(u, f.epistemic())
+    import pytest
+    with pytest.raises(ValueError, match="PCA basis"):        # another basis: refused
+        AR.row_factory(dict(config=dict(out=main), pca=dict(basis=basis.flip(1))), f, "cpu",
+                       variants=["pixels"])
     print("PASS re-mapped ablation variant loaded from", AR.variant_path(main, "pixels"))

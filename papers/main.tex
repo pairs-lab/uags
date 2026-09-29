@@ -638,9 +638,9 @@ map, frames and features (Adam at their rate $10^{-3}$, until the loss gains
 less than 1\% over 5k iterations, at most 30k). Feature 3DGS fits one feature
 per Gaussian under an $L_1$ rendering loss. LEGaussians decodes a rendered 8-D
 code into 128 feature codes and learns $u\in[0,1]$ per Gaussian, which
-down-weights a pixel's cross-entropy at the price $\lambda_u\bar U$
-($\lambda_u=1$). We quantize our features, not CLIP and DINO, and drop its
-smoothing term. \emph{CSS}~\cite{wilson2025css} keeps a Dirichlet
+down-weights a pixel's cross-entropy at the price $\lambda_u\bar U$, with
+$\lambda_u\in\{1,2,4\}$ chosen on validation (its paper: 1). We quantize our
+features, not CLIP and DINO, and drop its smoothing term. \emph{CSS}~\cite{wilson2025css} keeps a Dirichlet
 posterior over a closed label set, and each pixel votes for the class whose
 text is closest to its feature. CSS receives the classes present in the evaluation frames at mapping time,
 which the open-vocabulary rows do not get. Its flat prior

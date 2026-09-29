@@ -3,7 +3,7 @@
 #
 #   scripts/gpu_gate.sh <need_mib> <command...>
 #
-# Waits (polling every 60 s) until
+# Waits (polling every UAGS_GPU_POLL_S seconds, default 60) until
 #   * free GPU memory >= need_mib + headroom (UAGS_GPU_HEADROOM_MIB, default 2048), plus
 #     UAGS_GPU_USGLOC_EXTRA_MIB (default 0) while a USGLoc job is running. The user allowed
 #     UAGS jobs to run in PARALLEL with USGLoc (2026-09-29); set the extra to 3072 to be
@@ -19,6 +19,7 @@ need=${1:?need_mib}; shift
 headroom=${UAGS_GPU_HEADROOM_MIB:-2048}
 usgloc_extra=${UAGS_GPU_USGLOC_EXTRA_MIB:-0}
 lock=${UAGS_GPU_LOCK:-/tmp/uags_gpu.lock}
+poll=${UAGS_GPU_POLL_S:-60}
 export CUDA_HOME=${CUDA_HOME:-$HOME/.local/cuda-12.8}
 export PATH=$CUDA_HOME/bin:$PATH
 
@@ -51,5 +52,5 @@ while true; do
     flock -u 9
   fi
   echo "[gpu_gate] $(date '+%F %T') waiting: free ${f} MiB < ${r} or lock busy"
-  sleep 60
+  sleep "$poll"
 done

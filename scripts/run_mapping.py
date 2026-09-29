@@ -172,6 +172,66 @@ def run_gsplat(args):
     print(f"PCA {clip.d} -> {args.feat_dim} dims (explained second moment {explained:.3f}); "
           f"||zbar|| = {centre.mean().norm():.3f}")
 
+    import time
+    times, field_times, ext_times = [], [], []
+
+    def sync():
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+
+    def select(seq, max_keyframes=None):
+        """Frame indices the sequence feeds: evenly spaced subset, finite poses, and no
+        near-duplicate of the last kept frame (pose gap below kf_trans AND kf_rot)."""
+        last, keep = None, []
+        order = range(len(seq))
+        if max_keyframes and max_keyframes < len(seq):             # evenly spaced subset
+            order = sorted(set(torch.linspace(0, len(seq) - 1, max_keyframes).round().long().tolist()))
+        for i in order:
+            c2w = seq[i]["c2w"]
+            if not torch.isfinite(c2w).all():
+                continue
+            if last is not None:                                # drop near-duplicates
+                dt, dr = _pose_gap(c2w, last)
+                if dt < args.kf_trans and dr < args.kf_rot:
+                    continue
+            last = c2w
+            keep.append(i)
+        return keep
+
+    def extract(seq, idx, desc):
+        """Full-resolution extractor tokens of the kept frames, stored on the CPU (fp32, the
+        values the field would get), so the extractor can leave the GPU before mapping."""
+        out = []
+        for i in tqdm(idx, desc=f"extract {desc}"):
+            fr_full = seq[i]
+            sync()
+            t_e = time.perf_counter()
+            out.append(clip.extract_tokens(fr_full["image"]).cpu())
+            sync()
+            ext_times.append(time.perf_counter() - t_e)             # extractor only
+        return out
+
+    # Extract every token grid first, then free the extractor: its activations (LSeg fp32:
+    # > 3.3 GB at 640x480) and the field + baselines + renders no longer peak together.
+    map_idx = select(ds, args.max_keyframes)
+    map_tok = extract(ds, map_idx, "mapping")
+    upd, upd_idx, upd_tok = None, [], []
+    if args.update_data:
+        upd = make_dataset(args.dataset, args.update_data, stride=args.update_stride)
+        upd_idx = select(upd)
+        upd_tok = extract(upd, upd_idx, "update")
+    query_t = None
+    if args.query:
+        query_t = clip.text_embedding([q.strip() for q in args.query.split(",")])
+    css_ids, css_text = None, None
+    if args.baselines and args.vocab and args.css_eval_data:
+        css_ids, prompts, tpl = css_vocabulary(args)
+        css_text = pca.project_text(clip.text_embedding(prompts, templates=tuple(tpl)))
+    del clip
+    peak_extract = (torch.cuda.max_memory_allocated() / 2 ** 20
+                    if torch.cuda.is_available() else None)
+    torch.cuda.empty_cache()
+
     cfg = FieldConfig(**json.loads(args.field_config)) \
         if args.field_config else FieldConfig()
     if not args.use_depth and cfg.readmit_depth is not None:
@@ -182,45 +242,23 @@ def run_gsplat(args):
     field.set_centre(centre.mean())
 
     # ---- baselines fed by the same per-view sums (plan K11) --------------------------
-    bs, css_ids = [], None
+    bs = []
     if args.baselines:
         text = None
-        if args.vocab and args.css_eval_data:
-            css_ids, prompts, tpl = css_vocabulary(args)
-            text = pca.project_text(clip.text_embedding(prompts, templates=tuple(tpl)))
+        if css_ids is not None:
+            text = css_text
             print(f"CSS vocabulary: {len(css_ids)} classes present in {args.css_eval_data}")
         bs = B.default_baselines(field, text=text, class_ids=css_ids)
     css = [b for b in bs if isinstance(b, B.CSS)]
 
-    import time
-    times, field_times, ext_times = [], [], []
-
-    def sync():
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-
-    def run_sequence(seq, desc, max_keyframes=None):
-        last, used = None, 0
-        order = range(len(seq))
-        if max_keyframes and max_keyframes < len(seq):             # evenly spaced subset
-            order = sorted(set(torch.linspace(0, len(seq) - 1, max_keyframes).round().long().tolist()))
-        for i in tqdm(order, desc=desc):
+    def run_sequence(seq, idx, toks, desc):
+        used = 0
+        for i, tok in tqdm(list(zip(idx, toks)), desc=desc):
             fr_full = seq[i]
             c2w = fr_full["c2w"]
-            if not torch.isfinite(c2w).all():
-                continue
-            if last is not None:                                # drop near-duplicates
-                dt, dr = _pose_gap(c2w, last)
-                if dt < args.kf_trans and dr < args.kf_rot:
-                    continue
-            last = c2w
             fr = downscale(fr_full, args.downscale)
             h, w = fr["image"].shape[:2]
-            sync()
-            t_e = time.perf_counter()
-            z = pca.project(feats(fr_full, (h, w))).reshape(-1, args.feat_dim)
-            sync()
-            ext_times.append(time.perf_counter() - t_e)             # extractor + PCA
+            z = pca.project(upsample_tokens(tok.to(device), (h, w))).reshape(-1, args.feat_dim)
             viewmat = torch.linalg.inv(c2w.double()).float().to(device)
             ras = GSplatFeatureRasterizer.from_splats(splats, viewmat, fr["K"].to(device),
                                                       w, h, channel_chunk=args.channel_chunk)
@@ -242,12 +280,12 @@ def run_gsplat(args):
 
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
-    used = run_sequence(ds, "mapping", max_keyframes=args.max_keyframes)
+    used = run_sequence(ds, map_idx, map_tok, "mapping")
+    del map_tok
     if args.update_data:
         thr = field.calibrate_change_threshold(args.change_quantile)
         print(f"calibrated change threshold (q={args.change_quantile}): {thr:.4f}")
-        upd = make_dataset(args.dataset, args.update_data, stride=args.update_stride)
-        used += run_sequence(upd, "update")
+        used += run_sequence(upd, upd_idx, upd_tok, "update")
 
     # ---- readout ------------------------------------------------------------------
     epi = field.epistemic()
@@ -260,7 +298,7 @@ def run_gsplat(args):
 
     if args.query:
         prompts = [q.strip() for q in args.query.split(",")]
-        t = pca.project_text(clip.text_embedding(prompts))      # no renormalisation (F7)
+        t = pca.project_text(query_t)                           # no renormalisation (F7)
         sims = field.query(t)
         for k, p in enumerate(prompts):
             s = sims[valid, k]
@@ -269,8 +307,9 @@ def run_gsplat(args):
     ms = lambda v: 1000 * sum(v) / max(len(v), 1)
     timing = dict(keyframes=used, ms_per_keyframe_update=ms(times),
                   ms_per_keyframe_field=ms(field_times),      # field + view-hook baselines
-                  ms_per_keyframe_extract=ms(ext_times),      # extractor + PCA projection
+                  ms_per_keyframe_extract=ms(ext_times),      # extractor (tokens) only
                   n_css=len(css), n_baselines=len(bs),
+                  peak_alloc_extract_mib=peak_extract,        # extractor phase (PCA + tokens)
                   gpu=(torch.cuda.get_device_name() if torch.cuda.is_available() else None),
                   peak_alloc_mib=(torch.cuda.max_memory_allocated() / 2 ** 20
                                   if torch.cuda.is_available() else None),

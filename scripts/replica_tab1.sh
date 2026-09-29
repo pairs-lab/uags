@@ -57,8 +57,11 @@ if d.get("status", "ok") not in ("ok", "success", "finished") or not body.get("b
              f"(status {d.get('status')}, betas {bool(body.get('betas'))})")
 print(f"validation fit: {len(body['betas'])} rows, fields {[i[:12] for i in body['beta_fit_settings'].get('field_identities', [])]}")
 PY
-  if [ "$EVAL" = 1 ] && [ -f "$OUT/eval_test.json" ] && [ "${FORCE_TEST:-0}" != 1 ]; then
-    echo "refused: $OUT/eval_test.json exists (the test split runs once; FORCE_TEST=1 to override)"; exit 1
+  # the test split runs once: refuse a FINISHED test record (a crashed run leaves status
+  # "running"/"failed" and no metrics, and may be rerun); FORCE_TEST=1 overrides
+  if [ "$EVAL" = 1 ] && [ -f "$OUT/eval_test.json" ] && [ "${FORCE_TEST:-0}" != 1 ] && \
+     python3 -c "import json,sys; sys.exit(0 if json.load(open('$OUT/eval_test.json')).get('status','ok') == 'ok' else 1)"; then
+    echo "refused: $OUT/eval_test.json holds a finished test run (the test split runs once; FORCE_TEST=1 to override)"; exit 1
   fi
 fi
 
@@ -83,9 +86,14 @@ for s in $SCENES; do
   for m in $DISTILL; do                  # trained baselines (Feature 3DGS, LEGaussians)
     [ -f "$FIELDS/${s}_lseg_${m}.pt" ] && continue
     L="$OUT/distill_${s}_${m}.$TS.log"
-    scripts/gpu_gate.sh "$DISTILL_NEED" python3 scripts/distill_features.py \
-      --field "$FIELDS/${s}_lseg.pt" --method "$m" > "$L" 2>&1 || { tail -20 "$L"; exit 1; }
-    grep -E "gpu_gate|mapping frames|iter [0-9]+0000/|saved" "$L"
+    ok=0
+    for try in 1 2 3; do                 # a CUDA launch time-out kills the process: resume
+      scripts/gpu_gate.sh "$DISTILL_NEED" python3 scripts/distill_features.py \
+        --field "$FIELDS/${s}_lseg.pt" --method "$m" >> "$L" 2>&1 && { ok=1; break; }
+      echo "distill $s $m: attempt $try failed ($(grep -m1 -oE 'CUDA error: [^.]*' "$L" | tail -1)); resuming"
+    done
+    [ "$ok" = 1 ] || { tail -20 "$L"; exit 1; }
+    grep -E "gpu_gate|mapping frames|resumed|converged|saved" "$L"
   done
 done
 
@@ -95,13 +103,16 @@ COMMON=(--vocab configs/vocab_replica.json --row-factory usplat.baselines:row_fa
         --tau-cov "$TAU_COV" --text-cache "$FIELDS/text_cache_lseg.pt" --with-2d)
 L="$OUT/eval_${STAGE}.$TS.log"
 if [ "$STAGE" = val ]; then
-  scripts/gpu_gate.sh "$EVAL_NEED" python3 scripts/eval_seg.py "${COMMON[@]}" \
-    --val-scenes configs/replica_val.json --scenes configs/replica_val.json \
-    --out "$OUT/eval_val.json" > "$L" 2>&1 || { tail -30 "$L"; exit 1; }
+  ARGS=(--val-scenes configs/replica_val.json --scenes configs/replica_val.json --out "$OUT/eval_val.json")
 else
-  scripts/gpu_gate.sh "$EVAL_NEED" python3 scripts/eval_seg.py "${COMMON[@]}" \
-    --betas "$OUT/eval_val.json" --scenes configs/replica_test.json \
-    --out "$OUT/eval_test.json" > "$L" 2>&1 || { tail -30 "$L"; exit 1; }
+  ARGS=(--betas "$OUT/eval_val.json" --scenes configs/replica_test.json --out "$OUT/eval_test.json")
 fi
+ok=0
+for try in 1 2 3; do                     # retried only after a crash (no result file is written)
+  scripts/gpu_gate.sh "$EVAL_NEED" python3 scripts/eval_seg.py "${COMMON[@]}" "${ARGS[@]}" \
+    >> "$L" 2>&1 && { ok=1; break; }
+  echo "eval $STAGE: attempt $try failed ($(grep -oE 'CUDA error: [^.]*|Error: [^.]*' "$L" | tail -1)); retrying"
+done
+[ "$ok" = 1 ] || { tail -30 "$L"; exit 1; }
 grep -vE "it/s|s/it|waiting" "$L" | tail -90
 echo "done: $STAGE -> $OUT (log $L)"

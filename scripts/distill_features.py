@@ -123,7 +123,7 @@ def main(argv=None):
     res = D.train_features(views, N, d, method=args.method, iters=args.iters, lr=args.lr,
                            lam_u=args.lam_u, alpha_min=args.alpha_min, seed=args.seed,
                            device=device, n_codes=args.codes, min_iters=args.min_iters,
-                           tol=args.tol)
+                           tol=args.tol, ckpt_path=f"{out}.ckpt")
     if torch.cuda.is_available():
         torch.cuda.synchronize()
     t_train = time.time() - t1
@@ -148,6 +148,8 @@ def main(argv=None):
     tmp = f"{out}.tmp{os.getpid()}"
     torch.save(rec, tmp)
     os.replace(tmp, out)
+    if os.path.exists(f"{out}.ckpt"):
+        os.remove(f"{out}.ckpt")                   # the training state is no longer needed
     print(f"saved {name} -> {out} ({res['iters_run']} iterations, train {t_train:.0f} s, "
           f"{rec['timing']['ms_per_iter']:.1f} ms/iter, final loss {res['history'][-1][1]:.4f})")
     return rec

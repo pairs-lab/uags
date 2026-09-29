@@ -91,3 +91,23 @@ def test_stopping_rule():
                            min_iters=500, log=lambda s: None)
     assert res["iters_run"] < 20000, res["iters_run"]
     print(f"PASS stopping rule: toy converged at {res['iters_run']} iterations")
+
+
+def test_resume_matches_uninterrupted(tmp_path):
+    """A run stopped after 400 iterations and resumed from its checkpoint gives the same result
+    as an uninterrupted 600-iteration run (same views drawn, same Adam state)."""
+    for method, kw in (("f3dgs", {}), ("legs", dict(n_codes=8, code_samples=100))):
+        views, true, N, d = _toy(V=10)
+        full = D.train_features(views, N, d, method=method, iters=600, lr=1e-2, log_every=100,
+                                min_iters=10 ** 6, log=lambda s: None, **kw)
+        ck = str(tmp_path / f"{method}.ckpt")
+        D.train_features(views, N, d, method=method, iters=400, lr=1e-2, log_every=100,
+                         min_iters=10 ** 6, ckpt_path=ck, ckpt_every=200, log=lambda s: None, **kw)
+        res = D.train_features(views, N, d, method=method, iters=600, lr=1e-2, log_every=100,
+                               min_iters=10 ** 6, ckpt_path=ck, ckpt_every=200,
+                               log=lambda s: None, **kw)
+        assert torch.allclose(res["features"], full["features"], atol=1e-5), method
+        if method == "legs":
+            assert torch.allclose(res["u"], full["u"], atol=1e-5)
+        assert [h[0] for h in res["history"]] == [h[0] for h in full["history"]]
+    print("PASS resume: identical to an uninterrupted run (f3dgs, legs)")

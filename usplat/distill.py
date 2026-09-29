@@ -97,16 +97,26 @@ def converged(history, window=5, tol=0.01):
     return prev <= 0 or (prev - recent) / prev < tol
 
 
+def _save_state(path, **state):
+    tmp = f"{path}.tmp{os.getpid()}"
+    torch.save(state, tmp)
+    os.replace(tmp, path)
+
+
 def train_features(views: Sequence, N: int, d: int, method="f3dgs", iters=30000, lr=1e-3,
                    lam_u=1.0, alpha_min=0.5, seed=0, device="cpu", n_codes=LEGS_CODES,
                    code_samples=2000, log_every=1000, min_iters=5000, window=5, tol=0.01,
-                   log=print):
+                   ckpt_path=None, ckpt_every=2000, log=print):
     """views: list of (rasterizer, target_fn): rasterizer(buffer (N, C)) -> (P, C), linear
     and differentiable in the buffer; target_fn() -> (P, d) unit feature map of that view.
     Trains for at most `iters` iterations (the papers' 30k) and stops earlier, after
     `min_iters`, once the loss improved by less than `tol` over the last window x log_every
     iterations (converged()). f3dgs: returns dict(features (N, d), history, iters_run).
-    legs: dict(features = codes (N, 8), u (N,), decoder (LEGDecoder, cpu), history, iters_run)."""
+    legs: dict(features = codes (N, 8), u (N,), decoder (LEGDecoder, cpu), history, iters_run).
+    ckpt_path: the full training state (parameters, Adam, the view sampler's RNG, history) is
+    saved there every ckpt_every iterations and training resumes from it when it exists (a
+    CUDA launch time-out on a GPU that also drives a display kills the process; the resumed
+    run draws the same views as an uninterrupted one)."""
     if method not in METHODS:
         raise ValueError(f"method {method!r} not in {METHODS}")
     g = torch.Generator().manual_seed(seed)
@@ -124,10 +134,28 @@ def train_features(views: Sequence, N: int, d: int, method="f3dgs", iters=30000,
         S = spherical_kmeans(torch.cat(samp).float(), n_codes, seed=seed)
         f = (0.01 * torch.randn(N, LEGS_DIM, generator=g)).to(device).requires_grad_(True)
         u = torch.zeros(N, device=device, requires_grad=True)          # "set to zero"
-        dec = LEGDecoder(S).to(device)
+        with torch.random.fork_rng(devices=[]):             # the MLP init follows `seed`
+            torch.manual_seed(seed)
+            dec = LEGDecoder(S)
+        dec = dec.to(device)
         params = [f, u] + list(dec.mlp.parameters())
     opt = torch.optim.Adam(params, lr=lr)
-    for it in range(1, iters + 1):
+    start = 1
+    if ckpt_path and os.path.exists(ckpt_path):
+        st = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+        if st["method"] != method or st["N"] != N:
+            raise ValueError(f"{ckpt_path}: checkpoint of another run ({st['method']}, N {st['N']})")
+        with torch.no_grad():
+            f.copy_(st["f"].to(device))
+            if u is not None:
+                u.copy_(st["u"].to(device))
+                dec.load_state_dict(st["decoder"])
+        opt.load_state_dict(st["opt"])
+        g.set_state(st["rng"])
+        history, start = st["history"], st["it"] + 1
+        log(f"[distill {method}] resumed from {ckpt_path} at iter {st['it']}")
+    it = start - 1
+    for it in range(start, iters + 1):
         ras, target = views[int(torch.randint(len(views), (1,), generator=g))]
         cols = [f, ones] if u is None else [f, u[:, None], ones]
         img = ras(torch.cat(cols, dim=1))
@@ -157,6 +185,11 @@ def train_features(views: Sequence, N: int, d: int, method="f3dgs", iters=30000,
             if it >= min_iters and converged(history, window, tol):
                 log(f"[distill {method}] converged at iter {it}")
                 break
+        if ckpt_path and it % ckpt_every == 0:
+            _save_state(ckpt_path, method=method, N=N, it=it, f=f.detach().cpu(),
+                        u=None if u is None else u.detach().cpu(),
+                        decoder=None if dec is None else dec.state_dict(),
+                        opt=opt.state_dict(), rng=g.get_state(), history=history)
     out = dict(features=f.detach(), history=history, u=None, decoder=None, iters_run=it)
     if u is not None:
         out.update(u=u.detach(), decoder=dec.cpu().eval())

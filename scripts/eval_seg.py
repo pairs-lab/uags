@@ -249,15 +249,27 @@ def load_scene(sc, vocab, args, device):
     if ext is not None and ext != args.extractor:
         raise ValueError(f"scene {sc['name']}: map built with extractor {ext!r} but "
                          f"--extractor {args.extractor!r}")
-    field = DirectionalSemanticField.from_state(ckpt["field"], device=device)
+    # The field and the baselines stay on the CPU: the rows are frozen there and only the
+    # frozen buffers go to the GPU (a 1M-Gaussian field with its change buckets and every
+    # row's buffer would not fit beside the extractor of the 2D row).
+    field = DirectionalSemanticField.from_state(ckpt["field"], device="cpu")
     pca = StreamingPCA.from_state(ckpt["pca"], device=device)
+    frames, n_unknown, skipped = load_frames(sc, vocab, args)
+    if not frames:
+        raise ValueError(f"scene {sc['name']}: no frames")
+    want2d = getattr(args, "with_2d", False) and (
+        not args.rows or ROW_2D in [s.strip() for s in args.rows.split(",")])
+    if want2d:                           # tokens first, then the extractor leaves the GPU
+        for f in frames:
+            f["tok2d"] = _extractor(args).extract_tokens(f["image"]).cpu()
+            f["image"] = None
+        _EXTRACTOR.clear()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     splats = load_gaussians(sc["ply"], device=device)
     if splats["means"].shape[0] != field.N:
         raise ValueError(f"scene {sc['name']}: {splats['means'].shape[0]} Gaussians in "
                          f"{sc['ply']} but the field has {field.N}")
-    frames, n_unknown, skipped = load_frames(sc, vocab, args)
-    if not frames:
-        raise ValueError(f"scene {sc['name']}: no frames")
     if args.queries == "present":
         present = torch.unique(torch.cat([f["labels"].reshape(-1) for f in frames]))
         q = [int(i) for i in present.tolist() if i >= 0]
@@ -269,15 +281,37 @@ def load_scene(sc, vocab, args, device):
         lab = f["labels"]
         f["gt"] = torch.where(lab >= 0, local[lab.clamp_min(0)], lab)
     text = pca.project_text(text_embeddings(vocab, q, args).to(device))    # (K, d), F7
-    rows = candidate_rows(field, ckpt, device, args, class_ids=[vocab["ids"][i] for i in q])
+    rows = candidate_rows(field, ckpt, "cpu", args, class_ids=[vocab["ids"][i] for i in q])
+    rows = frozen_on(rows, device)
     rows2d = []
-    if getattr(args, "with_2d", False) and (
-            not args.rows or ROW_2D in [s.strip() for s in args.rows.split(",")]):
+    if want2d:
         rows2d = [TensorRow(ROW_2D, "feature", buf=torch.zeros(1, field.d, device=device))]
     return dict(name=sc["name"], field=field, splats=splats, frames=frames, text=text, pca=pca,
                 rows2d=rows2d,
                 class_ids=[vocab["ids"][i] for i in q], class_names=[vocab["names"][i] for i in q],
                 rows=rows, n_unknown=n_unknown, n_skipped=skipped)
+
+
+@torch.no_grad()
+def frozen_on(rows, device):
+    """Freeze the rows (on their own device), move the snapshots to `device`, and share
+    identical tensors (e.g. mu* of ours P0/P2/scalar, the averaging feature of three
+    baselines, u_epi / u_ale of every ours row) so each is stored once."""
+    kept = []
+
+    def share(x):
+        for y_cpu, y_dev in kept:
+            if y_cpu.shape == x.shape and y_cpu.dtype == x.dtype and torch.equal(y_cpu, x):
+                return y_dev
+        y = x.to(device)
+        kept.append((x, y))
+        return y
+    out = []
+    for r in freeze_rows(rows):
+        out.append(TensorRow(r.name, r.kind, adaptive=r.adaptive,
+                             p2_channels=tuple(r.p2_channels), buf=share(r.buf),
+                             unc={k: share(v) for k, v in r.unc.items()}))
+    return out
 
 
 def candidate_rows(field, ckpt, device, args, class_ids=None):
@@ -344,8 +378,8 @@ def frame_features_2d(S, f, args):
     """(h*w, d) features of the evaluation frame: the run_mapping.py path (full-resolution
     tokens -> bilinear upsample to the label grid -> unit -> the map's PCA -> unit)."""
     from usplat.clip_dense import upsample_tokens
-    tok = _extractor(args).extract_tokens(f["image"])
-    z = S["pca"].project(upsample_tokens(tok, (f["h"], f["w"])))
+    tok = f["tok2d"] if f.get("tok2d") is not None else _extractor(args).extract_tokens(f["image"])
+    z = S["pca"].project(upsample_tokens(tok.to(S["pca"].basis.device), (f["h"], f["w"])))
     return z.reshape(-1, z.shape[-1]).float()
 
 

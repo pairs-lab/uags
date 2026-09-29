@@ -725,7 +725,8 @@ def test_cli_2d_row(tmp_path):
             tok[:, : W // 32, 0] = 1.0                  # chair (e0) on the left half
             tok[:, W // 32:, 1] = 1.0                   # table (e1) on the right half
             return tok
-    cli._EXTRACTOR["clearclip"] = Fake()
+    fake = Fake()
+    cli._extractor = lambda args: fake            # load_scene frees the real one per scene
     try:
         out = cli.main(base + ["--scenes", scenes, "--val-scenes", scenes, "--with-2d",
                                "--plain-json", "--out", str(tmp_path / "e2d.json")])
@@ -752,5 +753,28 @@ def test_cli_2d_row(tmp_path):
         assert "not in" in tex                                   # no baselines in the toy
     finally:
         cli._EXTRACTOR.clear()
+    # tokens were extracted before the rows were built and the frame images released
     print(f"PASS 2D row: mIoU {r2['miou']:.3f}, coverage {r2['coverage']:.2f}, "
           f"beta {out['betas']['2d_features']:.2f}")
+
+
+def test_frozen_on_shares_identical_tensors():
+    """eval_seg.frozen_on: rows are frozen once, identical buffers / channels are stored once
+    on the target device, and the snapshots equal the live rows."""
+    from usplat.rows import FieldRow, field_rows
+    cli = _load_cli()
+    torch.manual_seed(0)
+    N, d = 30, 8
+    f = DirectionalSemanticField(N, d, FieldConfig(change_test=False))
+    for _ in range(4):
+        f.update_sparse(torch.arange(N), torch.ones(N), Fn.normalize(torch.randn(N, d), dim=-1),
+                        num_pixels=100)
+    rows = field_rows(f, "ours") + [FieldRow("ours_scalar", "feature", field=f, mode="P0",
+                                             channels=("spread",))]
+    fr = {r.name: r for r in cli.frozen_on(rows, "cpu")}
+    assert fr["ours_P0"].buf is fr["ours_P2"].buf is fr["ours_scalar"].buf   # mu* once
+    assert fr["ours_P1"].buf is not fr["ours_P0"].buf                        # E[mu] differs
+    assert fr["ours_P0"].unc["u_ale"] is fr["ours_P1"].unc["u_ale"]
+    assert torch.equal(fr["ours_P1"].buf, rows[1].buffer())
+    assert fr["ours_P2"].adaptive and not fr["ours_P0"].adaptive
+    print("PASS frozen_on: shared mu*, u_epi, u_ale across ours rows")

@@ -193,7 +193,11 @@ def run_gsplat(args):
     css = [b for b in bs if isinstance(b, B.CSS)]
 
     import time
-    times = []
+    times, field_times, ext_times = [], [], []
+
+    def sync():
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
 
     def run_sequence(seq, desc, max_keyframes=None):
         last, used = None, 0
@@ -212,7 +216,11 @@ def run_gsplat(args):
             last = c2w
             fr = downscale(fr_full, args.downscale)
             h, w = fr["image"].shape[:2]
+            sync()
+            t_e = time.perf_counter()
             z = pca.project(feats(fr_full, (h, w))).reshape(-1, args.feat_dim)
+            sync()
+            ext_times.append(time.perf_counter() - t_e)             # extractor + PCA
             viewmat = torch.linalg.inv(c2w.double()).float().to(device)
             ras = GSplatFeatureRasterizer.from_splats(splats, viewmat, fr["K"].to(device),
                                                       w, h, channel_chunk=args.channel_chunk)
@@ -220,14 +228,14 @@ def run_gsplat(args):
             if args.use_depth and fr.get("depth") is not None:
                 kw = dict(depth_obs=fr["depth"].reshape(-1).to(device),
                           gauss_depth=ras.gaussian_depths())
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
+            sync()
             t0 = time.perf_counter()
-            field.update_view(ras, z, num_pixels=h * w, **kw)
+            field.update_view(ras, z, num_pixels=h * w, **kw)   # + hooked baselines
+            sync()
+            field_times.append(time.perf_counter() - t0)
             for c in css:                                       # CSS: its own one-hot pass
                 c.update_view(ras, z)
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
+            sync()
             times.append(time.perf_counter() - t0)              # field + baselines update
             used += 1
         return used
@@ -258,7 +266,12 @@ def run_gsplat(args):
             s = sims[valid, k]
             print(f"query '{p}': max {s.max():.3f} | mean {s.mean():.3f}")
 
-    timing = dict(keyframes=used, ms_per_keyframe_update=1000 * sum(times) / max(len(times), 1),
+    ms = lambda v: 1000 * sum(v) / max(len(v), 1)
+    timing = dict(keyframes=used, ms_per_keyframe_update=ms(times),
+                  ms_per_keyframe_field=ms(field_times),      # field + view-hook baselines
+                  ms_per_keyframe_extract=ms(ext_times),      # extractor + PCA projection
+                  n_css=len(css), n_baselines=len(bs),
+                  gpu=(torch.cuda.get_device_name() if torch.cuda.is_available() else None),
                   peak_alloc_mib=(torch.cuda.max_memory_allocated() / 2 ** 20
                                   if torch.cuda.is_available() else None),
                   peak_reserved_mib=(torch.cuda.max_memory_reserved() / 2 ** 20

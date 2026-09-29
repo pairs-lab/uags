@@ -1,0 +1,11 @@
+[gpu_gate] 2026-09-29 15:17:44 free 11877 MiB >= 11048; running: python3 scripts/run_mapping.py --backend gsplat --dataset replica_semnerf --data /home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_2/Sequence_1 --stride 5 --downscale 2 --ply /home/thanhnc/gauss_ws/data/uags_maps/room_2_seq1.pt --extractor lseg --baselines --vocab configs/vocab_replica.json --css-eval-data /home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_2/Sequence_2 --css-eval-stride 10 --feat-dim 64 --pca-frames 20 --out /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg.pt
+loaded 954119 Gaussians from /home/thanhnc/gauss_ws/data/uags_maps/room_2_seq1.pt
+dataset replica_semnerf: 180 frames (stride 5)
+extractor lseg: 512-d features
+PCA 512 -> 64 dims (explained second moment 1.000); ||zbar|| = 0.896
+no --use-depth: re-admission after a change uses views only
+CSS vocabulary: 21 classes present in /home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_2/Sequence_2
+keyframes used 179 | observed Gaussians 95.4% | mean support 1.71 views
+epistemic mean 0.723 | aleatoric mean (valid, 12.2%) 0.007 | changed 0 | robust 116674/954119
+timing: {'keyframes': 179, 'ms_per_keyframe_update': 68.9013837758639, 'ms_per_keyframe_field': 50.758222959592274, 'ms_per_keyframe_extract': 65.59345842594041, 'n_css': 1, 'n_baselines': 3, 'peak_alloc_extract_mib': 4930.58447265625, 'gpu': 'NVIDIA GeForce RTX 5070 Ti', 'peak_alloc_mib': 5731.73046875, 'peak_reserved_mib': 6456.0}
+saved field -> /home/thanhnc/gauss_ws/data/uags_fields/room_2_lseg.pt

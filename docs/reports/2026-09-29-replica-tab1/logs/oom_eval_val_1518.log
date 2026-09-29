@@ -1,0 +1,22 @@
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/eval_seg.py", line 579, in main
+    out = run(args, rec)
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/eval_seg.py", line 497, in run
+    betas, info, settings = fit_on(_load_structured(args.val_scenes), vocab, args, device)
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/eval_seg.py", line 363, in fit_on
+    fitter.add(S["rows"], scene_views(S, args))
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/seg_eval.py", line 488, in add
+    fr = freeze_rows(rows)
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/seg_eval.py", line 277, in freeze_rows
+    return [freeze(r) for r in rows]
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/rows.py", line 136, in freeze
+    buf = row.buffer().detach()
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/baselines.py", line 108, in buffer
+    return self.buffer_fn()
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/baselines.py", line 184, in feature
+    f = f / f.norm(dim=-1, keepdim=True)
+        ~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 234.00 MiB. GPU 0 has a total capacity of 15.46 GiB of which 178.19 MiB is free. Process 923057 has 3.76 GiB memory in use. Including non-PyTorch memory, this process has 4.64 GiB memory in use. Process 3371347 has 6.78 GiB memory in use. 8.54 GiB allowed; Of the allocated memory 4.15 GiB is allocated by PyTorch, and 211.62 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

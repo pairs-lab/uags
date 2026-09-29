@@ -1,0 +1,20 @@
+extractor lseg: 512-d features
+PCA 512 -> 64 dims (explained second moment 1.000); ||zbar|| = 0.896
+no --use-depth: re-admission after a change uses views only
+CSS vocabulary: 21 classes present in /home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_2/Sequence_2
+Traceback (most recent call last):
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/run_mapping.py", line 374, in <module>
+    main()
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/run_mapping.py", line 370, in main
+    run_gsplat(args)
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/run_mapping.py", line 283, in run_gsplat
+    used = run_sequence(ds, map_idx, map_tok, "mapping")
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/run_mapping.py", line 271, in run_sequence
+    field.update_view(ras, z, num_pixels=h * w, **kw)   # + hooked baselines
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/vmf_field.py", line 322, in update_view
+    self._ingest(stats, gauss_depth)
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/vmf_field.py", line 419, in _ingest
+    c = 1.0 - Fn.cosine_similarity(self.Rs, self.Rf, dim=-1, eps=1e-8)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 234.00 MiB. GPU 0 has a total capacity of 15.46 GiB of which 5.64 GiB is free. Process 923057 has 3.76 GiB memory in use. Including non-PyTorch memory, this process has 5.96 GiB memory in use. 5.69 GiB allowed; Of the allocated memory 5.37 GiB is allocated by PyTorch, and 247.40 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

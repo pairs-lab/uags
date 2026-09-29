@@ -37,6 +37,10 @@ So the gate stays at 6000 MiB (+2048 headroom) and the stage waits for gaps betw
 | All-zero statistics saved as None | disk has 25 GB free (98% used); a field with its centred channel and change buckets is ~1 GB | 01f39a7 |
 | NormLift 1 - C_inter channel, rbar estimator, flat pooled null | paper review (Table I / III rows) | 4829617 |
 
+| Mapping OOM for room_2 (954k Gaussians) at the 5.7 GB cap | mapping memory grows with N (office_0 620k: 4.8 GB) | [logs/oom_mapping_room_2_1516.log](logs/oom_mapping_room_2_1516.log); fix: caps MAP_NEED / EVAL_NEED = 9000 (5e8c51e); room_2 then peaked at 5.7 GB ([logs/map_room_2.log](logs/map_room_2.log)) |
+| Eval OOM at 15:18 | a new USGLoc batch (batch_seeds12: 2 seeds x 7 scenes, ~30 min each) started in the same gap; also the eval kept the field and every row's buffer on the GPU next to LSeg | [logs/oom_eval_val_1518.log](logs/oom_eval_val_1518.log); fix: rows frozen on the CPU, identical buffers stored once, 2D tokens extracted before the rows (7dd4bfe); the gate now never starts beside a USGLoc job (its notes: MASt3R fails with launch timeouts when sharing) |
+| u_ale is defined for few Gaussians but most pixel mass | tau_min = 3 views; most Gaussians are tiny (median pixel mass over 179 views: 4.2 px office_0, 1.6 px room_2; a full view is a0*H*W = 7.7 px) | [logs/support_stats.log](logs/support_stats.log): defined for 22.4% / 12.2% of Gaussians but 84.2% / 81.8% of pixel mass; u_ale mean 0.020 / 0.007 (LSeg features agree across views) |
+
 ## 2 Baseline
 3DGS maps (Sequence_1, every 5th frame = 180 frames, 157 train / 23 held out, i % 8 == 0; 30k iterations; 640x480):
 

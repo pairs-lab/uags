@@ -1,0 +1,40 @@
+[gpu_gate] 2026-09-29 14:20:51 free 5244 MiB >= 5000; running: python3 scripts/run_mapping.py --backend gsplat --dataset replica_semnerf --data /home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/office_0/Sequence_1 --stride 5 --downscale 2 --ply /home/thanhnc/gauss_ws/data/uags_maps/office_0_seq1.pt --extractor lseg --baselines --vocab configs/vocab_replica.json --css-eval-data /home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/office_0/Sequence_2 --css-eval-stride 10 --feat-dim 64 --pca-frames 20 --max-keyframes 3 --out /tmp/claude-1005/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/memprobe/probe.pt
+loaded 620290 Gaussians from /home/thanhnc/gauss_ws/data/uags_maps/office_0_seq1.pt
+dataset replica_semnerf: 180 frames (stride 5)
+extractor lseg: 512-d features
+Traceback (most recent call last):
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/run_mapping.py", line 335, in <module>
+    main()
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/run_mapping.py", line 331, in main
+    run_gsplat(args)
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/run_mapping.py", line 165, in run_gsplat
+    z = feats(fr, (h, w))
+  File "/home/thanhnc/gauss_ws/src/uags/scripts/run_mapping.py", line 156, in feats
+    tok = clip.extract_tokens(frame_full["image"])          # full-resolution tokens
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/extractors/lseg.py", line 269, in extract_tokens
+    (self._forward_tta(x) if self.flip else self._forward_padded(x))
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/extractors/lseg.py", line 214, in _forward_padded
+    f = self.net(x).float()
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/extractors/lseg.py", line 160, in forward
+    p = s.refinenet1(p, l1)
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/thanhnc/gauss_ws/src/uags/usplat/extractors/lseg.py", line 108, in forward
+    return self.out_conv(x)
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/nn/modules/conv.py", line 548, in _conv_forward
+    return F.conv2d(
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 76.00 MiB. GPU 0 has a total capacity of 15.46 GiB of which 1.54 GiB is free. Process 923057 has 3.76 GiB memory in use. Process 3310741 has 6.47 GiB memory in use. Including non-PyTorch memory, this process has 3.58 GiB memory in use. 3.32 GiB allowed; Of the allocated memory 3.21 GiB is allocated by PyTorch, and 92.89 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

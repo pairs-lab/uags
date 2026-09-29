@@ -26,34 +26,41 @@ Read-outs
                  evidence into the value (a reliability score, like NormLift's R). It is
                  therefore used for kappa_hat and the posterior predictive, and is only an
                  ablation option for the aleatoric channel.
-    epistemic  = 1/(1 + n_K)  (or views, or the posterior spread 1 - A_d(kappa_post))
-    aleatoric  = 1 - agreement on the CENTRED channel, defined once support >= tau_min
+    epistemic  = 1/(1 + support)  (default; or n_K, views, pixels, or the posterior spread
+                 1 - A_d(kappa_post))
+    aleatoric  = 1 - agreement, defined once support >= tau_min
 
-Centred channel (F3): z_hat = (z - zbar)/||z - zbar||, zbar = scene mean feature from the
-mapping frames. Raw CLIP features share a large common component (random pixel pairs have
-cos ~0.65), so dispersion is measured after removing it. Queries always use the raw channel.
+Centred channel (F3, OFF by default): z_hat = (z - zbar)/||z - zbar||, zbar = scene mean
+feature from the mapping frames. It was meant to remove the common component of raw CLIP
+features, but with correct features it lowered both change and aleatoric AUROC on the
+7-Scenes replay, so the default reads the raw channel everywhere; centre=True is an ablation.
 
-Change test (F4): the centred evidence is split into two DISJOINT buckets, recent (fast)
-and older (slow). Each view enters the fast bucket, whose content leaks into the slow bucket
-at rate 1 - beta per effective view: F <- beta F + w u_hat, S <- lambda S + (1 - beta) F_old,
-so S + F is all the evidence (lambda = 1). c = 1 - cos(S, F) compares old with recent
-evidence; a slow bucket that also absorbed the newest views would hide the change it is meant
-to detect. change_score="normalized" divides c by its expected value under NO change,
-    E0[1 - cos] ~ 1 - rho^2 / sqrt((rho^2 + (q - rho^2)/n_S)(rho^2 + (q - rho^2)/n_F)),
-with rho = unbiased agreement of the slow bucket, q = mean ||u||^2, n_S/n_F = Kish sizes of
-the buckets. MEASURED NEGATIVE on real CLIP features (7-Scenes replay): consecutive views are
-correlated, so this i.i.d. null is wrong and the ranking drops (AUROC 0.75 -> 0.60); kept
-only as an ablation. The threshold that transfers between scenes is the per-scene quantile
-of the mapping-pass scores (calibrate_change_threshold).
-When c > threshold the Gaussian's evidence is reset and it is flagged `changed`
-(F5). A changed Gaussian re-enters the robust set only after `readmit_views` new views AND
-a small observed-depth residual (non-oracle depth input),
-so a removed object's Gaussians cannot come back with stale geometry.
+Change test (F4): the evidence is split into two DISJOINT buckets, recent (fast) and older
+(slow). Each view enters the fast bucket, whose content leaks into the slow bucket at rate
+1 - beta per effective view: F <- beta F + w u, S <- lambda S + (1 - beta) F_old, so S + F is
+all the evidence (lambda = 1). c = 1 - cos(S, F) compares old with recent evidence; a slow
+bucket that also absorbed the newest views would hide the change it is meant to detect.
+The score is the min of the last k = change_persist defined c values. The default beta = 0,
+k = 2 won the chess grid and EQUALS the classic feature residual (the last view against all
+earlier views, persisting two views); beta > 0 is an ablation.
+change_score="normalized" divides c by an i.i.d.-views null E0[1 - cos]; MEASURED NEGATIVE
+(consecutive views are correlated; AUROC 0.75 -> 0.60 on the 7-Scenes replay), ablation only.
+
+Threshold (calibrate_change_threshold): map with change_thr = inf (the default: scores are
+recorded, nothing is reset), then set the threshold from the field's OWN mapping pass, which
+is static by assumption. calib_mode="pooled" (default) keeps a histogram of every per-view
+score, bucketed by the slow-bucket history (edges 4, 6, 10, 20, 40 views), and takes its
+q-quantile per bucket (q = change_quantile = 0.999, a per-view false-alarm rate); a bucket
+with fewer than MIN_NULL = 200 scores borrows the nearest bucket that has enough. Short
+histories are noisier, so one pooled threshold would be too tight for them and too loose for
+long ones. calib_mode="max" (per-Gaussian max over the mapping pass) is the older ablation.
+When c > threshold the Gaussian's evidence is reset and it is flagged `changed` (F5). A
+changed Gaussian re-enters the robust set only after `readmit_views` new views AND a small
+observed-depth residual (non-oracle depth input), so a removed object's Gaussians cannot
+come back with stale geometry.
 
 Every fix has a switch in FieldConfig so the ablations can turn it off one at a time;
 FieldConfig.legacy() reproduces the field at git ab28fb4 (tests/test_legacy.py).
-The change threshold is NOT a fixed number: map with change_thr = inf (the default: scores
-are recorded, nothing is reset), call calibrate_change_threshold(), then run the updates.
 """
 from __future__ import annotations
 from dataclasses import dataclass, asdict
@@ -471,11 +478,13 @@ class DirectionalSemanticField:
     @torch.no_grad()
     def calibrate_change_threshold(self, q=None):
         """Set change_thr from the field's OWN mapping pass (no labels): the mapping
-        sequence is static by assumption, so each Gaussian's max c during mapping is a null
-        sample and thr = its q-quantile. Map with change_thr = inf, call this, then run the
-        update sequence. A raw threshold on c does not transfer between scenes (feature
-        noise differs); a quantile of the scene's own null does. calib_mode "pooled" (default)
-        uses every per-view score of the mapping pass, so q is a per-view false-alarm rate."""
+        sequence is static by assumption, so its scores are null samples. Map with
+        change_thr = inf, call this, then run the update sequence. A raw threshold on c does
+        not transfer between scenes (feature noise differs); a quantile of the scene's own
+        null does. calib_mode "pooled" (default): every per-view score, one q-quantile per
+        slow-bucket history bucket (thr_by_hist; q is a per-view false-alarm rate); the
+        returned change_thr is the quantile of all buckets pooled. calib_mode "max": the
+        q-quantile of each Gaussian's max c over the mapping pass."""
         q = self.cfg.change_quantile if q is None else q
         if self.cfg.calib_mode == "pooled":
             counts = self.c_hist.sum(1)

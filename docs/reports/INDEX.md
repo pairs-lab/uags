@@ -8,6 +8,7 @@ Last updated 2026-09-29.
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|
+| 2026-09-29 | [Replica Table I](2026-09-29-replica-tab1/README.md) | IN PROGRESS | validation stage running |
 | 2026-09-29 | [Paper revision 1](2026-09-29-paper-revision-1/README.md) | IN PROGRESS | text to implemented method, ieeeconf, anonymous |
 | 2026-09-29 | [Bibliography moved to ref.bib](2026-09-29-bibliography/README.md) | DONE | 49 entries verified; compiles with BibTeX, 0 errors/undefined |
 | 2026-09-29 | [Data, baselines and eval infrastructure](2026-09-29-data-and-baselines/README.md) | IN PROGRESS | Replica ready; CLIP bug fixed; LSeg chosen (val worst-scene mIoU 13.4 -> 23.2); change score = residual on proxy |

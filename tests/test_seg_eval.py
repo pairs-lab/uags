@@ -665,3 +665,44 @@ def test_vocab_file_of_k8():
     lab, unk = cli.map_labels(raw, v)
     assert lab.tolist() == [[-1, 0], [len(v["ids"]) - 1, -1]] and unk == 0
     print(f"PASS vocabulary: {len(v['ids'])} classes, ignore {sorted(v['ignore'])}")
+
+
+def test_eval_views_cli(tmp_path):
+    """scripts/eval_views.py: a k-view field that labels every Gaussian 'table' against the
+    full field (chair left, table right): the chair pixels are e_red (wrong at k, right at
+    full); e_irr holds only the few pixels the full map gets wrong too (edges). The full field
+    scored as a k-view field has no e_red. The k-view fields share the full map's pixels."""
+    cli = _load_cli()
+    base = _cli_toy(tmp_path)
+    scenes = str(tmp_path / "scenes.json")
+    fit = tmp_path / "fit.json"
+    cli.main(base + ["--val-scenes", scenes, "--plain-json", "--out", str(fit)])
+    ck = torch.load(tmp_path / "field.pt", weights_only=False)
+    full = DirectionalSemanticField.from_state(ck["field"])
+    from usplat.feature_pca import StreamingPCA
+    pca = StreamingPCA.from_state(ck["pca"])
+    N, d = full.N, full.d
+    f1 = DirectionalSemanticField(N, d, FieldConfig(change_test=False))
+    f1.set_centre(torch.zeros(d))
+    feat = pca.project(torch.eye(16)[1][None]).expand(N, d)          # table everywhere
+    f1.update_sparse(torch.arange(N), torch.ones(N), feat, num_pixels=100)
+    torch.save(dict(field=f1.state_dict(), pca=ck["pca"], timing=dict(keyframes=1)),
+               tmp_path / "field_k1.pt")
+    sc = json.loads(open(scenes).read())
+    sc[0]["fields"] = {"1": str(tmp_path / "field_k1.pt"), "4": str(tmp_path / "field.pt")}
+    (tmp_path / "views.json").write_text(json.dumps(sc))
+    spec = importlib.util.spec_from_file_location("eval_views", REPO / "scripts" / "eval_views.py")
+    ev = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ev)
+    out = ev.main(base + ["--scenes", str(tmp_path / "views.json"), "--betas", str(fit),
+                          "--rows", "ours_P0", "--out", str(tmp_path / "views_out.json")])
+    k1 = out["scenes"]["toy"]["k"]["1"]
+    assert k1["n_mapping_views"] == 1
+    r = k1["rows"]["ours_P0"]
+    k4 = out["scenes"]["toy"]["k"]["4"]["rows"]["ours_P0"]            # the full field itself
+    assert k4["n_e_red"] == 0, k4                   # e_irr of k4 = every error of the full map
+    assert r["n_e_red"] > 10 * max(r["n_e_irr"], 1) and r["n_e_irr"] <= k4["n_e_irr"], r
+    assert set(r["ause"]) >= {"u_epi", "u_ale", "msp", "entropy"}
+    assert out["summary"]["1"]["ours_P0"]["u_epi"]["e_red"]["n"] == 1
+    assert json.loads((tmp_path / "views_out.json").read_text())["ks"] == [1, 4]
+    print(f"PASS eval_views: k=1 e_red {r['n_e_red']} px, AUSE u_epi {r['ause']['u_epi']}")

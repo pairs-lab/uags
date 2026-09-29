@@ -1,0 +1,74 @@
+{
+ "findings": [
+  {
+   "title": "STAGE=test accepts a failed eval_val.json; eval_seg only warns when the betas file has no fit",
+   "severity": "minor",
+   "where": "scripts/replica_tab1.sh:56; scripts/eval_seg.py:474-478 (load_betas), 488-493 (check_fit_settings)",
+   "problem": "The test stage checks only that $OUT/eval_val.json exists. RunRecord writes this file even when the run fails (status 'failed', metrics {}). load_betas then returns {} and check_fit_settings only warns when the fit settings are missing. The run is refused later, in betas_used, after the scripts have fitted and mapped all 6 test scenes and extracted LSeg tokens for room_0. The file on disk now is exactly such a failed record, from the 20:13 run that hit an OOM.",
+   "failure_scenario": "The val stage was stopped for this review. If someone runs STAGE=test before a successful STAGE=val, the test run crashes with 'rows [...] have no usable fitted beta'. No test metric is printed, so nothing leaks, but the run is wasted. A record with status 'ok' from older code would also pass: the commit is not compared.",
+   "evidence": "python3 (CPU) with es.load_betas / es.load_fit_settings / es.check_fit_settings on /home/thanhnc/gauss_ws/data/uags_results/tab1/eval_val.json -> 'status: failed', 'betas: {}', 'settings: None', UserWarning 'no beta_fit_settings recorded', 'check_fit_settings passed (warning only)'. replica_tab1.sh:56: [ -f \"$OUT/eval_val.json\" ] || { echo \"run STAGE=val first\"; exit 1; }",
+   "fix": "In replica_tab1.sh (and replica_tab3.sh:49, replica_views.sh:27), require status == 'ok' and a non-empty metrics.betas, for example with a python3 -c json check. In eval_seg.run, raise when --betas gives an empty dict or no beta_fit_settings, instead of warning."
+  },
+  {
+   "title": "Output record lists the wrong prompt templates for the LSeg run",
+   "severity": "minor",
+   "where": "scripts/eval_seg.py:525-526 (out['vocab']['templates']); scripts/eval_seg.py:103-107, 134",
+   "problem": "The record stores vocab['templates'], which is the vocabulary's default single template 'a photo of a {} in a room.' (the ClearCLIP one). The text embeddings actually come from extractor_templates(vocab, 'lseg'), the 5-template LSeg ensemble. So the provenance in eval_val.json and eval_test.json misstates the prompts behind every Table I number.",
+   "failure_scenario": "A reader or a later script takes eval_test.json's vocab.templates as the prompts used. It sees one ClearCLIP template, not the frozen 5-template LSeg ensemble. The run cannot be reproduced from the record alone.",
+   "evidence": "CPU check: load_vocab('configs/vocab_replica.json')['templates'] -> ['a photo of a {} in a room.']; extractor_templates(v,'lseg') -> ['a photo of a {}.', 'a photo of the {}.', 'there is a {} in the scene.', 'a photo of a {} in a room.', 'a cropped photo of a {}.']",
+   "fix": "Record templates=extractor_templates(vocab, args.extractor), plus the extractor name, in out['vocab']. Optionally hash the text tensor that was used."
+  },
+  {
+   "title": "The std in the tables is the population std (ddof=0); the paper says only 'standard deviation'",
+   "severity": "minor",
+   "where": "usplat/seg_eval.py:613-621 (scene_stats, v.std(unbiased=False)); papers/main.tex:623-624, 726; scripts/make_tables.py:47-53",
+   "problem": "summarize_scenes and make_tables report the population std over N=6 scenes. Most readers assume the sample std (ddof=1). With N=6 the sample std is sqrt(6/5) = 1.095 times larger, so every +- in Tables I and III and in Fig. views would read about 9% smaller than a reader expects.",
+   "failure_scenario": "A reviewer computes the std from per-scene numbers with the usual sample formula and gets values about 9.5% larger than the table shows.",
+   "evidence": "seg_eval.py:620: std=float(v.std(unbiased=False)); main.tex:623: 'We report the mean and standard deviation over the test scenes (N=6 ...)'",
+   "fix": "Either use unbiased=True (it does not affect the test run: std is computed from saved per-scene numbers) or write 'population standard deviation' in the setup text. Also consider stating the AUSE grid size (20 fractions) in the metrics paragraph."
+  },
+  {
+   "title": "Paper says tau_cov is set on the validation scenes, but it is a fixed default (0.5)",
+   "severity": "minor",
+   "where": "papers/main.tex:621-622; scripts/replica_tab1.sh:21; scripts/eval_seg.py:563-564; usplat/seg_eval.py:29",
+   "problem": "The text says 'The coverage floor tau_cov=\\ph and all temperatures are set on the validation scenes.' No script selects tau_cov on the validation scenes. TAU_COV defaults to 0.5 in all three pipeline scripts, and seg_eval.py calls the coverage rule 'fixed before any val run'. The eval_seg help text also says '[A: set on Replica val]'.",
+   "failure_scenario": "The paper claims a validation choice that was never made. A reviewer asks how tau_cov was tuned, and no run or log can answer.",
+   "evidence": "grep over docs/reports and scripts/*.sh: tau_cov appears only as TAU_COV=${TAU_COV:-0.5} in replica_tab1.sh, replica_tab3.sh and replica_views.sh. There is no selection run.",
+   "fix": "Write 'tau_cov = 0.5, fixed before any run; the temperatures are fit on the validation scenes', and fix the --tau-cov help text."
+  },
+  {
+   "title": "CSS vocabulary: the docstring contradicts the code, and the paper wording is ambiguous",
+   "severity": "minor",
+   "where": "usplat/baselines.py:34-37; scripts/run_mapping.py:104-120 (css_vocabulary); papers/main.tex:643-644",
+   "problem": "baselines.py says CSS receives 'the frozen evaluation vocabulary (configs/vocab_replica.json, all classes) ..., never the classes present in a test scene'. run_mapping.css_vocabulary does the opposite. It gives CSS the classes present in the labels of the scene's own evaluation frames (Sequence_2, stride 10), so its Dirichlet has 16-28 classes, not 101. The paper says 'CSS receives the full vocabulary at mapping time'. That is true only if 'vocabulary' means the scene's query vocabulary (line 595). A reader may think CSS votes over 101 classes.",
+   "failure_scenario": "A reader of the paper or of the code believes CSS votes among all 101 classes. In fact it votes among exactly the test scene's query classes, which it knows from test labels at mapping time. This makes CSS easier than 'full vocabulary' suggests.",
+   "evidence": "CPU check over all 8 scenes: the CSS vocabulary (full-resolution labels) equals the query set (labels at downscale 2) in every scene. Sizes: office_0 24, room_2 21, room_0 28, room_1 24, office_1 22, office_2 21, office_3 26, office_4 16. Queries <= CSS vocabulary: True for all, so there is no crash risk in CSS.columns.",
+   "fix": "Paper: 'CSS receives the scene's query vocabulary (the classes present in its evaluation frames) at mapping time.' Update the baselines.py docstring to match run_mapping."
+  },
+  {
+   "title": "frozen_on never shares channels that contain NaN (u_ale), unlike its docstring says",
+   "severity": "minor",
+   "where": "scripts/eval_seg.py:294-306 (share uses torch.equal); tests/test_seg_eval.py:761-780",
+   "problem": "torch.equal returns False when a tensor has NaN. u_ale is NaN for undefined Gaussians (77-88% of Gaussians on the val maps), so each ours row keeps its own GPU copy. The test passes only because its toy field has no NaN. No number changes: this only costs memory (about 4 MB per copy per 1M Gaussians).",
+   "failure_scenario": "No wrong number. The docstring's claim 'u_epi / u_ale of every ours row stored once' is false on real maps.",
+   "evidence": "CPU: torch.equal(tensor([1., nan]), same.clone()) -> False (torch 2.11.0+cu128). README support_stats: u_ale defined for 22.4% / 12.2% of Gaussians.",
+   "fix": "Compare with torch.equal(a.isnan(), b.isnan()) and torch.equal(a.nan_to_num(), b.nan_to_num()), or just fix the docstring. Add NaN to the toy test."
+  }
+ ],
+ "checked_ok": [
+  "Tests: CUDA_VISIBLE_DEVICES='' python3 -m pytest -q tests/test_seg_eval.py tests/test_metrics.py -> 28 passed in 3.96s.",
+  "The frozen/shared CLI path gives the same numbers as the live path. CPU experiment (scratchpad/exp_frozen.py): toy scene with u_ale NaN on 41% of Gaussians plus saved NormLift/ViewCount/CSS baselines, --with-2d, --row-factory usplat.baselines:row_factory. Every metric (miou, acc, ece, nll, brier, aurc, coverage, n_tied, all AUSE signals, both variants) of the CLI output (rows frozen on CPU, shared tensors) equals a direct evaluation with the live unfrozen rows: 0 mismatches.",
+  "The 2D row is scored on exactly the same labelled pixels, GT, text and label grid as the 3D rows. In the same experiment, pix and gt arrays are equal in every view. Both generators iterate S['frames'] in the same order, names are checked (eval_seg.py:434-437), and both use f['gt'] and S['text'].",
+  "The 2D feature path equals the mapping path: full-resolution LSeg tokens -> upsample_tokens(bilinear, align_corners=False, unit) to (H//2, W//2) = (240, 320) -> map PCA project (unit) -> row-major reshape. This is the same as run_mapping.py:261. The gsplat adapter also returns row-major (H*W, k).",
+  "PixelSource returns [z | 1] for the (1, d+1) dummy buffer that render_row builds, so alpha = 1 and every labelled pixel is covered. The 2D row has only msp/entropy signals, and make_tables prints '--' for its AUSE_u.",
+  "Moving from CPU to GPU cannot change a number: dtypes are kept (float32); class_scores moves the text to the feature device and dtype; render_row, pixel_beta and evaluate_view never modify buffers in place, so shared GPU tensors are safe. Both the val fit and the test evaluation use the same CPU read-out path (code 7dd4bfe and later), so any CPU/GPU rounding difference is the same for fit and test.",
+  "Queries and CSS: on all 8 scenes the eval query set (at downscale 2) is a subset of, and in fact equal to, the CSS mapping vocabulary. There is no CSS.columns crash risk. All scenes have 90 frames, 0 skipped poses and 0 unknown label pixels. vocab_replica.json has no merges and no duplicate prompts, so text rows cannot tie.",
+  "Text cache: the keys are 'lseg|<5 templates>|<prompt>'. The 32 cached prompts equal the union of the val scenes' query classes, so the CPU LSeg text path already ran once. Test-only classes will be embedded on the CPU with the same templates. LSeg text_embedding averages the per-template unit embeddings and renormalises; project_text does not renormalise, matching the paper.",
+  "map_labels (LUT, ignore 0 -> -1, unknown -> ignore), the local query index mapping and class_ids order agree with text, class_names and the CSS column order.",
+  "Metric definitions match main.tex. mIoU is over the classes present in the GT of the scene's pixels. Pixel accuracy is counted over labelled pixels. ECE uses 15 equal-width bins on max p. NLL is -log p_y. Brier is sum_c (p_c - y_c)^2. AURC ranks by 1 - max p, with uncovered pixels at 1. AUSE uses the mean-gap form with tie-block means on a uniform grid (20 fractions). A pixel with alpha < tau_cov is wrong and gets the uniform predictive; it ranks most uncertain (msp 1, entropy log K, +inf on own channels). A tied top class is pred = -1 and counts as wrong. The pixel u_ale is undefined when more than half of alpha comes from undefined Gaussians (undef_frac 0.5 -> dm < 0.5 alpha).",
+  "BetaFitter fits only on covered labelled val pixels, uses the same random pixel subset for every 3D row of a view, and pools scenes with different class sets through ABSENT_SCORE columns (with beta > 0 this matches a per-scene softmax). P2 nests P0; the val fit gives P2 NLL 1.0549 < P0 1.0644 on office_0. P2 keeps the P0 labels: the partial val log shows identical mIoU and acc. With the fitted parameters (minimum beta_p about 2e-4) the tie tolerance of 1e-12 on p cannot create extra ties.",
+  "betas_used fails before any render when a row has no beta. check_fit_settings refuses a --betas file fit with another undef_frac and warns on another tau_cov. The CLI test covers both.",
+  "make_tables: the column scaling (x100 for mIoU, Acc, ECE, Brier, AURC and AUSE; NLL in nats) and the own-signal mapping (normlift_1-R, normlift_1-Cinter, css_var_top, u_ale) match the tab:replica caption. Each row has 9 cells, the NormLift rows use a 6-column multicolumn, and P2 prints numbers equal to P0 where the paper writes 'as P0'.",
+  "NormLift C_inter = ||F|| / sum_v ||R_v|| equals its Eq. 7 ratio ||f_j|| / C_intra. The CSS probs row renormalises over the query columns, and ties at the Dirichlet prior are treated like our all-zero renders."
+ ]
+}

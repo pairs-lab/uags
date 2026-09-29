@@ -1,0 +1,31 @@
+start 2026-09-29 23:13:04 at a2ed2d9 (clean worktree snapshot; poll 5 s; never beside a USGLoc job)
+[gpu_gate] 2026-09-29 23:13:04 waiting: free 5196 MiB < 109047 or lock busy
+[gpu_gate] 2026-09-29 23:13:09 waiting: free 5196 MiB < 109047 or lock busy
+[gpu_gate] 2026-09-29 23:13:14 waiting: free 5196 MiB < 109047 or lock busy
+[gpu_gate] 2026-09-29 23:13:20 waiting: free 5196 MiB < 109047 or lock busy
+[gpu_gate] 2026-09-29 23:13:25 waiting: free 5196 MiB < 109047 or lock busy
+[gpu_gate] 2026-09-29 23:13:30 waiting: free 5356 MiB < 109047 or lock busy
+[gpu_gate] 2026-09-29 23:13:35 free 11930 MiB >= 9048; running: python3 scripts/eval_seg.py --vocab configs/vocab_replica.json --row-factory usplat.baselines:row_factory --extractor lseg --dataset replica_semnerf --stride 10 --downscale 2 --tau-cov 0.5 --text-cache /home/thanhnc/gauss_ws/data/uags_fields/text_cache_lseg.pt --with-2d --val-scenes configs/replica_val.json --scenes configs/replica_val.json --out /home/thanhnc/gauss_ws/data/uags_results/tab1_pre/eval_val.json
+reserved 6286 MiB of GPU memory
+fitted betas on val: {"ours_P0": 35.98675409944437, "ours_P1": 40.112467545950715, "ours_P2": {"beta0": 45.56403769999906, "a": 0.3598196499675346, "b": 11.834784364084538, "g": 0.05522708329110135}, "ours_scalar": 35.98675409944437, "averaging": 36.00269776124588, "normlift": 36.00269776124588, "viewcount": 36.00269776124588, "css": 1.323286741842793, "2d_features": 33.47560652520314}
+  office_0        ours_P0: mIoU 0.3002 acc 0.7927 ECE 0.0734 NLL 1.0644 coverage 0.997
+  office_0        ours_P1: mIoU 0.3011 acc 0.7932 ECE 0.0720 NLL 1.0621 coverage 0.997
+  office_0        ours_P2: mIoU 0.3002 acc 0.7927 ECE 0.0705 NLL 1.0549 coverage 0.997
+  office_0    ours_scalar: mIoU 0.3002 acc 0.7927 ECE 0.0734 NLL 1.0644 coverage 0.997
+  office_0      averaging: mIoU 0.2995 acc 0.7917 ECE 0.0740 NLL 1.0653 coverage 0.997
+  office_0       normlift: mIoU 0.2995 acc 0.7917 ECE 0.0740 NLL 1.0653 coverage 0.997
+  office_0      viewcount: mIoU 0.2995 acc 0.7917 ECE 0.0740 NLL 1.0653 coverage 0.997
+  office_0            css: mIoU 0.3019 acc 0.7956 ECE 0.0465 NLL 0.9563 coverage 0.997
+  office_0    2d_features: mIoU 0.2958 acc 0.7825 ECE 0.0911 NLL 1.2194 coverage 1.000
+    room_2        ours_P0: mIoU 0.3296 acc 0.8286 ECE 0.0571 NLL 0.6010 coverage 0.998
+    room_2        ours_P1: mIoU 0.3295 acc 0.8265 ECE 0.0643 NLL 0.6526 coverage 0.998
+    room_2        ours_P2: mIoU 0.3296 acc 0.8286 ECE 0.0273 NLL 0.5927 coverage 0.998
+    room_2    ours_scalar: mIoU 0.3296 acc 0.8286 ECE 0.0571 NLL 0.6010 coverage 0.998
+    room_2      averaging: mIoU 0.3289 acc 0.8297 ECE 0.0582 NLL 0.6009 coverage 0.998
+    room_2       normlift: mIoU 0.3289 acc 0.8297 ECE 0.0582 NLL 0.6009 coverage 0.998
+    room_2      viewcount: mIoU 0.3289 acc 0.8297 ECE 0.0582 NLL 0.6009 coverage 0.998
+    room_2            css: mIoU 0.3346 acc 0.8489 ECE 0.0504 NLL 0.6525 coverage 0.998
+    room_2    2d_features: mIoU 0.3194 acc 0.8369 ECE 0.0827 NLL 0.6595 coverage 1.000
+wrote /home/thanhnc/gauss_ws/data/uags_results/tab1_pre/eval_val.json
+done: val -> /home/thanhnc/gauss_ws/data/uags_results/tab1_pre
+exit 0 2026-09-29 23:19:01

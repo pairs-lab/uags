@@ -1,0 +1,16 @@
+# PARTIAL, superseded by the full validation run. STAGE=val eval_seg run started 20:13:45 (code 7dd4bfe):
+# the val temperature fit finished and office_0 was evaluated; room_2 failed with CUDA OOM at 20:16:31 because
+# a USGLoc batch (batch_12s.sh, 11 GB) started at 20:15 while this process held 366 MiB between scenes.
+# eval_val.log of this run was overwritten by the relaunch at 20:2x. Lines marked [stage] are from
+# /home/thanhnc/gauss_ws/data/uags_results/tab1/stage_val.log (lines 94-98); lines marked [transcript] are copied
+# from the session's tool output of eval_val.log taken before the overwrite (not re-checked against a file).
+[transcript] fitted betas on val: {"ours_P0": 35.98675409944437, "ours_P1": 40.112467545950715, "ours_P2": {"beta0": 45.56403769999906, "a": 0.3598196499675346, "b": 11.834784364084538, "g": 0.05522708329110135}, "ours_scalar": 35.98675409944437, "averaging": 36.00269776124588, "normlift": 36.00269776124588, "viewcount": 36.00269776124588, "css": 1.323286741842793, "2d_features": 33.47560652520314}
+[transcript]  office_0        ours_P0: mIoU 0.3002 acc 0.7927 ECE 0.0734 NLL 1.0644 coverage 0.997
+[transcript]  office_0        ours_P1: mIoU 0.3011 acc 0.7932 ECE 0.0720 NLL 1.0621 coverage 0.997
+[transcript]  office_0        ours_P2: mIoU 0.3002 acc 0.7927 ECE 0.0705 NLL 1.0549 coverage 0.997
+[transcript]  office_0    ours_scalar: mIoU 0.3002 acc 0.7927 ECE 0.0734 NLL 1.0644 coverage 0.997
+[stage]   office_0      averaging: mIoU 0.2995 acc 0.7917 ECE 0.0740 NLL 1.0653 coverage 0.997
+[stage]   office_0       normlift: mIoU 0.2995 acc 0.7917 ECE 0.0740 NLL 1.0653 coverage 0.997
+[stage]   office_0      viewcount: mIoU 0.2995 acc 0.7917 ECE 0.0740 NLL 1.0653 coverage 0.997
+[stage]   office_0            css: mIoU 0.3019 acc 0.7956 ECE 0.0465 NLL 0.9563 coverage 0.997
+[stage]   office_0    2d_features: mIoU 0.2958 acc 0.7825 ECE 0.0911 NLL 1.2194 coverage 1.000

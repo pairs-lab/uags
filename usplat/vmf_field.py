@@ -15,7 +15,8 @@ Sufficient statistics per channel (S = sum over views):
 Read-outs
     mu*        = R/||R||   (+ optional text prior kappa0 mu0)
     n_K        = W1^2 / W2                                  Kish effective views
-    support    = min(n_K, W1)                               conservative view count
+    support    = min(n_K, W1)   = W1 with view weights: w <= 1 gives W2 <= W1, so n_K >= W1
+                 and the min never binds (it binds only with pixel-mass weights > 1)
     agreement  = sqrt((||R||^2 - Q)/(W1^2 - W2))  "kish" (default): the argument of the sqrt
                  is unbiased for rho^2 = ||E u||^2 under independent views (the sqrt keeps a
                  small downward bias at small n, and the clamp at 0 an upward one); it removes
@@ -48,12 +49,14 @@ change_score="normalized" divides c by an i.i.d.-views null E0[1 - cos]; MEASURE
 
 Threshold (calibrate_change_threshold): map with change_thr = inf (the default: scores are
 recorded, nothing is reset), then set the threshold from the field's OWN mapping pass, which
-is static by assumption. calib_mode="pooled" (default) keeps a histogram of every per-view
+is static by assumption. calib_mode="history" (default) keeps a histogram of every per-view
 score, bucketed by the slow-bucket history (edges 4, 6, 10, 20, 40 views), and takes its
 q-quantile per bucket (q = change_quantile = 0.999, a per-view false-alarm rate); a bucket
 with fewer than MIN_NULL = 200 scores borrows the nearest bucket that has enough. Short
 histories are noisier, so one pooled threshold would be too tight for them and too loose for
-long ones. calib_mode="max" (per-Gaussian max over the mapping pass) is the older ablation.
+long ones. Ablations: calib_mode="pooled" (one q-quantile of all per-view scores) and "max"
+(q-quantile of the per-Gaussian max over the mapping pass). Field states saved before
+2026-09-29 called the history rule "pooled"; from_state maps them to "history".
 When c > threshold the Gaussian's evidence is reset and it is flagged `changed` (F5). A
 changed Gaussian re-enters the robust set only after `readmit_views` new views AND a small
 observed-depth residual (non-oracle depth input), so a removed object's Gaussians cannot
@@ -80,7 +83,8 @@ class FieldConfig:
     evidence: str = "views"          # "views" | "pixels" (legacy: evidence = pixel mass)
     view_mass_frac: float = 1e-4     # a0: pixel mass (fraction of H*W) for a full view
     # estimator (F2)
-    estimator: str = "kish"          # aleatoric: "kish" | "joint" | "legacy" (old r_tilde)
+    estimator: str = "kish"          # aleatoric: "kish" | "rbar" (uncorrected ||R||/W1) |
+                                     # "joint" | "legacy" (old r_tilde)
     c0: float = 1.0                  # joint-prior pseudo-count (prior strength in views)
     tau_min: float = 3.0             # support (views) before aleatoric/change are defined
     epistemic: str = "support"       # "support" | "kish" (NormLift parity) | "views" |
@@ -111,10 +115,11 @@ class FieldConfig:
                                      # calibrate_change_threshold() after the mapping pass
     change_quantile: float = 0.999   # q of the mapping-pass null (per-view rate 1 - q; over V
                                      # update views the sequence-level rate is ~V (1 - q))
-    calib_mode: str = "pooled"       # "pooled": null = all per-view scores of the mapping pass
-                                     # (thr = per-view false-alarm quantile, independent of
-                                     # sequence length); "max": per-Gaussian max over the
-                                     # mapping pass (inflated by the short early histories)
+    calib_mode: str = "history"      # null = the per-view scores of the mapping pass (thr =
+                                     # per-view false-alarm quantile, independent of sequence
+                                     # length). "history": one quantile per slow-bucket history
+                                     # size; "pooled": one quantile for all; "max": per-Gaussian
+                                     # max over the mapping pass (inflated by short histories)
     readmit_views: float = 3.0       # views after a reset before re-admission
     readmit_depth: Optional[float] = 0.05  # |depth residual| [m]; None = views only
     r_stable: float = 0.6            # agreement needed for the robust set
@@ -136,11 +141,11 @@ class FieldConfig:
         if self.change_score == "normalized" and self.slow_decay < 1.0:
             raise ValueError("change_score='normalized' assumes slow_decay = 1")
         for k, ok in (("evidence", ("views", "pixels")),
-                      ("estimator", ("kish", "joint", "legacy")),
+                      ("estimator", ("kish", "rbar", "joint", "legacy")),
                       ("epistemic", ("support", "kish", "views", "posterior", "pixels")),
                       ("change_score", ("raw", "normalized")),
                       ("kappa_mode", ("map", "fixed")),
-                      ("calib_mode", ("pooled", "max"))):
+                      ("calib_mode", ("history", "pooled", "max"))):
             if getattr(self, k) not in ok:
                 raise ValueError(f"{k}={getattr(self, k)!r} not in {ok}")
 
@@ -204,6 +209,8 @@ class _Channel:
             ok = den > 1e-6 * self.W1 ** 2 + _EPS
             rho2 = ((Rn ** 2 - self.Q) / den.clamp_min(_EPS)).clamp(0.0, 1.0)
             return torch.where(ok, rho2.sqrt(), torch.full_like(Rn, float("nan")))
+        if estimator == "rbar":                   # uncorrected mean length (ablation)
+            return self.rbar()
         if estimator == "legacy":
             r = self.rbar()
             return (r - (1.0 - r) / (self.W1 + 1.0)).clamp(0.0, 1.0)
@@ -481,12 +488,13 @@ class DirectionalSemanticField:
         sequence is static by assumption, so its scores are null samples. Map with
         change_thr = inf, call this, then run the update sequence. A raw threshold on c does
         not transfer between scenes (feature noise differs); a quantile of the scene's own
-        null does. calib_mode "pooled" (default): every per-view score, one q-quantile per
+        null does. calib_mode "history" (default): every per-view score, one q-quantile per
         slow-bucket history bucket (thr_by_hist; q is a per-view false-alarm rate); the
-        returned change_thr is the quantile of all buckets pooled. calib_mode "max": the
-        q-quantile of each Gaussian's max c over the mapping pass."""
+        returned change_thr is the quantile of all buckets pooled. "pooled": that pooled
+        quantile for every Gaussian (no thr_by_hist). "max": the q-quantile of each
+        Gaussian's max c over the mapping pass."""
         q = self.cfg.change_quantile if q is None else q
-        if self.cfg.calib_mode == "pooled":
+        if self.cfg.calib_mode in ("history", "pooled"):
             counts = self.c_hist.sum(1)
             if float(counts.sum()) == 0:
                 raise RuntimeError("no defined change score was recorded during mapping")
@@ -497,6 +505,12 @@ class DirectionalSemanticField:
                                                              device=cdf.device)).clamp(max=3999))
                 return float(self._c_edges[i + 1])            # upper edge of the q bin
             thr = quant(self.c_hist.sum(0))                    # pooled (reported, fallback)
+            if self.cfg.calib_mode == "pooled":
+                self.thr_by_hist = None
+                self.cfg.change_thr = thr
+                self.c_max.zero_()
+                self.c_last.fill_(float("nan"))
+                return thr
             good = [b for b in range(len(counts)) if counts[b] >= self.MIN_NULL]
             per = []
             for b in range(len(counts)):                       # nearest bucket with data
@@ -665,6 +679,7 @@ class DirectionalSemanticField:
 
     def state_dict(self):
         s = dict(config=self.cfg.to_dict(), N=self.N, d=self.d, dtype=str(self.dtype),
+                 calib_names=2,                  # 2: "history" = history-conditioned rule
                  thr_by_hist=None if self.thr_by_hist is None else self.thr_by_hist.cpu(),
                  zbar=None if self.zbar is None else self.zbar.cpu(),
                  prior_mu=None if self.prior_mu is None else self.prior_mu.cpu(),
@@ -681,7 +696,10 @@ class DirectionalSemanticField:
     @classmethod
     def from_state(cls, s, device="cpu"):
         dtype = getattr(torch, s.get("dtype", "torch.float32").replace("torch.", ""))
-        f = cls(s["N"], s["d"], FieldConfig(**s["config"]), prior_mu=s.get("prior_mu"),
+        cfg = dict(s["config"])
+        if s.get("calib_names", 1) < 2 and cfg.get("calib_mode") == "pooled":
+            cfg["calib_mode"] = "history"       # old name of the history-conditioned rule
+        f = cls(s["N"], s["d"], FieldConfig(**cfg), prior_mu=s.get("prior_mu"),
                 device=device, dtype=dtype)
         f.set_centre(s["zbar"])
         f.depth_seen = s.get("depth_seen", False)

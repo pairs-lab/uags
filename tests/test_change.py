@@ -177,7 +177,7 @@ def test_calibrated_threshold():
     new = torch.randn(N, d)
     new = Fn.normalize(new - (new * mu).sum(-1, keepdim=True) * mu, dim=-1)
     out = {}
-    for mode in ("pooled", "max"):
+    for mode in ("history", "pooled", "max"):
         torch.manual_seed(1)
         f = DirectionalSemanticField(N, d, FieldConfig(view_mass_frac=0.01, readmit_depth=None,
                                                        calib_mode=mode))
@@ -189,16 +189,18 @@ def test_calibrated_threshold():
             ok = torch.isfinite(f.c_ring).all(1)
             scores.append(f.c_ring.min(1).values[ok])
         thr = f.calibrate_change_threshold(0.99)
-        if mode == "pooled":
+        if mode in ("history", "pooled"):
             ref = torch.quantile(torch.cat(scores).double(), 0.99).item()
             assert abs(thr - ref) < 2e-3, (thr, ref)            # histogram bin = 5e-4
+            assert (f.thr_by_hist is None) == (mode == "pooled")
         changed = torch.arange(N) < N // 2
         for _ in range(20):
             _view(f, ids, noisy(torch.where(changed[:, None], new, mu)))
         fired = f.n_resets >= 1
         out[mode] = (thr, fired[changed].float().mean().item(), fired[~changed].float().mean().item())
-    thr, tp, fp = out["pooled"]
+    thr, tp, fp = out["history"]
     assert tp > 0.9 and fp < 0.3, out
+    assert out["pooled"][1] > 0.9 and out["pooled"][2] < 0.3, out
     assert out["max"][0] > thr                                   # max-based null is higher
     print(f"PASS calibrated (pooled): thr {thr:.3f} = q99 of per-view mapping scores; flagged "
           f"{tp:.2f} changed / {fp:.2f} static; max-mode thr {out['max'][0]:.3f} "

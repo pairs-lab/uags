@@ -218,3 +218,20 @@ if __name__ == "__main__":
     test_a_d_against_mpmath()
     test_centred_update_view_path()
     test_query_decode_first()
+
+
+def test_rbar_estimator_is_uncorrected_mean_length():
+    """estimator="rbar" (Tab III ablation): agreement = ||R|| / W1, biased up at few views."""
+    import torch.nn.functional as Fn
+    from usplat.vmf_field import DirectionalSemanticField, FieldConfig
+    torch.manual_seed(0)
+    N, d = 200, 16
+    f = DirectionalSemanticField(N, d, FieldConfig(estimator="rbar", change_test=False))
+    for _ in range(4):
+        z = Fn.normalize(torch.randn(N, d), dim=-1)             # rho = 0: no agreement
+        f.update_sparse(torch.arange(N), torch.ones(N), z, num_pixels=100)
+    r = f.agreement()
+    assert torch.allclose(r, f.raw.R.norm(dim=-1) / f.raw.W1)
+    kish = f.raw.agreement("kish", 1.0)
+    assert r.mean() > 0.4 and kish.nan_to_num(0).mean() < r.mean() - 0.2   # ~1/sqrt(4) bias
+    print(f"PASS rbar: mean {r.mean():.3f} at rho = 0 (kish {kish.nan_to_num(0).mean():.3f})")

@@ -144,7 +144,9 @@ def test_normlift_eq6_eq8_by_hand():
     u = nl.uncertainties()
     assert abs(u["normlift_1-R"][0] - (1 - fn * 25 / 38)) < 1e-6
     assert abs(u["normlift_epi"][0] - 1 / (1 + 25 / 13)) < 1e-6
+    assert abs(u["normlift_1-Cinter"][0] - (1 - fn / ci)) < 1e-6
     assert u["normlift_1-R"][1] == 1.0 and u["normlift_epi"][1] == 1.0
+    assert u["normlift_1-Cinter"][1] == 1.0                             # unseen: most uncertain
     print(f"PASS NormLift toy: ||f|| {fn:.6f}, C_intra {ci:.6f}, C_inter {fn / ci:.6f}, "
           f"N_eff {25 / 13:.6f}, R {fn * 25 / 38:.6f} (Eq. 6-8 by hand)")
 

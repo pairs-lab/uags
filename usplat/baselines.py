@@ -24,7 +24,10 @@ CSS needs one-hot label targets and runs its own bki_grad_accumulate_groups call
     Sufficient statistics: S1 = sum_v m_v, S2 = sum_v m_v^2, F = sum_v R_v and
     Sn = sum_v ||R_v|| (W ||f^(v)|| = ||R_v||). Unseen Gaussians get R = 0 and N_eff = 0 (the
     paper's zero-evidence case). The KNN mode-voting refinement (its Sec. 3.4) is not part of
-    this row. Uncertainties: "normlift_1-R" = 1 - R(j), "normlift_epi" = 1/(1 + N_eff).
+    this row. Uncertainties: "normlift_1-R" = 1 - R(j), "normlift_epi" = 1/(1 + N_eff), and
+    "normlift_1-Cinter" = 1 - C_inter (its cross-view consistency alone: the comparator of our
+    aleatoric channel; like r_bar it is 1 at one view, so it is biased toward certainty at
+    few views). These scores are built from NormLift's quantities; NormLift defines R only.
 (c) Visible-view count: n_vis = #views with m_v > 0 and n_full = #views with m_v >= a0*H*W
     (the field's full-view mass, ViewStats.ref). Uncertainty 1/(1 + n); averaging feature.
 (d) CSS, Continuous Semantic Splatting (Wilson et al., ICRA 2025,
@@ -239,7 +242,8 @@ class NormLift(Averaging):
 
     def uncertainties(self):
         return {"normlift_1-R": 1.0 - self.reliability(),
-                "normlift_epi": 1.0 / (1.0 + self.n_eff())}
+                "normlift_epi": 1.0 / (1.0 + self.n_eff()),
+                "normlift_1-Cinter": 1.0 - self.c_inter()}
 
     def rows(self, with_averaging=None):
         avg = self.with_averaging if with_averaging is None else with_averaging

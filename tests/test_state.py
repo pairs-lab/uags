@@ -47,3 +47,16 @@ def test_inference_mode_is_rejected():
 if __name__ == "__main__":
     test_roundtrip_with_prior_and_flags()
     test_inference_mode_is_rejected()
+
+
+def test_old_pooled_name_loads_as_history():
+    """Field states saved before the calib_mode rename called the history-conditioned rule
+    "pooled"; from_state maps them to "history". New states keep "pooled" as the flat mode."""
+    from usplat.vmf_field import DirectionalSemanticField, FieldConfig
+    f = DirectionalSemanticField(10, 4, FieldConfig(calib_mode="pooled"))
+    s = f.state_dict()
+    assert DirectionalSemanticField.from_state(s).cfg.calib_mode == "pooled"
+    old = dict(s)
+    old.pop("calib_names")
+    assert DirectionalSemanticField.from_state(old).cfg.calib_mode == "history"
+    print("PASS calib_mode rename: old 'pooled' -> 'history', new 'pooled' kept")

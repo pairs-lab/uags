@@ -1,11 +1,11 @@
 # Replica Table I: open-vocabulary segmentation and calibration
-2026-09-29 | root: /home/thanhnc/gauss_ws/src/uags | git: master@6cebc7d (pipeline e7e87ed; code used by the queued run is read at its start) | [all reports](../INDEX.md)
+2026-09-29 | root: /home/thanhnc/gauss_ws/src/uags | git: master@01f39a7 | [all reports](../INDEX.md)
 Follows: [Data, baselines and evaluation infrastructure](../2026-09-29-data-and-baselines/README.md)
 Verdict: IN PROGRESS -- validation stage queued behind USGLoc on the shared GPU (fit room_2, map office_0 + room_2, fit temperatures)
 Key result: n/a
 Attempts: n/a | Time: started 2026-09-29 13:49 +07
 
-Running: `STAGE=val scripts/replica_tab1.sh` | gate PID 3273411 | /home/thanhnc/gauss_ws/data/uags_results/tab1/stage_val.log | queued 13:48
+Running: `STAGE=val scripts/replica_tab1.sh` (relaunched at 01f39a7, ~14:45) | /home/thanhnc/gauss_ws/data/uags_results/tab1/stage_val.log | waits for GPU gaps between USGLoc runs
 
 ## 0 Context
 - Ask: "continue to complete our paper" -> fill Table I (plan section 3) with measured numbers.
@@ -27,6 +27,12 @@ Running: `STAGE=val scripts/replica_tab1.sh` | gate PID 3273411 | /home/thanhnc/
 | Mapping cannot run beside a USGLoc stage | LSeg (fp32, 640x480, one frame) needs > 3.3 GB: a 3-keyframe probe capped at 3500 MiB ran out of memory in the DPT head at the first PCA frame (14:20); USGLoc stages hold 6.5-9.2 GB and a policy server 3.8 GB of the 16 GB | [logs/memprobe_lseg_3p5gb.log](logs/memprobe_lseg_3p5gb.log) |
 
 So the gate stays at 6000 MiB (+2048 headroom) and the stage waits for gaps between USGLoc runs.
+
+| Change before the first run | Reason | Commit |
+|---|---|---|
+| First queued run (13:48) stopped before it did any work; relaunched | add the "2D features, per frame" row of Table I (LSeg on each evaluation frame, same token -> upsample -> PCA path as mapping, own temperature, covers every pixel) so all rows come from one evaluation | 01f39a7 |
+| All-zero statistics saved as None | disk has 25 GB free (98% used); a field with its centred channel and change buckets is ~1 GB | 01f39a7 |
+| NormLift 1 - C_inter channel, rbar estimator, flat pooled null | paper review (Table I / III rows) | 4829617 |
 
 ## 5 Verification
 (filled at the end)

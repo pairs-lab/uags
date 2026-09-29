@@ -1,0 +1,34 @@
+[gpu_gate] 2026-09-30 04:39:57 free 11930 MiB >= 5048; running: python3 scripts/fit_gs.py --dataset replica_semnerf --data /home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_1/Sequence_1 --stride 5 --iters 30000 --max-gaussians 1000000 --out /home/thanhnc/gauss_ws/data/uags_maps/room_1_seq1.pt
+[fit] dataset replica_semnerf: 180 frames (stride 5)
+[fit] init=depth N=204241 scene_scale=1.732 train=157 test=23 refine=[500,15000) reset_every=3000
+[fit] step 1000/30000 loss 0.0411 N 254296 9.4s
+[fit] step 2000/30000 loss 0.0723 N 509360 16.6s
+[fit] step 3000/30000 loss 0.0214 N 791470 25.4s
+[fit] step 4000/30000 loss 0.0205 N 935361 35.7s
+[fit] step 5000/30000 loss 0.0060 N 999514 45.3s
+[fit] step 6000/30000 loss 0.0093 N 999550 55.8s
+[fit] step 7000/30000 loss 0.0137 N 999695 65.9s
+[fit] step 8000/30000 loss 0.0094 N 999674 74.6s
+[fit] step 9000/30000 loss 0.0183 N 999697 84.4s
+[fit] step 10000/30000 loss 0.0140 N 999819 93.6s
+[fit] step 11000/30000 loss 0.1163 N 999837 104.1s
+[fit] step 12000/30000 loss 0.0152 N 999783 114.4s
+[fit] step 13000/30000 loss 0.0143 N 999784 122.4s
+[fit] step 14000/30000 loss 0.0115 N 999832 132.5s
+[fit] step 15000/30000 loss 0.0081 N 999794 142.2s
+[fit] step 16000/30000 loss 0.0181 N 999794 150.8s
+[fit] step 17000/30000 loss 0.0088 N 999794 159.6s
+[fit] step 18000/30000 loss 0.0121 N 999794 168.7s
+[fit] step 19000/30000 loss 0.0113 N 999794 178.4s
+[fit] step 20000/30000 loss 0.0137 N 999794 187.7s
+[fit] step 21000/30000 loss 0.0087 N 999794 196.9s
+[fit] step 22000/30000 loss 0.0102 N 999794 205.7s
+[fit] step 23000/30000 loss 0.0116 N 999794 215.3s
+[fit] step 24000/30000 loss 0.0117 N 999794 224.4s
+[fit] step 25000/30000 loss 0.0122 N 999794 233.2s
+[fit] step 26000/30000 loss 0.0123 N 999794 242.2s
+[fit] step 27000/30000 loss 0.0102 N 999794 250.9s
+[fit] step 28000/30000 loss 0.0084 N 999794 260.2s
+[fit] step 29000/30000 loss 0.0122 N 999794 269.4s
+[fit] step 30000/30000 loss 0.0062 N 999794 278.4s
+{"psnr": 36.18534013996808, "ssim": 0.9685233857320703, "psnr_init": 10.61027503276994, "psnr_train": 37.58430823656176, "n_gaussians": 999794, "n_init": 204241, "init_method": "depth", "cap_hit_step": 4300, "n_opacity_resets": 4, "reset_every": 3000, "peak_mem_mib": 455.1494140625, "peak_reserved_mib": 564.0, "proc_mem_mib": 872.0, "proc_peak_mib": 910.0, "wall_time_s": 283.77927428809926, "time_train_s": 278.39132503583096, "iters": 30000, "n_train": 157, "n_test": 23, "height": 480, "width": 640, "downscale": 1, "scene_scale": 1.7322775496848222, "n_dropped": 0, "dropped_frames": [], "git": "4c268ad", "config_sha256": "a09e1b24118c7af2c86b69233763ee5b965d40df3be518c0d1106ba804fd889d", "out": "/home/thanhnc/gauss_ws/data/uags_maps/room_1_seq1.pt"}

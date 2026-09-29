@@ -1,0 +1,34 @@
+[gpu_gate] 2026-09-30 04:55:54 free 11930 MiB >= 5048; running: python3 scripts/fit_gs.py --dataset replica_semnerf --data /home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/office_3/Sequence_1 --stride 5 --iters 30000 --max-gaussians 1000000 --out /home/thanhnc/gauss_ws/data/uags_maps/office_3_seq1.pt
+[fit] dataset replica_semnerf: 180 frames (stride 5)
+[fit] init=depth N=267511 scene_scale=2.628 train=157 test=23 refine=[500,15000) reset_every=3000
+[fit] step 1000/30000 loss 0.0082 N 307925 6.9s
+[fit] step 2000/30000 loss 0.0066 N 435350 16.7s
+[fit] step 3000/30000 loss 0.0112 N 547663 26.2s
+[fit] step 4000/30000 loss 0.0091 N 612831 35.7s
+[fit] step 5000/30000 loss 0.0146 N 693897 45.5s
+[fit] step 6000/30000 loss 0.0047 N 763198 54.7s
+[fit] step 7000/30000 loss 0.0092 N 771543 63.6s
+[fit] step 8000/30000 loss 0.0089 N 822840 72.6s
+[fit] step 9000/30000 loss 0.0116 N 868925 79.3s
+[fit] step 10000/30000 loss 0.0056 N 846119 89.5s
+[fit] step 11000/30000 loss 0.0114 N 877959 99.2s
+[fit] step 12000/30000 loss 0.0069 N 908478 110.0s
+[fit] step 13000/30000 loss 0.0146 N 871810 119.6s
+[fit] step 14000/30000 loss 0.0047 N 894052 130.1s
+[fit] step 15000/30000 loss 0.0080 N 915539 139.8s
+[fit] step 16000/30000 loss 0.0080 N 915539 148.3s
+[fit] step 17000/30000 loss 0.0064 N 915539 156.3s
+[fit] step 18000/30000 loss 0.0074 N 915539 165.1s
+[fit] step 19000/30000 loss 0.0129 N 915539 173.6s
+[fit] step 20000/30000 loss 0.0095 N 915539 182.3s
+[fit] step 21000/30000 loss 0.0061 N 915539 190.7s
+[fit] step 22000/30000 loss 0.0109 N 915539 199.8s
+[fit] step 23000/30000 loss 0.0085 N 915539 208.9s
+[fit] step 24000/30000 loss 0.0074 N 915539 218.1s
+[fit] step 25000/30000 loss 0.0061 N 915539 226.8s
+[fit] step 26000/30000 loss 0.0073 N 915539 235.7s
+[fit] step 27000/30000 loss 0.0088 N 915539 244.6s
+[fit] step 28000/30000 loss 0.0064 N 915539 253.0s
+[fit] step 29000/30000 loss 0.0072 N 915539 261.6s
+[fit] step 30000/30000 loss 0.0050 N 915539 270.7s
+{"psnr": 36.77214299608248, "ssim": 0.9796608349551326, "psnr_init": 11.483325710449396, "psnr_train": 38.44841502657093, "n_gaussians": 915539, "n_init": 267511, "init_method": "depth", "cap_hit_step": -1, "n_opacity_resets": 4, "reset_every": 3000, "peak_mem_mib": 408.294921875, "peak_reserved_mib": 530.0, "proc_mem_mib": 854.0, "proc_peak_mib": 876.0, "wall_time_s": 277.15664149285294, "time_train_s": 270.6686846499797, "iters": 30000, "n_train": 157, "n_test": 23, "height": 480, "width": 640, "downscale": 1, "scene_scale": 2.6282880627144167, "n_dropped": 0, "dropped_frames": [], "git": "4c268ad", "config_sha256": "a09e1b24118c7af2c86b69233763ee5b965d40df3be518c0d1106ba804fd889d", "out": "/home/thanhnc/gauss_ws/data/uags_maps/office_3_seq1.pt"}

@@ -51,6 +51,16 @@ So the gate stays at 6000 MiB (+2048 headroom) and the stage waits for gaps betw
 |---|---|---|---|---|---|---|
 | office_0 | 41.53 dB | 0.989 | 620,290 | 205 s | 756 MiB | fitter agent run (copied from its report, not re-checked; map meta in /home/thanhnc/gauss_ws/data/uags_maps/office_0_seq1.pt) |
 | room_2 | 37.05 dB | 0.977 | 954,119 | 268 s | 900 MiB | [logs/fit_room_2.log](logs/fit_room_2.log) |
+| room_0 (test) | 34.19 dB | 0.955 | 999,855 (cap hit at step 3,100) | -- | 894 MiB | [log](logs/prep_fit_room_0.20260929-233230.log) |
+| room_1 (test) | 36.19 dB | 0.969 | 999,794 (cap hit at step 4,300) | -- | 910 MiB | [log](logs/prep_fit_room_1.20260929-233230.log) |
+| office_1 (test) | 40.46 dB | 0.978 | 459,077 | -- | 664 MiB | [log](logs/prep_fit_office_1.20260929-233230.log) |
+| office_2 (test) | 37.25 dB | 0.983 | 999,776 (cap hit at step 11,200) | -- | 880 MiB | [log](logs/prep_fit_office_2.20260929-233230.log) |
+| office_3 (test) | 36.77 dB | 0.980 | 915,539 | -- | 876 MiB | [log](logs/prep_fit_office_3.20260929-233230.log) |
+| office_4 (test) | 29.62 dB | 0.860 | 515,855 | -- | 698 MiB | [log](logs/prep_fit_office_4.20260929-233230.log) |
+
+Test maps were fit 2026-09-29 23:32 - 2026-09-30 05:06 in gaps between USGLoc jobs (worktree at 4c268ad); their
+fields and the rebuilt validation fields all carry mapping code b7b80b92d565
+([mapping logs](logs/prep_map_office_1.20260929-233230.log)). office_4 is the weakest map (29.6 dB); all rows share it.
 
 Held-out frames sit between training frames of the same trajectory: the PSNR measures interpolation, not new viewpoints.
 The semantic baselines (averaging, NormLift, view count, CSS, 2D per frame) are rows of Table I, below.

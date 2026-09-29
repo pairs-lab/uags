@@ -5,7 +5,7 @@ Verdict: IN PROGRESS -- validation stage queued behind USGLoc on the shared GPU 
 Key result: n/a
 Attempts: n/a | Time: started 2026-09-29 13:49 +07
 
-Running: `UAGS_GPU_POLL_S=15 STAGE=val scripts/replica_tab1.sh` (at 5b21781, mapping started 15:15:58) | /home/thanhnc/gauss_ws/data/uags_results/tab1/stage_val.log
+Running: pre-test review workflow wf_ce10d633-f61 (started ~21:55; [script](logs/workflow_pretest_review.js)); the validation stage is stopped until it ends
 
 ## 0 Context
 - Ask: "continue to complete our paper" -> fill Table I (plan section 3) with measured numbers.
@@ -51,6 +51,13 @@ So the gate stays at 6000 MiB (+2048 headroom) and the stage waits for gaps betw
 
 Held-out frames sit between training frames of the same trajectory: the PSNR measures interpolation, not new viewpoints.
 The semantic baselines (averaging, NormLift, view count, CSS, 2D per frame) are rows of Table I, below.
+
+## 3 Attempts
+| # | Idea | Result | Critic | Link |
+|---|---|---|---|---|
+| 06 | P3: render the per-Gaussian class predictive q_n(c) = softmax(beta_g A_d(kappa) mu*.t_c) as a mixture (like CSS, but open-vocabulary: computed at query time); motivated by CSS ECE 4.7 vs ours 7.1 on office_0 (partial val, N=1, [log](logs/eval_val_partial_2013.log)) | IN PROGRESS (implemented by the review workflow; beta_g chosen on val) | -- | -- |
+
+(Attempts 01-05 are in the [data-and-baselines run](../2026-09-29-data-and-baselines/README.md).)
 
 ## 5 Verification
 (filled at the end)

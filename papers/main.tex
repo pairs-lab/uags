@@ -1,531 +1,992 @@
 %% ============================================================================
-%%  RA-L submission — IEEEtran journal class
-%%  Uncertainty-Aware Open-Vocabulary Semantic Gaussian Splatting
+%%  UAGS: RA-L first submission (double-anonymous), RAS conference class.
+%%  Assembled 2026-09-29 from the section drafts (front, related, method,
+%%  experiments, preamble). Source of every claim: the 2026-09-29 fact sheet
+%%  (docs/reports/2026-09-29-paper-revision-1/logs/fact_sheet.md); the code
+%%  under usplat/ is the ground truth for every formula.
+%%  Revised 2026-09-29 after the math, claims and form reviews (fix pass).
 %%
 %%  >>> READ ME BEFORE SUBMITTING <<<
-%%  * Every experimental number is a PLACEHOLDER written as "XX.X" or "--".
-%%    These are NOT results. Replace them with YOUR measured values. Do not
-%%    submit with placeholders in place. Search this file for "TODO".
-%%  * Author block, funding, and acknowledgments are placeholders.
-%%  * References live in ref.bib (BibTeX, IEEEtran style); entries marked
-%%    "% UNVERIFIED" there still need a DOI/arXiv check.
+%%  * Every number cell is a placeholder: \ph (XX.X), \phs (XX.X +- XX.X) or
+%%    \phn (integer). These are NOT results. Search this file for \ph and \todo.
+%%  * Localization and active view selection (EFE) are not part of this paper.
+%%    Their old text is parked in papers/parked_sections.tex, as is the old
+%%    timing table and the old fourth contribution (one backward pass).
+%%  * Build: tectonic main.tex (runs BibTeX itself). References: ref.bib, plus
+%%    ieeectl.bib, which the preamble writes on the first pass (et al. rule).
 %% ============================================================================
-\documentclass[journal]{IEEEtran}
+%% Fonts under tectonic (tectonic runs XeTeX, not pdfLaTeX).
+%% ieeeconf selects Times with \rmdefault{ptm}. XeTeX's default text encoding
+%% is TU, and there is no TU/ptm font. Without the next line the text silently
+%% falls back to Latin Modern and \bfseries prints in regular weight.
+%% T1 selects the URW Times Type 1 fonts (NimbusRomNo9L) that pdfLaTeX uses
+%% for the official root.pdf. It must come BEFORE \documentclass: the class
+%% sets its display and paragraph skips in ex units while it loads, so it must
+%% see Times then, as it does under pdfLaTeX (loaded later, these skips come
+%% out about 4% too small).
+%% Keep the .tex and .bib sources ASCII. Write accents as LaTeX commands
+%% (e.g. {\'e}) and quotes as ``...''. T1 under XeTeX does not map Unicode
+%% input: a typed curly quote prints as a wrong glyph.
+\RequirePackage[T1]{fontenc}
 
+\documentclass[letterpaper, 10 pt, conference]{ieeeconf}  % US letter, as in root.tex
+%\documentclass[a4paper, 10pt, conference]{ieeeconf}      % root.tex line for A4 (not used)
+\IEEEoverridecommandlockouts  % root.tex: needed for \thanks. It also re-enables the
+                              % "keywords" environment, which conference mode swallows.
+\overrideIEEEmargins          % root.tex: "Needed to meet printer requirements."
+                              % RA-L page: use it for the initial and revised
+                              % versions (remove it only for the final version).
+
+%% ---------------------------------------------------------------------------
+%% Packages
+%% ---------------------------------------------------------------------------
 \usepackage{amsmath,amssymb,amsfonts}
-\usepackage{algorithmic}
+\interdisplaylinepenalty=2500 % IEEEtran advice after amsmath: lets align break pages
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{array}
-\usepackage{textcomp}
+\usepackage{textcomp}         % \textdegree and similar text symbols
+\usepackage{algorithm}        % float wrapper for pseudo-code
+\usepackage{algorithmic}      % \begin{algorithmic} ... \STATE ...
 \usepackage{xcolor}
-\usepackage[colorlinks=true,allcolors=blue]{hyperref}
-\usepackage{cite}
+\usepackage{cite}             % sorted, compressed numeric citations [1]-[3]
+%% amsthm clashes with ieeeconf: the class already defines \proof and
+%% \endproof, so \usepackage{amsthm} stops with "Command \proof already
+%% defined". If amsthm is ever needed, load it like this:
+%\let\proof\relax
+%\let\endproof\relax
+%\usepackage{amsthm}
+%% ieeeconf has its own \newtheorem style, so plain \newtheorem works without amsthm.
+\usepackage[colorlinks=true,allcolors=blue]{hyperref}  % load hyperref last
+\hypersetup{pdfauthor={Anonymous Authors}}             % keep PDF metadata anonymous
 
+%% IEEE reference style: at most 6 authors, then "et al.". IEEEtran.bst reads
+%% the control entry IEEEexample:BSTcontrol from ieeectl.bib through
+%% \bstctlcite (as defined in IEEEtran.cls; ieeeconf lacks it). The file is
+%% written here on the first pass only (a marker in main.aux skips it later),
+%% so tectonic does not rerun TeX for a rewritten ieeectl.bib. Delete main.aux
+%% to regenerate it.
+\makeatletter
+\newwrite\uags@ctl
+\AtBeginDocument{%
+  \@ifundefined{uags@ctldone}{%
+    \immediate\openout\uags@ctl=ieeectl.bib\relax
+    \immediate\write\uags@ctl{\@percentchar\space IEEEtran.bst control entry, written by main.tex}%
+    \immediate\write\uags@ctl{@IEEEtranBSTCTL\@charlb IEEEexample:BSTcontrol,}%
+    \immediate\write\uags@ctl{\space\space CTLuse_forced_etal = "yes",}%
+    \immediate\write\uags@ctl{\space\space CTLmax_names_forced_etal = "6",}%
+    \immediate\write\uags@ctl{\space\space CTLnames_show_etal = "1"}%
+    \immediate\write\uags@ctl{\@charrb}%
+    \immediate\closeout\uags@ctl}{}%
+  \immediate\write\@auxout{\gdef\string\uags@ctldone{}}}
+\def\bstctlcite{\@ifnextchar[{\@bstctlcite}{\@bstctlcite[@auxout]}}
+\def\@bstctlcite[#1]#2{\@bsphack
+  \@for\@citeb:=#2\do{%
+    \edef\@citeb{\expandafter\@firstofone\@citeb}%
+    \if@filesw\immediate\write\csname #1\endcsname{\string\citation{\@citeb}}\fi}%
+  \@esphack}
+\makeatother
+
+%% ---------------------------------------------------------------------------
+%% Draft macros (same as papers/main.tex)
+%% ---------------------------------------------------------------------------
 \newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
 \newcommand{\ph}{\textcolor{red}{XX.X}}      % numeric placeholder
+\newcommand{\phn}{\textcolor{red}{X}}        % integer placeholder
 \newcommand{\R}{\mathbf{R}}
 \newcommand{\xv}{\mathbf{x}}
 \newcommand{\zv}{\mathbf{z}}
 \newcommand{\muv}{\boldsymbol{\mu}}
 \newcommand{\etav}{\boldsymbol{\eta}}
 \newcommand{\Sph}{\mathbb{S}}
+\newcommand{\reimpl}{\textsuperscript{$\dagger$}}   % re-implemented baseline row
+\newcommand{\phs}{\ph{\scriptsize$\,\pm\,$\ph}}     % mean +- std placeholder
+\newcommand{\secref}[1]{Sec.~\mbox{\ref{#1}}}       % keeps "III-F" on one line
+
+%% ---------------------------------------------------------------------------
+%% Title and anonymous byline (double-anonymous: no names, affiliations,
+%% e-mails, funding, \thanks notes or acknowledgments)
+%% ---------------------------------------------------------------------------
+%% Title. The plan (2026-09-28-paper-completion-plan/1-plan.md, Sec. 6) ties the title to
+%% the G2 grid; this is cell A. Swap once G2/G3 are measured:
+%%   B (epistemic pass, calibration fail): Detecting and Forgetting Stale Open-Vocabulary
+%%     Semantics in Gaussian Splatting with View-Level Evidence
+%%   C (epistemic fail, calibration pass): Calibrated Open-Vocabulary Gaussian Splatting
+%%     that Forgets Stale Semantics
+%%   D (both fail): Detecting and Forgetting Stale Open-Vocabulary Semantics in Gaussian
+%%     Splatting
+\title{\LARGE \bf
+Uncertainty-Aware Open-Vocabulary Gaussian Splatting\\ for Changing Scenes}
+
+%% Double-anonymous review: no names, affiliations, funding or links.
+\author{Anonymous Authors}
+
+%% Notes (from the template check):
+%%  * ieeeconf has no IEEEkeywords environment and no \IEEEPARstart. The
+%%    keywords block below works only because of \IEEEoverridecommandlockouts.
+%%    RA-L collects keywords in the PaperCept form, so the block is optional
+%%    for the first submission.
+%%  * Last page: to balance the columns, put \addtolength{\textheight}{-Xcm}
+%%    in the text of the last page (tune X by hand), as the official root.tex does.
 
 \begin{document}
-
-\title{Uncertainty-Aware Open-Vocabulary Semantic\\
-Gaussian Splatting for Robust Mapping in Dynamic Scenes}
-
-\author{First~Author,~Second~Author,~and~Senior~Author%
-\thanks{Manuscript received \todo{date}. \todo{Funding/grant text.}}%
-\thanks{The authors are with \todo{Affiliation}, \todo{City, Country}
-(e-mail: \todo{email}).}%
-\thanks{Digital Object Identifier \todo{DOI}}}
-
-\markboth{IEEE Robotics and Automation Letters. Preprint Version. Month, Year}%
-{Author \MakeLowercase{\textit{et al.}}: Uncertainty-Aware Open-Vocabulary Semantic Gaussian Splatting}
+\bstctlcite{IEEEexample:BSTcontrol}
 
 \maketitle
+\thispagestyle{empty}
+\pagestyle{empty}
 
+%% ----------------------------------------------------------------------------
 \begin{abstract}
-Semantic 3D Gaussian Splatting (3D-GS) enables open-vocabulary scene
-understanding by embedding language features into a photorealistic map, but
-existing representations report semantics without a calibrated notion of
-\emph{trust}. This is unsafe for robotics: a region that has been observed only
-briefly is treated identically to one whose semantics are genuinely ambiguous or
-changing. We present a probabilistic open-vocabulary semantic field for 3D-GS
-that attaches a per-Gaussian directional posterior to the map and, from the same
-sufficient statistics, exposes a \emph{disentangled} epistemic and aleatoric
-uncertainty. Because language embeddings are unit-normalized, we model each
-Gaussian's semantics with a von Mises--Fisher (vMF) distribution and derive a
-closed-form Bayesian Kernel Inference (BKI) update that is the continuous
-generalization of categorical semantic mapping. We further show that the
-required kernel-weighted sufficient statistics are recoverable as the gradient
-of a feature render, so the update plugs into any differentiable feature
-rasterizer without modifying its kernels. The disentangled uncertainty drives an
-uncertainty-driven consolidation rule that identifies stable structure and
-forgets transient content, yielding robustness to scene change without
-hand-tuned dynamic-object heuristics or a language model in the loop. We
-evaluate calibration, open-vocabulary segmentation, and localization under scene
-change on indoor benchmarks. \todo{One-sentence headline result once measured.}
+A robot that reuses a semantic map must know how much evidence supports each
+part, and must stop trusting content that has changed. We present a
+probabilistic open-vocabulary field for 3D Gaussian Splatting that serves both
+needs. Each Gaussian holds a von Mises--Fisher posterior over the direction of
+its vision-language feature. Each keyframe counts as at most one observation
+per Gaussian, because the pixels of one view are strongly correlated. The same
+sufficient statistics give an epistemic uncertainty, from the weighted number
+of views, and an aleatoric uncertainty, from a bias-corrected agreement of the
+views. Little evidence and conflicting evidence thus stay separate. We detect
+change with a known feature residual and set its threshold per scene, without
+labels, from the map's own mapping pass. A Gaussian that fails the test is
+reset. When depth is available, it rejoins the robust map only after new views
+whose observed depth matches its position. A posterior predictive turns the
+field into per-pixel class probabilities. We evaluate on Replica and on real
+rearrangements in RIO10. \todo{RIO10 access pending: keep RIO10 only if the
+data arrive.}
+%% Headline sentence: at most ~20 words (the rest is about 170 words; limit 200).
+\todo{headline result}
 \end{abstract}
 
-\begin{IEEEkeywords}
-Mapping, semantic scene understanding, localization, RGB-D perception,
-uncertainty estimation.
-\end{IEEEkeywords}
+%% RAS keyword list, 2-5 terms, no localization.
+\begin{keywords}
+Semantic Scene Understanding, Mapping, Probability and Statistical Methods,
+RGB-D Perception
+\end{keywords}
 
 %% ============================================================================
 \section{Introduction}
 %% ============================================================================
-\IEEEPARstart{R}{eliable} spatial perception underpins autonomous operation in
-complex indoor environments, where robots must localize and act despite
-occlusions, repetitive structure, diverse object categories, and dynamic
-rearrangement of the scene~\cite{chu2026semantic}. Recent work couples
-photorealistic 3D Gaussian Splatting (3D-GS)~\cite{kerbl2023} with language
-features~\cite{radford2021} to build \emph{open-vocabulary} semantic maps that
-support querying arbitrary concepts at test time~\cite{qin2024langsplat,
-zhou2024feature, wu2024opengaussian}. Such maps are attractive for localization
-and navigation because they combine appearance, geometry, and semantics in a
-single differentiable representation.
+Robots in homes and offices increasingly query their maps with
+language~\cite{lee2026lamp, nagami2025vista}.
+Open-vocabulary 3D Gaussian Splatting (3D-GS)~\cite{kerbl2023} supports such
+queries by attaching vision-language features~\cite{radford2021} to the
+Gaussians of the map~\cite{qin2024langsplat, zhou2024feature,
+wu2024opengaussian, shi2024legaussians}. A robot that reuses the map needs more
+than the most likely label. It needs to know how much evidence stands behind
+each Gaussian's semantics, whether that evidence agrees, and whether it is
+still valid. Indoor scenes change. Objects are moved or removed, and a map that
+keeps their old semantics answers queries with content that is no longer
+there.
 
-A critical property is missing, however. Existing semantic 3D-GS
-representations report a most-likely semantic label or feature at every point but
-provide no calibrated measure of how much that report should be \emph{trusted}.
-For a safety-critical robot this conflation is dangerous: a surface seen from
-only one fleeting viewpoint and a surface whose semantics are genuinely
-ambiguous or actively changing are reported with identical confidence, even
-though the correct response to each is opposite---gather more observations in the
-first case, distrust the region in the second. Continuous Semantic Splatting
-(CSS)~\cite{wilson2025css} took an important step by porting Bayesian Kernel
-Inference (BKI)~\cite{vegabrown2014, gan2020bayesian} from voxel maps to 3D-GS,
-obtaining a Dirichlet posterior over a \emph{closed} label set. Two gaps remain.
-First, open-vocabulary semantics are continuous CLIP directions, not categories,
-so a Dirichlet treatment does not apply; CSS itself identifies an open-dictionary
-continuous conjugate prior as future work. Second, a single posterior variance
-does not separate uncertainty that more sensing can reduce (epistemic) from
-uncertainty that it cannot (aleatoric), yet that distinction is exactly what a
-robot needs to decide whether to look again or to forget.
-
-We address both gaps with a probabilistic open-vocabulary semantic field for
-3D-GS. Our representation is summarized in Fig.~\ref{fig:pipeline}. The
-contributions are:
-
-\begin{itemize}
-\item A \textbf{directional semantic posterior} for 3D-GS that models each
-Gaussian's open-vocabulary semantics with a von Mises--Fisher distribution on
-the unit hypersphere and admits a closed-form BKI update---the continuous
-generalization of categorical semantic mapping, using the splat weight as the
-inference kernel.
-\item A \textbf{disentangled epistemic/aleatoric} read-out obtained from the same
-sufficient statistics at no extra cost, with an explicit small-sample correction
-that prevents the false confidence that arises from few observations.
-\item A \textbf{gradient-based accumulation} showing that the kernel-weighted
-sufficient statistics equal the gradient of a feature render, so the update
-integrates with any differentiable feature rasterizer without custom kernels.
-\item An \textbf{uncertainty-driven consolidation} mechanism that uses the
-aleatoric signal to identify stable structure and forget transient content,
-providing robustness to scene change without dynamic-object thresholds or a
-language model in the loop.
-\end{itemize}
-
-We evaluate calibration, open-vocabulary segmentation, and localization under
-scene change on standard indoor datasets, and ablate each component.
-
-%% ============================================================================
-\section{Related Work}
-%% ============================================================================
-\textbf{Visual localization and rendering-based refinement.} Absolute pose
-regression~\cite{chen2024marepo} and scene coordinate
-regression~\cite{brachmann2023ace} learn a mapping from images to pose but
-generalize poorly across scenes and degrade in complex layouts. Rendering-based
-methods refine a coarse pose against a learned scene representation; replacing
-NeRF~\cite{mildenhall2020nerf} with 3D-GS~\cite{kerbl2023} improves render
-quality and efficiency for relocalization. \cite{chu2026semantic} augment a
-Gaussian map with semantics and a language model to select stable objects for
-robust indoor localization. We share the goal of robustness to scene change but
-replace heuristic stable-object selection with a calibrated uncertainty derived
-directly from the map.
-
-\textbf{Semantic and language-embedded 3D-GS.} A growing body of work distills
-2D features into a 3D-GS field for open-vocabulary
-understanding~\cite{qin2024langsplat, zhou2024feature, wu2024opengaussian}.
-These methods optimize or rasterize per-Gaussian features but treat the result
-as deterministic, providing no uncertainty for downstream decision making.
-Bayesian Fields~\cite{maggio2025bayesian} fuses semantics across views with a
-recursive Bayesian update, but maintains only a scalar task-relevance
-probability per Gaussian for a query fixed \emph{at mapping time}, and assumes
-a static scene. Our field instead maintains a posterior over the embedding
-\emph{direction itself}, so arbitrary queries can be answered post hoc with
-calibrated uncertainty.
-
-\textbf{Uncertainty in mapping.} BKI~\cite{vegabrown2014} provides closed-form
-continuous mapping with quantifiable uncertainty and underlies several semantic
-mapping systems~\cite{gan2020bayesian}. Evidential extensions move beyond one-hot
-labels~\cite{kim2025e2bki}. CSS~\cite{wilson2025css} brings BKI to 3D-GS with a
-Dirichlet posterior over a closed label set, and concurrent
-work~\cite{chopra2026physgs} infers physical properties with a Bayesian 3D-GS
-treatment that separates aleatoric and epistemic terms. We extend the BKI line
-to \emph{open-vocabulary} semantics via a directional (vMF) conjugate model and
-provide the epistemic/aleatoric split for continuous embeddings.
-
-\textbf{Directional statistics for embeddings.} Normalized embeddings lie on a
-hypersphere, where the vMF distribution is the natural model and its
-concentration measures
-confidence~\cite{mardia2000directional, banerjee2005vmf}. Concurrent work uses
-a vMF model of language-embedding uncertainty in an \emph{implicit} field for
-navigation~\cite{lee2026lamp}; we instead attach the directional posterior to
-an explicit 3D-GS map, derive its closed-form BKI update, and disentangle
-epistemic from aleatoric uncertainty.
-
-\textbf{Active perception.} Active inference casts perception and action as
-minimizing expected free energy, which decomposes into information-seeking
-(epistemic) and goal-directed (pragmatic) value~\cite{friston2010,
-parr2022active}. Recent semantic 3D-GS exploration combines geometric and
-semantic information gain with hand-set weights~\cite{nagami2025vista}. Our
-disentangled uncertainty
-provides the epistemic term in a principled form and, by gating out aleatoric
-regions, avoids expending observations where more sensing cannot help
-(Sec.~\ref{sec:efe}).
-
-%% ============================================================================
-\section{Method}
-%% ============================================================================
-\begin{figure*}[!t]
+%% Fig. 1. Placed after the first paragraph so that the float cannot land
+%% above the abstract. "Calibration" is not used in the figure or the caption
+%% (fact sheet C: "calibrated" only for the predictive).
+\begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figs/pipeline.pdf}
-  \caption{Overview. Per-pixel CLIP directions $\zv_p$ are accumulated into
-  each Gaussian's von Mises--Fisher sufficient statistics
-  $(\R_n, n^{\mathrm{eff}}_n)$ through the splat weight
-  $k_{p,n}=T_{p,n}\alpha_{p,n}$ (the BKI kernel), recovered exactly by one
-  feature render and one backward pass (Sec.~\ref{sec:grad}). The closed-form
-  posterior yields a mean semantic direction and concentration, from which a
-  disentangled epistemic/aleatoric uncertainty is read off
-  (Sec.~\ref{sec:uncertainty}) and used for consolidation
-  (Sec.~\ref{sec:consolidation}) and, optionally, active viewpoint selection
-  (Sec.~\ref{sec:efe}).}
+  \caption{One keyframe update. (1)~A posed keyframe gives RGB and, when
+  available, observed depth. (2)~Dense vision-language features, compressed by
+  a PCA fit on the mapping frames. (3)~One render and one backward
+  pass~\cite{joseph2025gradbp} give every Gaussian its per-view sums. (4)~Each
+  view is one observation $\mathbf{u}_v$ with weight $\omega_v$. (5)~Four
+  running sums give the vMF posterior, the support $s$ and the agreement
+  $\hat\rho$. (6)~A change test with a threshold $\theta(h)$ from the static
+  mapping pass. (7)~Reset, and re-admission after a depth check. (8)~A
+  predictive render answers text queries. The index $n$ is dropped.}
   \label{fig:pipeline}
 \end{figure*}
 
-\subsection{Directional Semantic Field}
-We build on an open-vocabulary 3D-GS map of $N$ Gaussians
-$\{g_n\}_{n=1}^N$, each with mean, covariance, opacity and color as
-usual~\cite{kerbl2023}. We attach to each Gaussian a semantic state living on
-the unit hypersphere $\Sph^{d-1}$, matching the geometry of $\ell_2$-normalized
-language embeddings~\cite{radford2021}.
+Several works attach uncertainty to such maps. Bayesian Kernel Inference
+(BKI)~\cite{vegabrown2014, gan2020bayesian} fuses kernel-weighted observations
+in closed form, and Continuous Semantic Splatting (CSS)~\cite{wilson2025css}
+brings it to 3D-GS with a Dirichlet posterior over a fixed label set. Other
+work fuses open-set features on voxels~\cite{wilson2025latentbki}, learns an
+uncertainty~\cite{shi2024legaussians, lee2026lamp}, or scores the reliability
+of lifted features~\cite{zang2026normlift}. These methods assume a static
+scene. Change-aware maps~\cite{lu2025gscd, ackermann2025clsplats,
+zeng2025gaussianupdate, he2026vgmapping, jiang2026mif} detect moved or removed
+content by comparing new observations with the map. Two questions fall
+between these lines of work: how a detected change should enter the
+uncertainty bookkeeping, and how to set the detection threshold on a new scene
+without labels.
 
-Let a training/keyframe provide a dense per-pixel CLIP feature map; pixel $p$
-contributes a unit observation $\zv_p\in\Sph^{d-1}$. We model the observations of
-Gaussian $n$ with a von Mises--Fisher (vMF) likelihood with \emph{fixed}
-concentration $\kappa$,
+We answer both questions inside one Bayesian field. Each Gaussian holds a vMF
+posterior~\cite{mardia2000directional} over the direction of its feature. A
+keyframe contributes one weighted observation per Gaussian: the splat-weighted
+mean of the pixel features that the Gaussian covers. To detect change, we
+compare all earlier evidence of a Gaussian with the current view. This
+statistic is the classic feature residual~\cite{ackermann2025clsplats,
+jiang2026mif}, and we do not claim it as new. Our part is what happens around
+it: how the threshold is set without labels, which evidence is reset, and when
+a Gaussian is trusted again. Geometry stays fixed after mapping, so moved
+content is forgotten at its old place but not inserted at its new one.
+Fig.~\ref{fig:pipeline} shows one keyframe update. Our contributions are:
+\begin{itemize}
+\item \textbf{A directional posterior with view-level evidence.} Each Gaussian
+keeps a vMF posterior, the directional counterpart of Dirichlet semantic
+mapping, that receives one weighted observation per view. Its epistemic
+read-out is the weighted number of views. Its aleatoric read-out is a
+bias-corrected agreement of the views that does not shrink with the amount of
+evidence.
+\item \textbf{Change handling in the Bayesian bookkeeping.} The threshold of
+the residual is a quantile of the map's own mapping-pass scores, per history
+length. This targets a nominal per-view false-alarm rate on static content
+without labels, and we measure the actual rate. A flagged Gaussian is reset
+and rejoins the robust map only after a depth check.
+\item \textbf{A posterior predictive.} Per-pixel class probabilities come from
+a render of each Gaussian's posterior mean feature, so weakly supported
+Gaussians flatten the prediction. The temperature can also depend on the
+rendered uncertainties. We test whether this lowers NLL and ECE compared with
+plug-in features at their own fitted temperature.
+\end{itemize}
+
+We evaluate segmentation, uncertainty ranking and calibration on 8 Replica
+scenes~\cite{straub2019replica, zhi2021semanticnerf}, and stale-content
+detection on real object rearrangements in RIO10~\cite{wald2020rio10,
+wald2019rio}. \todo{RIO10 access pending: keep this clause only if the data
+arrive, else name the fallback dataset. Add one sentence on the main measured
+finding, and the anonymous code link or nothing.}
+
+%% ============================================================================
+%% Related Work
+%% ============================================================================
+\section{Related Work}
+\label{sec:related}
+
+\textbf{Language-embedded 3D-GS.}
+LangSplat~\cite{qin2024langsplat}, Feature 3DGS~\cite{zhou2024feature},
+OpenGaussian~\cite{wu2024opengaussian} and LEGaussians~\cite{shi2024legaussians}
+optimize per-Gaussian features through rendering against 2D foundation-model
+features or masks. LEGaussians also learns a per-Gaussian uncertainty.
+Training-free methods~\cite{cheng2025occam, joseph2025gradbp} give each
+Gaussian the splat-weighted average of its pixel features,
+which~\cite{joseph2025gradbp} reads from the gradient of one render. The
+concurrent NormLift~\cite{zang2026normlift} averages per-view mean features.
+It factors the norm of the un-normalized mean into within-view and cross-view
+consistency. On static scenes it scores reliability by that norm, shrunk by a
+Kish count~\cite{kish1965survey} of effective views. We reuse the gradient
+identity and NormLift's per-view mean. We differ in three ways. Our cross-view
+agreement is bias-corrected and does not shrink with the amount of evidence.
+It enters a vMF posterior with a predictive whose calibration we test. We also
+handle scene change.
+
+\textbf{Probabilistic semantic mapping.}
+BKI~\cite{vegabrown2014} updates a conjugate
+posterior with kernel-tempered observations. Semantic BKI~\cite{gan2020bayesian}
+keeps a Dirichlet posterior over classes in voxels, and
+E2-BKI~\cite{kim2025e2bki} adds evidential reasoning and ellipsoidal kernels.
+CSS~\cite{wilson2025css} brings the Dirichlet model to 3D-GS with the splat
+weight as the kernel. It separates sparse from conflicting observations over a
+closed label set fixed at mapping time, and names an open-dictionary conjugate
+prior as future work. LatentBKI~\cite{wilson2025latentbki} and
+SLIM-VDB~\cite{sheppard2026slimvdb} fuse open-set features on voxels under
+Gaussian models. Bayesian Fields~\cite{maggio2025bayesian} updates
+per-Gaussian relevance probabilities for tasks given at mapping time.
+PhysGS~\cite{chopra2026physgs} splits aleatoric from epistemic
+variance~\cite{kendall2017uncertainties} for physical properties in 3D-GS. We
+start from the splat-weight kernel of CSS, normalize it per view, and model
+unit features with a vMF distribution (\secref{sec:posterior}).
+
+\textbf{Directional statistics.}
+The vMF distribution is the standard model for unit
+vectors~\cite{mardia2000directional}. Its mean direction has a conjugate vMF
+prior~\cite{mardia1976bayesian}, and vMF mixtures cluster high-dimensional unit
+vectors~\cite{banerjee2005vmf}. The implicit language field of
+LAMP~\cite{lee2026lamp} outputs a vMF mean and a concentration, read as
+aleatoric uncertainty. We train no network. Each Gaussian keeps additive
+sufficient statistics instead.
+
+\textbf{Change detection and long-term maps.}
+3DGS-CD~\cite{lu2025gscd} finds rearranged objects from render-image
+differences and segmentation masks. CL-Splats~\cite{ackermann2025clsplats}
+compares DINOv2 features of renders and images, then re-optimizes only changed
+regions. GaussianUpdate~\cite{zeng2025gaussianupdate} uses continual learning
+with generative replay, and VG-Mapping~\cite{he2026vgmapping} adds and removes
+Gaussians in changed regions of semi-static scenes. MIF~\cite{jiang2026mif}
+updates its scene memory where the discrepancy of matched scene-graph nodes, a
+position term plus a feature-cosine term, exceeds a fixed threshold. Chu and
+Kim~\cite{chu2026semantic} let a language model pick stable objects to
+localize in changing indoor scenes. Our change score is the same kind of
+feature residual as that of CL-Splats and the semantic term of MIF. It is one
+minus the cosine between all earlier evidence of a Gaussian and the current
+view, and a change must persist over two views. We differ in the threshold and
+the response. The threshold is a quantile of the map's own mapping-pass scores
+per history size, so it needs no labels. A detection resets the Gaussian's
+semantic evidence, and new views with a depth check gate its return. Unlike
+CL-Splats, GaussianUpdate and VG-Mapping, we keep geometry fixed.
+
+%% ============================================================================
+\section{Method}
+\label{sec:method}
+%% ============================================================================
+%% Symbols: w_{p,n} = splat weight, \omega_{v,n} = view weight, \lambda = retention
+%% of the change test (fact sheet "beta"), \beta = temperature of the predictive,
+%% k = persistence window, M = number of mapping frames (Sec. metrics),
+%% \gamma_e, \gamma_a, \gamma_u = P2 coefficients (code: a, b, g).
+Each keyframe gives every visible Gaussian one view-level observation, and a
+few running sums hold its semantic state (Fig.~\ref{fig:pipeline},
+Alg.~\ref{alg:update}).
+
+\subsection{Preliminaries}
+\label{sec:prelim}
+The map holds $N$ Gaussians~\cite{kerbl2023}, and its geometry is fixed after
+mapping. At pixel $p$, Gaussian $n$ has opacity $\alpha_{p,n}$: its base opacity
+times its projected 2D Gaussian evaluated at $p$. With the Gaussians sorted by
+depth, the splat weight is $w_{p,n}=T_{p,n}\,\alpha_{p,n}$ with the
+transmittance $T_{p,n}=\prod_{j<n}(1-\alpha_{p,j})$. It is the share of pixel
+$p$ that Gaussian $n$ explains. A per-Gaussian buffer $\mathbf{f}_n$ renders
+to $\mathbf{F}_p=\sum_n w_{p,n}\mathbf{f}_n$, and $\alpha_p=\sum_n
+w_{p,n}\le1$ is the rendered opacity. As in CSS~\cite{wilson2025css},
+$w_{p,n}$ is the BKI kernel~\cite{vegabrown2014, gan2020bayesian}.
+
+\subsection{Features and Query Space}
+\label{sec:features}
+A dense extractor, LSeg~\cite{li2022lseg}, gives unit pixel features
+$\tilde\zv_p$ that are cosine-comparable with unit CLIP text embeddings
+$\tilde{\mathbf{t}}_c$~\cite{radford2021}. An uncentered PCA with orthonormal
+basis $B$, fit on mapping frames only (no text, no labels), compresses them to
+$d=64$: $\zv_p=B^\top\tilde\zv_p/\lVert B^\top\tilde\zv_p\rVert\in\Sph^{d-1}$.
+Texts are projected without renormalization,
+$\mathbf{t}_c=B^\top\tilde{\mathbf{t}}_c$, so
+$\muv^\top\mathbf{t}_c=(B\muv)^\top\tilde{\mathbf{t}}_c$ is the full-space
+cosine between the decoded direction $B\muv$ and the text. Renormalizing
+$\mathbf{t}_c$ would inflate texts with little energy in the image subspace
+and can change the argmax label.
+
+\subsection{View-Level Evidence}
+\label{sec:evidence}
+Keyframe $v$ gives every Gaussian $n$ the sums $\R_{v,n}=\sum_p w_{p,n}\zv_p$ and
+$m_{v,n}=\sum_p w_{p,n}$. We read them from one render and one backward
+pass. With geometry and opacity detached, $\mathbf{F}_p$ is linear in the
+buffer, so the gradient of $\sum_p\mathbf{Y}_p^\top\mathbf{F}_p$ with respect
+to $\mathbf{f}_n$ is $\sum_p w_{p,n}\mathbf{Y}_p$ for any per-pixel target
+$\mathbf{Y}_p$. We take this identity from Gradient-Weighted Feature
+Back-Projection~\cite{joseph2025gradbp}, and stack $\zv_p$, a ones channel and
+the observed depth with its validity mask into one target. This gives all
+per-Gaussian sums of Alg.~\ref{alg:update}, with no per-Gaussian pixel lists.
+It needs a rasterizer affine in per-Gaussian features. We use gsplat~\cite{ye2024gsplat}
+with the buffer in place of the colors and no spherical harmonics.
+
+Pixels of one view are strongly correlated. For example, one ViT-L/16 patch of LSeg covers
+$16\times16$ pixels. A pixel count thus overstates the evidence and grows with
+the image resolution, so we count views. View $v$ gives Gaussian $n$ one
+observation, the view mean $\mathbf{u}_{v,n}=\R_{v,n}/m_{v,n}$, as in
+NormLift~\cite{zang2026normlift}. Its length $\lVert\mathbf{u}_{v,n}\rVert\le1$
+is the coherence inside the view. Its weight
+$\omega_{v,n}=\min(1,\,m_{v,n}/(a_0HW))$ (default $a_0=10^{-4}$) does not depend
+on the resolution, and a view with a smaller footprint counts fractionally.
+Gaussian $n$ keeps four sums over its views, written without the indices on
+the right:
+\[
+\R_n=\textstyle\sum\omega\mathbf{u},\;
+W_1=\sum\omega,\;
+W_2=\sum\omega^2,\;
+Q=\sum\omega^2\lVert\mathbf{u}\rVert^2 .
+\]
+
+\subsection{Direction Posterior and Concentration}
+\label{sec:posterior}
+We use a vMF likelihood
+$p(\zv\mid\muv,\kappa)=C_d(\kappa)\,e^{\kappa\muv^\top\zv}$ on
+$\Sph^{d-1}$~\cite{mardia2000directional, banerjee2005vmf}. Following BKI, we
+temper the likelihood of pixel $p$ in view $v$ by the kernel
+$\omega_{v,n}w_{p,n}/m_{v,n}$. A view
+then carries mass $\omega_{v,n}$ and log-likelihood
+$\omega_{v,n}\big(\log C_d(\kappa)+\kappa\muv^\top\mathbf{u}_{v,n}\big)$. Given
+$\kappa_n$, the direction posterior is a vMF~\cite{mardia1976bayesian} with
+natural parameter $\etav_n=\kappa_n\R_n+\kappa_0\muv_0$, mean direction
+$\muv^\star_n=\etav_n/\lVert\etav_n\rVert$ and concentration
+$\kappa^{\mathrm{post}}_n=\lVert\etav_n\rVert$. The optional text prior is off
+($\kappa_0=0$), so $\muv^\star_n=\R_n/\lVert\R_n\rVert$. For $\kappa_n$ we use
+the joint conjugate prior
+$p(\muv,\kappa)\propto C_d(\kappa)^{c_0}e^{\kappa\mathbf{m}_0^\top\muv}$ with
+$\mathbf{m}_0=\mathbf{0}$ (default $c_0=1$). The joint posterior is
+proportional to $C_d(\kappa)^{W_1+c_0}e^{\kappa\muv^\top\R_n}$, and its MAP
+concentration solves
 \begin{equation}
-p(\zv_p \mid \muv_n) = C_d(\kappa)\,\exp\!\big(\kappa\,\muv_n^\top \zv_p\big),
-\qquad \muv_n\in\Sph^{d-1},
+A_d(\hat\kappa_n)=\frac{\lVert\R_n\rVert}{W_1+c_0},\qquad
+A_d(\kappa)=\frac{I_{d/2}(\kappa)}{I_{d/2-1}(\kappa)},
+\label{eq:kappa}
 \end{equation}
-where $\muv_n$ is the (unknown) mean semantic direction and
-$C_d(\kappa)$ the normalizer. The conjugate prior for the mean direction of a vMF
-likelihood with fixed $\kappa$ is again a vMF,
-$\muv_n \sim \mathrm{vMF}(\muv_0,\kappa_0)$~\cite{mardia2000directional}; setting
-$\kappa_0=0$ recovers a uniform prior, while a nonzero $\kappa_0$ lets a CLIP
-\emph{text} embedding act as a semantic prior.
+where $A_d(\kappa)=\mathbb{E}[\muv^\top\zv]$ is the mean cosine of a vMF. We set
+$\kappa_n=\hat\kappa_n$, so $\kappa^{\mathrm{post}}_n=\hat\kappa_n\lVert\R_n\rVert$.
+The concentration never changes $\muv^\star_n$ or the label. It only sets how
+sharp the posterior is. With one-hot features, $\R_n$ equals the count
+increment of categorical BKI run with our view-level kernel.
+(CSS~\cite{wilson2025css} uses the pixel kernel $w_{p,n}$, so its counts
+differ.) The two models share the sufficient statistic and the MAP label but
+not the distribution, so the vMF model is the directional counterpart of
+Dirichlet semantic mapping.
 
-Following BKI~\cite{vegabrown2014}, we relate observations across space by
-tempering each likelihood with a kernel $k_{p,n}\in[0,1]$ that measures the
-influence of pixel $p$ on Gaussian $n$. As in CSS~\cite{wilson2025css}, the
-3D-GS blending weight is a valid BKI kernel: $k_{p,n}=T_{p,n}\,\alpha_{p,n}$,
-the transmittance-weighted opacity with which $g_n$ contributes to $p$. The
-tempered posterior is
-\begin{equation}
-p(\muv_n\mid \mathcal{D}) \propto
-\exp(\kappa_0\muv_0^\top\muv_n)\prod_p
-\big[C_d(\kappa)\exp(\kappa\,\zv_p^\top\muv_n)\big]^{k_{p,n}} .
-\end{equation}
-Crucially $C_d(\kappa)^{k_{p,n}}$ is independent of $\muv_n$ and drops out,
-leaving a vMF posterior in closed form:
-\begin{align}
-p(\muv_n\mid\mathcal{D}) &\propto \exp\!\big(\etav_n^\top\muv_n\big)
-= \mathrm{vMF}\!\Big(\muv_n \,\Big|\, \tfrac{\etav_n}{\lVert\etav_n\rVert},
-\lVert\etav_n\rVert\Big),\\
-\etav_n &= \kappa_0\muv_0 + \kappa\,\R_n,\qquad
-\R_n = \textstyle\sum_p k_{p,n}\,\zv_p, \label{eq:eta}
-\end{align}
-with effective observation mass $n^{\mathrm{eff}}_n=\sum_p k_{p,n}$. The
-posterior mean direction and concentration are
-$\muv^{\star}_n=\etav_n/\lVert\etav_n\rVert$ and
-$\kappa^{\star}_n=\lVert\etav_n\rVert$, and the posterior angular variance admits
-the closed form $\approx (d-1)/\kappa^{\star}_n$. Equation~\eqref{eq:eta} is the
-exact analogue of the categorical update $\alpha_n \leftarrow \alpha_0 + \sum_p
-k_{p,n}\,\mathbf{y}_p$ of~\cite{wilson2025css} with the one-hot label
-$\mathbf{y}_p$ replaced by the continuous direction $\zv_p$; the resultant vector
-$\R_n$ is the sufficient statistic, and its length relative to the accumulated
-mass separates agreement from conflict (Fig.~\ref{fig:vmf}). Semantic queries
-reduce to cosine similarity
-between $\muv^{\star}_n$ and a query text embedding, and a novel-view semantic
-render with per-pixel uncertainty follows the probabilistic rasterization
-of~\cite{wilson2025css}.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{figs/vmf_sphere.pdf}
-  \caption{Directional semantic state on $\Sph^{d-1}$. Kernel-weighted CLIP
-  directions accumulate into the resultant $\R_n$, whose direction is the
-  posterior semantics and whose length relative to the observation mass
-  ($\bar r_n$) separates consistent evidence (left) from conflicting evidence
-  (right).}
-  \label{fig:vmf}
-\end{figure}
-
-\subsection{Gradient-Based Accumulation}
-\label{sec:grad}
-Computing $\R_n$ and $n^{\mathrm{eff}}_n$ appears to require, for every Gaussian,
-the list of pixels it touches and their weights---information that standard
-rasterizers do not expose. We avoid any kernel modification by observing that
-feature compositing is \emph{linear} in the per-Gaussian feature. Let
-$\mathbf{f}_n$ be a per-Gaussian feature buffer and
-$F_p=\sum_n k_{p,n}\mathbf{f}_n$ the composited feature at $p$. Then
-\begin{equation}
-\frac{\partial}{\partial \mathbf{f}_n}\Big[\textstyle\sum_p \zv_p^\top F_p\Big]
-= \textstyle\sum_p k_{p,n}\,\zv_p = \R_n,
-\end{equation}
-i.e.\ the resultant is the gradient of a single feature render with respect to
-the feature buffer, with geometry and opacity detached so the weights are
-constant. Appending a constant ones-channel recovers $n^{\mathrm{eff}}_n$ in the
-same backward pass. Hence the update requires one render and one backward call
-through any differentiable feature
-rasterizer~\cite{ye2024gsplat, zhou2024feature}; Fig.~\ref{fig:gradtrick}
-summarizes the construction. We verified this identity against an explicit
-weighted-sum reference and obtained agreement to numerical precision.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{figs/gradient_trick.pdf}
-  \caption{Gradient-based accumulation. Because feature compositing is linear
-  in the per-Gaussian buffer, the kernel-weighted sufficient statistics are
-  the gradient of a single feature render; a constant ones channel recovers
-  $n^{\mathrm{eff}}_n$ in the same backward pass, with no rasterizer
-  modification.}
-  \label{fig:gradtrick}
-\end{figure}
-
-\subsection{Disentangling Epistemic and Aleatoric Uncertainty}
+\subsection{Epistemic and Aleatoric Uncertainty}
 \label{sec:uncertainty}
-Define the mean resultant length
-$\bar r_n = \lVert\R_n\rVert / n^{\mathrm{eff}}_n \in [0,1]$, the standard vMF
-concentration statistic~\cite{banerjee2005vmf}. With a weak prior the posterior
-concentration factorizes as
+\textbf{Epistemic.} The support $s_n=W_1$ is the number of views, each
+weighted by $\omega\le1$, and $u^{\mathrm{epi}}_n=1/(1+s_n)$. Because
+$\omega\le1$, the Kish effective number of views~\cite{kish1965survey}
+$n_K=W_1^2/W_2$ is never below $W_1$. It ignores the scale of the weights, so
+it would count ten small partial views as much as ten full ones.
+
+\textbf{Aleatoric.} Let $\rho_n=\lVert\mathbb{E}\,\mathbf{u}_{v,n}\rVert$. It is
+one when every view shows the same unit feature and near zero when the views
+disagree. We estimate it by
 \begin{equation}
-\kappa^{\star}_n \;\approx\; \kappa\, n^{\mathrm{eff}}_n\, \bar r_n ,
+\hat\rho_n^2=\Big[\frac{\lVert\R_n\rVert^2-Q}{W_1^2-W_2}\Big]_0^1,\qquad
+u^{\mathrm{ale}}_n=1-\hat\rho_n ,
+\label{eq:rho}
 \end{equation}
-exposing two independent routes to a diffuse posterior. A small
-$n^{\mathrm{eff}}_n$ means few observations: the posterior is uncertain only for
-lack of data, and additional viewpoints reduce it. This is \emph{epistemic}
-uncertainty, for which we use the monotone proxy
-\begin{equation}
-u^{\mathrm{epi}}_n = \frac{1}{1+n^{\mathrm{eff}}_n}.
-\end{equation}
-A small $\bar r_n$ \emph{despite} large $n^{\mathrm{eff}}_n$ means many
-observations that disagree---the language directions at that location point
-different ways---which more sensing under the same conditions cannot resolve.
-This is \emph{aleatoric} uncertainty,
-\begin{equation}
-u^{\mathrm{ale}}_n = 1 - \tilde r_n, \qquad
-\tilde r_n = \bar r_n - \frac{1-\bar r_n}{n^{\mathrm{eff}}_n+1},
-\end{equation}
-where $\tilde r_n$ is a small-sample shrinkage of $\bar r_n$. The correction is
-essential: with a single observation $\bar r_n=1$ trivially, which would falsely
-signal certainty; we therefore treat $u^{\mathrm{ale}}_n$ as valid only once
-$n^{\mathrm{eff}}_n \geq \tau_{\min}$ and report it as undefined otherwise.
-Maintaining the pair $(n^{\mathrm{eff}}_n,\bar r_n)$ rather than a single scalar
-is what makes the two regimes separable; Fig.~\ref{fig:plane} maps the regimes
-and the consolidation rule of Sec.~\ref{sec:consolidation} onto this plane.
-A data-driven per-Gaussian
-concentration estimate $\hat\kappa_n = \bar r_n (d-\bar r_n^2)/(1-\bar
-r_n^2)$~\cite{banerjee2005vmf} is available if a fixed $\kappa$ is undesirable,
-at the cost of closed-form conjugacy.
+where $[\cdot]_0^1$ clamps to $[0,1]$. For independent views with a common
+mean, the expected squared norm is $\mathbb{E}\lVert\R_n\rVert^2=(W_1^2-W_2)\rho_n^2+\sum_v\omega^2\,
+\mathbb{E}\lVert\mathbf{u}_{v,n}\rVert^2$. The ratio inside the clamp is thus
+unbiased for $\rho_n^2$ for two or more views. The clamp and the square root
+leave a small bias at few views. The aleatoric uncertainty is defined once
+$s_n\ge\tau_{\min}$ (default 3 views). Two simpler estimates mix the amount of
+evidence into the dispersion. The mean resultant length
+$\bar r_n=\lVert\R_n\rVert/W_1$ is biased upward, by up to about
+$1/\sqrt{n_K}$. A prior-shrunk agreement such as $\lVert\R_n\rVert/(W_1+c_0)$
+is small whenever evidence is scarce. NormLift's reliability, its feature norm
+times $N_{\mathrm{eff}}/(N_{\mathrm{eff}}+1)$~\cite{zang2026normlift}, has this
+form. Estimator~\eqref{eq:rho} removes the leading bias of $\bar r_n$ and does
+not shrink, so little evidence and conflicting evidence stay separate
+(Fig.~\ref{fig:plane}). The shrunk form suits $\hat\kappa_n$
+in~\eqref{eq:kappa}, where scarce evidence should broaden the posterior.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figs/uncertainty_plane.pdf}
-  \caption{Uncertainty regimes in the $(n^{\mathrm{eff}},\bar r)$ plane. Low
-  observation mass is the epistemic regime (more sensing helps; $\bar r$ is
-  biased high and $u^{\mathrm{ale}}$ is withheld); given sufficient mass, high
-  agreement consolidates into the robust map while persistent conflict is
-  forgotten by evidence decay.}
+  \caption{Support $s$ (weighted views) against agreement $\hat\rho$ of one
+  Gaussian. The curves are root-mean-square values for two Gaussians with true
+  agreement $\rho$ (dotted). The mean length $\lVert\R\rVert/W_1$ makes the
+  conflicting one look consistent at few views, and the shrunk
+  $\lVert\R\rVert/(W_1+c_0)$ makes the consistent one look conflicting. Our
+  $\hat\rho$ is drawn at $\rho$: before the clamp $\hat\rho^2$ is unbiased, so
+  $\hat\rho$ stays close to $\rho$. A fired change test resets $s$ to at most
+  one view.}
   \label{fig:plane}
 \end{figure}
 
-\subsection{Uncertainty-Driven Consolidation}
-\label{sec:consolidation}
-The aleatoric signal identifies, without semantic thresholds or a language model,
-which structure is stable. Across keyframes, a Gaussian whose observations
-persistently disagree ($n^{\mathrm{eff}}_n\!\geq\!\tau_{\min}$, $\bar r_n \leq
-r_{\mathrm{unstable}}$) corresponds to content that has moved or whose appearance
-is inconsistent; we decay its accumulated evidence,
-$\R_n \leftarrow \lambda \R_n$, $n^{\mathrm{eff}}_n \leftarrow \lambda
-n^{\mathrm{eff}}_n$ with $\lambda<1$, an exponential forgetting of stale support.
-Conversely, Gaussians with $\bar r_n \geq r_{\mathrm{stable}}$ are consolidated
-and define a \emph{robust} subset used for localization. This replaces heuristic
-dynamic-object removal and stable-object selection with a single mechanism driven
-by the map's own uncertainty.
+\subsection{Change Detection, Reset and Re-admission}
+\label{sec:change}
+We test each Gaussian at each view with a family of two-bucket statistics. An
+older bucket $\R^{\mathrm{old}}_n$ and a recent bucket $\R^{\mathrm{new}}_n$
+split $\R_n$ without overlap. Each view moves a share $1-\lambda^{\omega}$ of
+the recent bucket, and of its mass, into the older one. It then adds
+$\omega_{v,n}\mathbf{u}_{v,n}$ to the recent one (retention $\lambda\in[0,1)$
+per full view). The score
+$c_n=1-\cos(\R^{\mathrm{old}}_n,\R^{\mathrm{new}}_n)$ is defined once the
+support reaches $\tau_{\min}$ and each bucket holds one full view. A change
+must persist, so the statistic $\bar c_n$ is the minimum of the last $k$
+defined scores.
 
-\subsection{Active Viewpoint Selection (Optional)}
-\label{sec:efe}
-The disentangled uncertainty also yields a principled next-best-view objective.
-Casting selection as minimizing expected free energy~\cite{friston2010}, a
-candidate view $v$ with predicted per-Gaussian visibility $\nu_{v,n}$ is scored
-by an epistemic term that seeks \emph{reducible} uncertainty and a pragmatic term
-that seeks task-relevant content:
-\begin{equation}
-\mathrm{EFE}(v) = -\Big[\underbrace{\sum_n \nu_{v,n}\,u^{\mathrm{epi}}_n
-(1-u^{\mathrm{ale}}_n)}_{\text{epistemic value}}
-+ \lambda_p \underbrace{\sum_n \nu_{v,n}\,s_n}_{\text{pragmatic value}}\Big],
-\end{equation}
-where $s_n=\max(0,\muv^{\star\top}_n \mathbf{t})$ is similarity to a query
-embedding $\mathbf{t}$. Gating the epistemic term by $(1-u^{\mathrm{ale}}_n)$
-prevents the agent from repeatedly visiting genuinely ambiguous or dynamic
-regions, a failure mode of objectives that do not separate the two uncertainties.
+%% Tuning scene: usplat/vmf_field.py:44 ("k = 2 won the chess grid") and
+%% docs/reports/2026-09-29-data-and-baselines/README.md ("chess = tuning").
+On a tuning sequence not used for testing, the 7-Scenes chess
+scene~\cite{glocker2013} with simulated object swaps, we chose $\lambda=0$
+and $k=2$. Then $\bar c_n$ is the minimum over the last two views $t$ of
+$1-\cos\big(\sum_{v<t}\omega_{v,n}\mathbf{u}_{v,n},\,\mathbf{u}_{t,n}\big)$, the
+cosine distance between all earlier evidence and the current view. This member
+is the classic feature-residual test~\cite{jiang2026mif,
+ackermann2025clsplats}. We do not claim the statistic, only how its threshold
+is set and the bookkeeping around it. Centering the features on the scene mean
+hurt in tuning, so it is off.
+
+\textbf{Threshold from the mapping pass.} In tuning, a fixed threshold on
+$\bar c_n$ did not transfer between scenes (fixed-threshold row of
+Table~\ref{tab:ablation}). We therefore set it, without labels, from the map's
+own mapping pass. That sequence is assumed static, so its scores sample the
+no-change null (no resets happen during mapping). Short histories give noisier
+scores, so we keep one null histogram per history size, the mass
+$h_n=W^{\mathrm{old}}_n$ of the older bucket, with bin edges at 4, 6, 10, 20
+and 40 views. The threshold $\theta(h)$ is the $q$-quantile of bin $h$
+(default $q=0.999$), a nominal per-view false-alarm rate of $10^{-3}$ on static
+content. A bin with fewer than 200 samples borrows the nearest bin with
+enough. In tuning, a null of per-Gaussian maxima over the mapping pass was
+inflated by the short early histories.
+
+%% Re-admission as implemented (usplat/vmf_field.py:442-475): views_since_reset
+%% restarts at 0 and then adds the omega of the view that fired, and the depth
+%% record includes that view. The fact sheet's "3 new views" differs from this.
+\textbf{Reset and re-admission.} When $\bar c_n>\theta(h_n)$, Gaussian $n$
+forgets. Its four sums, buckets and depth record restart from the current
+view, and it is flagged \emph{changed}. It is re-admitted at the first view at
+which its view weight since the reset, the view that fired included, is at
+least 3 and the view-weighted mean of
+$\lvert d^{\mathrm{obs}}_{v,n}-d^{\mathrm{ctr}}_{v,n}\rvert$ over these views
+is at most 5\,cm. Here $d^{\mathrm{obs}}_{v,n}$ is the observed depth (sensor
+or estimator, never rendered from the map) averaged over the footprint with
+the weights $w_{p,n}$, and $d^{\mathrm{ctr}}_{v,n}$ is the camera depth of the
+Gaussian center. The Gaussians of a removed object see the surface behind
+them. They stay out while that surface lies more than 5\,cm from their
+centers. A Gaussian with no valid depth since its reset stays out. Without any
+depth stream, the views alone decide. The \emph{robust set} holds the
+Gaussians with $s_n\ge\tau_{\min}$, $\hat\rho_n\ge0.6$ and no change flag.
+
+\begin{algorithm}[t]
+\caption{Update of the field with keyframe $v$}
+\label{alg:update}
+\begin{algorithmic}[1]
+\STATE Render and backward pass: $\R_{v,n}$, $m_{v,n}$, depth sums
+\FORALL{Gaussians $n$ with $m_{v,n}>0$, in parallel}
+\STATE $\mathbf{u}\leftarrow\R_{v,n}/m_{v,n}$,\;
+$\omega\leftarrow\min(1,m_{v,n}/(a_0HW))$
+\STATE $\R^{\mathrm{old}}_n\mathrel{+}=(1-\lambda^{\omega})\R^{\mathrm{new}}_n$,\;
+$\R^{\mathrm{new}}_n\leftarrow\lambda^{\omega}\R^{\mathrm{new}}_n+\omega\mathbf{u}$
+\STATE If defined, $\bar c_n\leftarrow$ minimum of the last $k$ scores $c_n$.
+While mapping, add $\bar c_n$ to the null of bin $h_n$. Later, reset and flag
+$n$ if $\bar c_n>\theta(h_n)$.
+\STATE $\R_n\mathrel{+}=\omega\mathbf{u}$, $W_1\mathrel{+}=\omega$,
+$W_2\mathrel{+}=\omega^2$, $Q\mathrel{+}=\omega^2\lVert\mathbf{u}\rVert^2$
+\STATE Update the depth residual, unflag $n$ if re-admitted
+\ENDFOR
+\STATE After mapping: $\theta(h)\leftarrow q$-quantile of the null of bin $h$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Predictive Distribution}
+\label{sec:predictive}
+For pixel $p$ of a novel view, the class probabilities are
+\[
+P(y_p=c)=\operatorname{softmax}_c\big(\beta\,\mathbf{F}_p^\top\mathbf{t}_c\big),
+\qquad \mathbf{F}_p=\textstyle\sum_n w_{p,n}\mathbf{f}_n .
+\]
+The render $\mathbf{F}_p$ is not divided by $\alpha_p$, so low opacity
+flattens the distribution. \emph{P0} (plug-in) renders
+$\mathbf{f}_n=\muv^\star_n$. \emph{P1} (posterior) renders the vMF mean
+$\mathbb{E}[\muv_n]=A_d(\kappa^{\mathrm{post}}_n)\,\muv^\star_n$, a mean-field
+treatment of the per-Gaussian posteriors, so weakly supported Gaussians pull
+$\mathbf{F}_p$ toward zero. \emph{P2} (adaptive) keeps the P0 render with a
+per-pixel temperature
+$\beta_p=\beta_0\exp\!\big(-\gamma_e u^{\mathrm{epi}}_p-\gamma_a u^{\mathrm{ale}}_p
+-\gamma_u\mathbf{1}[u^{\mathrm{ale}}_p\ \text{undefined}]\big)$. Here
+$u^{\mathrm{epi}}_p$ and $u^{\mathrm{ale}}_p$ average $u^{\mathrm{epi}}_n$ and
+$u^{\mathrm{ale}}_n$ with the weights $w_{p,n}$ over the Gaussians where they
+are defined. The pixel value $u^{\mathrm{ale}}_p$ is undefined when more than
+half of $\alpha_p$ comes from Gaussians with undefined $u^{\mathrm{ale}}_n$.
+The term $\gamma_u$ gives such pixels their own offset instead of the most
+confident value $u^{\mathrm{ale}}=0$. We fit $\beta$ (P0, P1),
+$(\beta_0,\gamma_e,\gamma_a,\gamma_u)$ (P2) and the temperature of every
+baseline by NLL on the validation split.
 
 %% ============================================================================
+%%  Experiments, Limitations, Conclusion. Every number cell is \ph, \phs or
+%%  \phn (no result exists yet). Design choices: fact sheet, section E.
+%% ============================================================================
+
 \section{Experiments}
-%% ============================================================================
-\todo{All numeric cells below are placeholders (\ph{} / --). Replace with your
-measured results before submission.}
+\label{sec:experiments}
+We ask four questions. Is the field as accurate as simple averaging, and does
+its predictive lower NLL and ECE (Table~\ref{tab:replica})? Does each
+uncertainty rank the error it is meant for (Fig.~\ref{fig:views})? On real
+rearrangements, does the change test find stale content
+(Table~\ref{tab:rio10})? Which parts matter, and does the reset keep stale
+content out of the robust set (Table~\ref{tab:ablation})?
 
+%% ----------------------------------------------------------------------------
 \subsection{Setup}
-\textbf{Datasets.} We evaluate on small-scale (7-Scenes~\cite{glocker2013}),
-large-scale (ScanNet~\cite{dai2017scannet}), and semi-dynamic indoor data; the
-dynamic split contains query images captured after object rearrangement
-\todo{describe your custom dynamic dataset / acquisition}.
+\label{sec:setup}
+%% Extractor and prompts: configs/vocab_replica.json (extractor "lseg",
+%% 5-template ensemble, frozen 2026-09-29 on the validation scenes).
+\textbf{Replica.} We use the Replica scenes~\cite{straub2019replica} as
+rendered by Semantic-NeRF~\cite{zhi2021semanticnerf}: 8 scenes with 101 class
+ids, where id 0 marks unlabeled pixels that we ignore. We validate on
+office\_0 and room\_2 and test on room\_0, room\_1 and office\_1 to office\_4.
+Each method maps on every 5th frame of Sequence\_1 (180 frames). We evaluate
+on every 10th frame of Sequence\_2 (90 frames), which no method sees while
+mapping. The query vocabulary of a scene is the set of classes present in its
+evaluation frames. One ensemble of five prompt templates, chosen on the
+validation scenes, serves all scenes.
 
-\textbf{Baselines.} For open-vocabulary semantics with uncertainty we compare
-against the categorical Dirichlet treatment of CSS~\cite{wilson2025css} and
-deterministic language-embedded 3D-GS~\cite{qin2024langsplat,
-zhou2024feature, wu2024opengaussian}. For localization we compare against
-representative APR~\cite{chen2024marepo}, SCR~\cite{brachmann2023ace}, and
-GS-based relocalization methods, including the semantic localizer
-of~\cite{chu2026semantic}. \todo{finalize baseline list and citations.}
+\textbf{RIO10.} RIO10~\cite{wald2020rio10} holds real rescans of 10 rooms in
+which objects were moved or removed between visits. \todo{RIO10 access is
+pending. This block runs once the data arrive.} We validate on scenes 01, 04
+and 06 and test on the other seven. Each method maps on seqXX\_01 and is then
+updated with seqXX\_02 \todo{frame strides and pose source}. Stale ground
+truth comes from the object annotations~\cite{wald2020rio10, wald2019rio},
+which no method reads \todo{check that instance ids match across the two
+rescans, else use the 3RScan annotations}. An object is stale if it was
+removed, moved by more than \ph\,cm or turned by more than \ph$^\circ$. A
+Gaussian is stale if its nearest annotated point in seqXX\_01, within
+\ph\,cm, belongs to a stale object. We fix these thresholds before we look at
+any method output. Gaussians that no update view observes, or that the new
+surface hides in every update view, cannot be judged. We leave them out of the
+change metrics and report their share. The observed depth for re-admission
+comes from \todo{sensor depth or a depth estimator}, never from the mesh. The
+mesh depth of each rescan \todo{verify} shows the new state of the scene, and
+we use it only in an oracle row.
 
-\textbf{Metrics.} Open-vocabulary segmentation accuracy / mIoU; calibration via
-the sparsification error (AUSE) for each uncertainty channel and expected
-calibration error (ECE); localization by median translation/rotation error
-(ATE/ARE) and success rate at $5\,$cm/$5^\circ$ and $2\,$cm/$2^\circ$; and
-runtime. We report AUSE separately for the epistemic and aleatoric channels to
-test whether each predicts the failure mode it is intended to.
+\textbf{Map and features.} For each scene we fit one 3D-GS map on the mapping
+frames with gsplat~\cite{ye2024gsplat}, using degree-0 color, \ph{} iterations
+and at most \ph{} Gaussians. Every method uses this geometry, which stays fixed
+afterwards, and the same LSeg features, compressed to $d=64$
+(\secref{sec:features}). The coverage floor $\tau_{\mathrm{cov}}=\ph$ and all
+temperatures are set on the validation scenes. We freeze every choice before
+the test scenes run, and we run them once. We report the mean and standard
+deviation over the test scenes ($N=6$ for Replica, $N=7$ for RIO10).
 
-\textbf{Implementation.} \todo{backbone for dense CLIP features (e.g.\ LSeg /
-MaskCLIP / SAM+CLIP), feature dimension $d$, $\kappa$, $\tau_{\min}$,
-$r_{\mathrm{stable}}$, $r_{\mathrm{unstable}}$, $\lambda$, hardware, timings.}
+\textbf{Segmentation baselines.} All baselines share our geometry, features and
+splat weights, and each gets its own temperature, fit by NLL on the validation
+scenes. \emph{2D features} apply the extractor to the
+evaluation frame itself, with no map. \emph{Averaging} is the pixel-weighted
+mean feature of Gradient-Weighted Feature
+Back-Projection~\cite{joseph2025gradbp}, with no uncertainty of its own
+\todo{compare with the authors' code on one validation scene}.
+\emph{NormLift}~\cite{zang2026normlift} keeps the averaging feature. It counts
+Kish effective views $N_{\mathrm{eff}}$ over the per-view pixel masses
+$m_{v,n}$, factors the feature norm into a within-view and a cross-view
+consistency $C_{\mathrm{inter}}$, and scores reliability as
+$\mathcal{R}=\lVert\mathbf{f}\rVert N_{\mathrm{eff}}/(N_{\mathrm{eff}}+1)$. We
+implement it as its paper defines it, without its KNN voting refinement.
+NormLift defines no epistemic or aleatoric uncertainty. From its quantities
+we build the reference scores $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$
+and $1-\mathcal{R}$. \emph{CSS}~\cite{wilson2025css} keeps a Dirichlet
+posterior over a closed label set, and each pixel votes for the class whose
+text is closest to its feature. CSS receives the full vocabulary at mapping
+time, which the open-vocabulary rows do not need. We composite its variance
+with the linear splat weights of every other channel, not with squared
+weights as CSS does.
 
-\subsection{Open-Vocabulary Semantics and Calibration}
-Table~\ref{tab:seg} reports segmentation quality and calibration.
-Fig.~\ref{fig:qual} shows qualitative posterior semantics with epistemic and
-aleatoric maps. \todo{1--2 sentences interpreting the measured numbers: e.g.\
-that the directional posterior matches/exceeds deterministic features on
-accuracy while providing calibrated uncertainty, and that the epistemic channel
-attains lower AUSE against reconstruction-improvable error while the aleatoric
-channel attains lower AUSE against dynamic/boundary error.}
+%% Yager's rule: R. R. Yager, Inf. Sci. 41(2):93-137, 1987,
+%% doi:10.1016/0020-0255(87)90007-7 (not in ref.bib yet; see usplat/baselines.py).
+\textbf{Change baselines.} A residual compares an update view with the map
+rendered at the same pose. We lift every residual to the Gaussians with the
+splat weights and, as for our score, require it to persist over $k=2$
+observed views. \emph{NCC} is one minus the normalized cross-correlation of
+observed and rendered grey values in small windows, which ignores a global
+gain or offset. The \emph{depth residual} is the absolute difference between
+observed depth and map depth. Its non-oracle row uses the same depth as our
+re-admission check. Its oracle row uses the RIO10 mesh depth of seqXX\_02 and
+is an upper bound. The \emph{feature residual} is one minus the cosine of
+rendered and observed features. It is the residual of
+CL-Splats~\cite{ackermann2025clsplats} and the semantic term of MIF's
+discrepancy score~\cite{jiang2026mif}, and we re-implement only this per-pixel
+residual. Four rows use an uncertainty as the change score: the CSS variance,
+the drop of NormLift's $\mathcal{R}$ during the update, our dispersion
+$1-\hat\rho$, and a Yager conflict of our own design. For the last one, the
+CSS class counts of each view form a subjective-logic opinion. Yager's
+rule~\todo{cite Yager 1987} fuses the opinions over the views and keeps the
+conflict mass, which we accumulate. E2-BKI~\cite{kim2025e2bki} fuses such
+opinions with Dempster's rule instead. The \emph{fused} row averages the ranks
+of our score and of the non-oracle depth residual, with equal weights and
+nothing fitted.
 
-\begin{table}[t]
+%% ----------------------------------------------------------------------------
+\subsection{Metrics}
+\label{sec:metrics}
+\textbf{Segmentation and calibration.} We report mIoU over the classes in the
+ground truth, and pixel accuracy. For the predictive we report
+ECE~\cite{guo2017calibration} with 15 equal-width bins on the maximum
+probability, NLL, the Brier score, and AURC, the area under the risk-coverage
+curve with pixels ranked by one minus the maximum probability. A labeled pixel
+with rendered opacity $\alpha_p<\tau_{\mathrm{cov}}$, or with a tied top class
+score, counts as wrong. An uncovered pixel also gets the uniform predictive
+and ranks as the most uncertain pixel for every uncertainty.
+
+\textbf{Uncertainty ranking.} We use the area under the sparsification
+error~\cite{ilg2018uncertainty} in its mean-gap form,
+$\mathrm{AUSE}=\int_0^1[\bar e_u(f)-\bar e_\star(f)]\,df$, on a uniform grid
+of $f$. Here $\bar e_u(f)$ is the mean error of the pixels left after we
+remove the fraction $f$ with the highest uncertainty $u$, and $\bar
+e_\star(f)$ is the same with pixels ordered by their error. View counts
+produce many tied values of $u$. Within a tie we use the mean error of the
+tied pixels, which equals the expectation over a random order. We grade each
+channel against the error it is meant for. For a field built from $M$ of the
+180 mapping frames, a pixel has reducible error ($e_{\mathrm{red}}=1$) if it
+is wrong at $M$ frames and right with the full map. It has irreducible error
+($e_{\mathrm{irr}}=1$) if it is wrong in both. All $M$-frame fields use the
+full-map geometry, and the targets use the pixels that both maps cover. The
+epistemic channel should rank $e_{\mathrm{red}}$~\cite{kendall2017uncertainties},
+and the aleatoric channel should rank $e_{\mathrm{irr}}$.
+
+%% Operating point of the baselines: per-view FA 1e-3 on static val. Gaussians,
+%% the same nominal rate as ours (decision closed in the fix pass; revisit if
+%% the lead prefers another point).
+\textbf{Change.} We report average precision (AP) and AUROC for stale content
+at the Gaussian and at the object level. An object's score is the mean score
+of its Gaussians. A residual row scores a Gaussian by the largest value of its
+persistent residual over the update, and the uncertainty rows use their value
+after the update. A Gaussian that a row never scores ranks last, and we report
+how many there are. The false-alarm rate (FA) is the share of static
+Gaussians flagged at least once during the update, and recall (Rec.) is the
+same share for stale Gaussians. Our threshold targets a nominal per-view
+false-alarm rate of $10^{-3}$ (\secref{sec:change}), so FA grows with the
+number of update views that see a Gaussian. Every other row gets one
+threshold, set on the validation scenes with labels so that its per-view
+false-alarm rate on static Gaussians is $10^{-3}$. The baselines thus use
+labels that our row does not use.
+
+%% ----------------------------------------------------------------------------
+\subsection{Static Scenes: Accuracy, Calibration and Ranking}
+\label{sec:exp-replica}
+%% NormLift 1 - C_inter row: usplat/baselines.py defines c_inter() but
+%% uncertainties() exposes only normlift_1-R and normlift_epi. Expose
+%% "normlift_1-Cinter" before this row runs.
+\begin{table*}[t]
 \centering
-\caption{Open-vocabulary segmentation and calibration. OV: supports
-open-vocabulary queries. \todo{replace placeholders; arrows indicate better
-direction.}}
-\label{tab:seg}
-\footnotesize\setlength{\tabcolsep}{3pt}
-\begin{tabular}{lccccc}
+\caption{Segmentation and calibration on the Replica test scenes (mean $\pm$
+std, $N=6$). mIoU, accuracy, ECE, AURC and AUSE in \%, Brier $\times100$, NLL
+in nats. OV: accepts queries that were not known at mapping time. AUSE$_u$:
+AUSE of the row's own uncertainty against the 0/1 error (the variance for CSS,
+$u^{\mathrm{ale}}$ for ours). \reimpl Our re-implementation from the paper.
+\todo{replace placeholders.}}
+\label{tab:replica}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lcccccccc@{}}
 \toprule
-Method & OV & mIoU\,$\uparrow$ & Acc.\,$\uparrow$
-& AUSE$_{\mathrm{epi}}\!\downarrow$ & ECE\,$\downarrow$\\
+Method & OV & mIoU$\uparrow$ & Acc.$\uparrow$ & ECE$\downarrow$
+& NLL$\downarrow$ & Brier$\downarrow$ & AURC$\downarrow$ & AUSE$_u\downarrow$\\
 \midrule
-Deterministic feat.~\cite{zhou2024feature} & \checkmark & \ph & \ph & -- & --\\
-CSS (Dirichlet)~\cite{wilson2025css}       & $\times$   & \ph & \ph & \ph & \ph\\
-\textbf{Ours (vMF)}                        & \checkmark & \textbf{\ph} & \textbf{\ph} & \textbf{\ph} & \textbf{\ph}\\
+2D features, per frame                      & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & --\\
+Averaging~\cite{joseph2025gradbp}\reimpl    & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & --\\
+NormLift~\cite{zang2026normlift}\reimpl, $1-\mathcal{R}$ & \checkmark
+  & \multicolumn{6}{c}{same predictive as averaging} & \phs\\
+NormLift\reimpl, $1-C_{\mathrm{inter}}$     & \checkmark
+  & \multicolumn{6}{c}{same predictive as averaging} & \phs\\
+CSS (Dirichlet)~\cite{wilson2025css}\reimpl & $\times$   & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
+\midrule
+Ours P0 (plug-in)                           & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
+Ours P1 (posterior mean)                    & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
+Ours P2 (adaptive $\beta$)                  & \checkmark
+  & \multicolumn{2}{c}{as P0} & \phs & \phs & \phs & \phs & \phs\\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
+
+Table~\ref{tab:replica} tests accuracy and the predictive. P0 renders the
+view-weighted mean of the same features that averaging uses, so the accuracy
+columns are a parity check. NormLift keeps the averaging feature and differs
+only in its uncertainty. P2 rescales the P0 logits of each pixel, so it keeps
+the P0 labels and changes only the confidence. The question is whether P1 or P2 lowers NLL and ECE compared with
+P0 and with averaging, each at its own temperature. \todo{interpret once
+measured. Use the word ``calibrated'' only if P1 or P2 wins on NLL and ECE.}
 
 \begin{figure}[t]
   \centering
-  \fbox{\parbox[c][0.30\linewidth][c]{0.92\linewidth}{\centering
-  \todo{qualitative figure: query RGB, posterior semantics, epistemic map,
-  aleatoric map; show dynamic objects lighting up the aleatoric channel.}}}
-  \caption{Posterior semantics with disentangled uncertainty. \todo{caption.}}
+  \fbox{\parbox[c][0.55\linewidth][c]{0.92\linewidth}{\centering\footnotesize
+  \todo{Figure: $2\times2$ panels. Rows: $u^{\mathrm{epi}}$, $u^{\mathrm{ale}}$.
+  Columns: target $e_{\mathrm{red}}$, target $e_{\mathrm{irr}}$. x-axis: mapping
+  frames $M\in\{10,30,90\}$, plus $M=180$ in the $e_{\mathrm{irr}}$ column
+  ($e_{\mathrm{red}}$ is empty at $M=180$). y-axis: AUSE, lower is better.
+  Reference curves: averaging (one minus maximum probability) and, built from
+  NormLift's quantities, $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$ and
+  $1-\mathcal{R}$. Replica test, mean $\pm$ std, $N=6$.}}}
+  \caption{Does each uncertainty rank its own error? AUSE of the epistemic and
+  aleatoric channels against reducible error $e_{\mathrm{red}}$ and irreducible
+  error $e_{\mathrm{irr}}$, for fields built from $M$ of the 180 mapping frames.
+  If the two channels separate, each is lower on its own target than on the
+  other one. \todo{update once measured.}}
+  \label{fig:views}
+\end{figure}
+
+Fig.~\ref{fig:views} tests whether the two channels separate. Our
+$u^{\mathrm{epi}}$ counts views with a weight that saturates at one full view,
+so views with a small footprint count fractionally. The score
+$1/(1+N_{\mathrm{eff}})$, built from NormLift's Kish count of pixel masses,
+depends only on the relative masses of the views, so ten tiny views count as
+much as ten full ones. The two can therefore rank $e_{\mathrm{red}}$
+differently for Gaussians with small footprints. For the aleatoric channel we
+compare $\hat\rho$~\eqref{eq:rho} with NormLift's cross-view consistency
+$C_{\mathrm{inter}}$, which, like $\bar r$, is biased upward at few views, and
+with its reliability $\mathcal{R}$, which shrinks with scarce evidence.
+\todo{interpret once measured: is each channel lower on its own target, and is
+$u^{\mathrm{epi}}$ lower than one minus the maximum probability on
+$e_{\mathrm{red}}$?}
+
+%% ----------------------------------------------------------------------------
+\subsection{Real Rearrangements: Stale Content}
+\label{sec:exp-rio10}
+\begin{table*}[t]
+\centering
+\caption{Stale-content detection on the RIO10 test scenes (mean $\pm$ std,
+$N=7$). AP, AUROC, FA and Rec.\ in \%. Input: I = image, D = observed depth,
+F = features, V = vocabulary at mapping time, M = mesh depth of the new
+rescan. \reimpl Our re-implementation (for~\cite{ackermann2025clsplats,
+jiang2026mif}, of the per-pixel feature residual only). The oracle row reads
+the new mesh, which a robot does not have. \todo{replace placeholders. RIO10
+access pending.}}
+\label{tab:rio10}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llcccccc@{}}
+\toprule
+& & \multicolumn{2}{c}{Gaussian level} & \multicolumn{2}{c}{Object level}
+& \multicolumn{2}{c}{Operating point}\\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(l){7-8}
+Method & Input & AP$\uparrow$ & AUROC$\uparrow$ & AP$\uparrow$ & AUROC$\uparrow$
+& FA$\downarrow$ & Rec.$\uparrow$\\
+\midrule
+NCC photometric residual                             & I   & \phs & \phs & \phs & \phs & \phs & \phs\\
+Depth residual                                       & D   & \phs & \phs & \phs & \phs & \phs & \phs\\
+Feature residual, $k=2$~\cite{ackermann2025clsplats, jiang2026mif}\reimpl
+                                                     & F   & \phs & \phs & \phs & \phs & \phs & \phs\\
+CSS variance~\cite{wilson2025css}\reimpl             & F+V & \phs & \phs & \phs & \phs & \phs & \phs\\
+Yager conflict (our design)                          & F+V & \phs & \phs & \phs & \phs & \phs & \phs\\
+NormLift reliability drop~\cite{zang2026normlift}\reimpl
+                                                     & F   & \phs & \phs & \phs & \phs & \phs & \phs\\
+Dispersion $1-\hat\rho$ (ours)                       & F   & \phs & \phs & \phs & \phs & \phs & \phs\\
+\midrule
+Ours: test, reset, re-admission                      & F+D & \phs & \phs & \phs & \phs & \phs & \phs\\
+Ours fused with depth residual                       & F+D & \phs & \phs & \phs & \phs & \phs & \phs\\
+\midrule
+\emph{Depth residual, oracle (upper bound)}          & M   & \phs & \phs & \phs & \phs & \phs & \phs\\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Table~\ref{tab:rio10} reports stale-content detection. Our score differs
+from the feature-residual row only in where it takes the cosine: per Gaussian
+against all of its earlier evidence, not per pixel against the rendered map.
+Ours also sets its threshold from the mapping pass, resets the Gaussians it
+flags, and re-admits them after the depth check. The fused row asks whether
+our score adds to non-oracle depth. In the test scenes, \ph\% of the
+Gaussians are unobserved and \ph\% are hidden, and they are not in the
+table. \todo{interpret once
+measured: does ours beat every non-oracle residual in AP, or does it add to
+the depth residual in the fused row? Report the rows where a baseline wins.}
+\todo{If the RIO10 labels map to our vocabulary, add mIoU and ECE after the
+update on changed and unchanged regions. Otherwise keep the Limitations
+sentence on synthetic calibration data.} Fig.~\ref{fig:qual} shows examples.
+
+\begin{figure}[t]
+  \centering
+  \fbox{\parbox[c][0.45\linewidth][c]{0.92\linewidth}{\centering\footnotesize
+  \todo{Qualitative figure. Top row: one RIO10 validation frame with a moved
+  or removed object. Bottom row: one Replica frame. Columns: image, query
+  result, $u^{\mathrm{epi}}$, $u^{\mathrm{ale}}$, change score $\bar c$ with the
+  flagged Gaussians.}}}
+  \caption{Qualitative results. \todo{caption once the figure exists.}}
   \label{fig:qual}
 \end{figure}
 
-\subsection{Localization Under Scene Change}
-Table~\ref{tab:loc} reports localization accuracy. The consolidation mechanism
-(Sec.~\ref{sec:consolidation}) supplies a robust subset for matching under
-rearrangement. \todo{interpret: e.g.\ that aleatoric-driven consolidation
-preserves accuracy as the scene changes, versus baselines that degrade.}
-
-\begin{table}[t]
-\centering
-\caption{Localization on dynamic indoor data (median ATE/ARE and success rate).
-\todo{replace placeholders.}}
-\label{tab:loc}
-\begin{tabular}{lcccc}
-\toprule
-Method & ATE\,[cm]\,$\downarrow$ & ARE\,[\textdegree]\,$\downarrow$
-& \multicolumn{2}{c}{Success\,[\%]\,$\uparrow$}\\
-\cmidrule(lr){4-5}
- & & & 5cm/5\textdegree & 2cm/2\textdegree\\
-\midrule
-APR~\cite{chen2024marepo}        & \ph & \ph & \ph & \ph\\
-SCR~\cite{brachmann2023ace}      & \ph & \ph & \ph & \ph\\
-Semantic GS~\cite{chu2026semantic} & \ph & \ph & \ph & \ph\\
-\textbf{Ours}                    & \textbf{\ph} & \textbf{\ph} & \textbf{\ph} & \textbf{\ph}\\
-\bottomrule
-\end{tabular}
-\end{table}
-
+%% ----------------------------------------------------------------------------
 \subsection{Ablations}
-Table~\ref{tab:abl} isolates each component. \todo{interpret the four ablations:
-(i) directional vMF vs.\ categorical posterior on open-vocabulary queries;
-(ii) the 2-D $(n^{\mathrm{eff}},\bar r)$ uncertainty with the small-sample
-correction vs.\ a single scalar; (iii) consolidation on/off under scene change;
-(iv) the EFE objective vs.\ a hand-weighted geometric+semantic score.}
-
+\label{sec:ablation}
+%% Code switches for the rows (usplat/vmf_field.py FieldConfig):
+%%  * Pixels instead of views: evidence="pixels", epistemic="pixels". With
+%%    evidence="pixels" alone, u_epi would stay the Kish view count (review
+%%    finding, check_ablation_switches.log).
+%%  * Uncorrected mean length r-bar: needs an estimator "rbar" (not in the code yet).
+%%  * Pooled null: the code's calib_mode="pooled" IS the history-conditioned
+%%    rule (thr_by_hist). A true pooled mode (thr_by_hist = None, pooled
+%%    quantile) must be added, and the mode renamed, before this row runs.
+%%  * Per-Gaussian max null: calib_mode="max".
 \begin{table}[t]
 \centering
-\caption{Ablation study. \todo{replace placeholders.}}
-\label{tab:abl}
-\begin{tabular}{lccc}
+\caption{Ablations on the test scenes, mean over $N=6$ (top) and $N=7$
+(bottom). Each row changes one part of the full method. AUSE:
+$u^{\mathrm{epi}}$ against $e_{\mathrm{red}}$ (epi) and $u^{\mathrm{ale}}$
+against $e_{\mathrm{irr}}$ (ale), averaged over the 10-, 30- and 90-frame
+fields. AP at the Gaussian (G) and object (O) level. Kept: share of stale
+Gaussians in the robust set after the update. All metrics except NLL in \%.
+\todo{replace placeholders.}}
+\label{tab:ablation}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}lccccc@{}}
 \toprule
-Configuration & mIoU\,$\uparrow$ & AUSE$_{\mathrm{ale}}\!\downarrow$
-& ATE\,[cm]\,$\downarrow$\\
+\multicolumn{4}{@{}l}{\emph{Replica test}} & \multicolumn{2}{c}{AUSE$\downarrow$}\\
+\cmidrule(l){5-6}
+Variant & mIoU$\uparrow$ & ECE$\downarrow$ & NLL$\downarrow$ & epi & ale\\
 \midrule
-Categorical posterior        & \ph & \ph & \ph\\
-Scalar uncertainty           & \ph & \ph & \ph\\
-w/o consolidation            & \ph & \ph & \ph\\
-Heuristic view score         & \ph & \ph & \ph\\
-\textbf{Full model}          & \textbf{\ph} & \textbf{\ph} & \textbf{\ph}\\
+\textbf{Full method}            & \ph & \ph & \ph & \ph & \ph\\
+Pixels instead of views        & \ph & \ph & \ph & \ph & \ph\\
+Uncorrected mean length $\bar r$ & \ph & \ph & \ph & \ph & \ph\\
+Prior-shrunk agreement         & \ph & \ph & \ph & \ph & \ph\\
+Shrunk mean length $\tilde r$  & \ph & \ph & \ph & \ph & \ph\\
+Centered features              & \ph & \ph & \ph & \ph & \ph\\
+Pixel-level variant            & \ph & \ph & \ph & \ph & \ph\\
+\midrule
+\emph{RIO10 test} & \multicolumn{2}{c}{AP$\uparrow$} & & &\\
+\cmidrule(lr){2-3}
+Variant & G & O & FA$\downarrow$ & Rec.$\uparrow$ & Kept$\downarrow$\\
+\midrule
+\textbf{Full method}            & \ph & \ph & \ph & \ph & \ph\\
+No persistence ($k=1$)         & \ph & \ph & \ph & \ph & \ph\\
+Persistence $k=\phn$           & \ph & \ph & \ph & \ph & \ph\\
+Two buckets, $\lambda=\ph$     & \ph & \ph & \ph & \ph & \ph\\
+Pooled null                    & \ph & \ph & \ph & \ph & \ph\\
+Per-Gaussian max null          & \ph & \ph & \ph & \ph & \ph\\
+Fixed threshold (val.)         & \ph & \ph & \ph & \ph & \ph\\
+Re-admission without depth     & \ph & \ph & \ph & \ph & \ph\\
+Centered features              & \ph & \ph & \ph & \ph & \ph\\
+Pixel-level variant            & \ph & \ph & \ph & \ph & \ph\\
 \bottomrule
 \end{tabular}
 \end{table}
+
+Table~\ref{tab:ablation} changes one part at a time and keeps the rest. The
+top block uses Replica. \emph{Pixels instead of views} uses the pixel masses
+$m_{v,n}$ in place of $\omega_{v,n}$ in the posterior and the support, with
+$u^{\mathrm{epi}}=1/(1+\sum_v m_{v,n})$. Its $\hat\rho$ still combines view
+means, now with pixel-mass weights, since a pixel-level $Q$ would need an
+extra render of squared weights. The agreement rows replace
+$\hat\rho$~\eqref{eq:rho} by the uncorrected $\bar r$, by the prior-shrunk
+$\lVert\R\rVert/(W_1+c_0)$, or by the shrunk mean length
+$\tilde r=\bar r-(1-\bar r)/(W_1+1)$. Note that $\tilde r=1$ whenever
+$\bar r=1$, so $\tilde r$ does not correct the one-view case. \emph{Centered
+features} subtract the scene-mean feature before the dispersion and the
+change test. The full method uses \todo{the predictive chosen on validation
+(P0, P1 or P2, compared in Table~\ref{tab:replica})}. The bottom block uses
+RIO10. The persistence and bucket rows vary $k$ and the retention $\lambda$ of
+the change test. The threshold rows replace the history-conditioned null by
+one pooled null per scene, by a null of per-Gaussian maxima over the mapping
+pass, or by one fixed threshold from the validation scenes.
+\emph{Re-admission without depth} re-admits a Gaussian after the views alone.
+The \emph{pixel-level variant} turns every part off. It counts pixels, uses
+$\tilde r$, has no change test, forgets by decaying the evidence of Gaussians
+with low $\bar r$, and scores change by $1-\bar r$. We keep a part only if
+removing it hurts on the validation scenes. \todo{interpret once
+measured, then rename the method and adjust the claims to the parts that
+remain.}
+
+%% Run time and memory: the former Table IV is parked in parked_sections.tex.
+%% Hardware from nvidia-smi and lscpu on the mapping machine (2026-09-29).
+%% Keep it only if the timing runs on this machine.
+\textbf{Run time and memory.} We time one validation scene per dataset on one
+NVIDIA GeForce RTX 5070 Ti with an Intel Core i5-14600KF and no other job
+running. On Replica (RIO10), a keyframe takes \ph\ (\ph)\,ms in total: \ph\
+(\ph)\,ms for LSeg feature extraction, \ph\ (\ph)\,ms for the render and
+backward pass, and \ph\ (\ph)\,ms for the statistics, change test and
+re-admission. Peak GPU memory is \ph\,GB. Averaging and NormLift reuse the
+sums of our backward pass and add no render or backward pass. CSS needs its
+own backward pass for the class votes, which adds \ph\,ms. Fitting the 3D-GS
+map takes \ph\,min per scene, and the field state takes \ph{} bytes per
+Gaussian.
+
+%% ----------------------------------------------------------------------------
+\subsection{Limitations}
+\label{sec:limitations}
+The geometry is fixed after mapping, so moved content is not inserted at its
+new place. The features limit the absolute accuracy. Every row uses LSeg, and
+fusion cannot fix a class that the features confuse in every view. The change
+statistic is a known residual, and its threshold assumes a static mapping
+sequence. Content that moves during mapping enters the null and raises the
+threshold. The mapping-pass scores are also in-sample, because the map and
+the PCA are fit on those frames. The false-alarm rate on a new sequence can
+thus exceed the nominal rate. The 5\,cm depth check cannot keep out the
+Gaussians of a thin removed object, such as a book on a table, since they lie
+within 5\,cm of the surface behind them. We re-implemented averaging,
+NormLift, CSS and the feature residual of CL-Splats from their papers, and
+differences from the authors' code may remain. \todo{Keep only if the RIO10
+class map fails:} The predictive is evaluated on synthetic data (Replica) only.
 
 %% ============================================================================
 \section{Conclusion}
+\label{sec:conclusion}
 %% ============================================================================
-We presented a probabilistic open-vocabulary semantic field for 3D Gaussian
-Splatting that attaches a von Mises--Fisher posterior to each Gaussian, derives a
-closed-form BKI update that generalizes categorical semantic mapping to
-continuous language embeddings, and exposes a disentangled epistemic/aleatoric
-uncertainty from the same sufficient statistics. The update integrates with any
-differentiable feature rasterizer through a gradient identity, and the
-uncertainty drives a consolidation rule that yields robustness to scene change
-without dynamic-object heuristics. \todo{one sentence summarizing the strongest
-measured outcome.} Limitations include the fixed-concentration assumption and
-the dependence of the consolidation thresholds on a validation split; learning
-the concentration and an online open-set treatment are natural extensions.
-
-\section*{Acknowledgment}
-\todo{Acknowledgment text.}
+We presented an open-vocabulary semantic field for 3D Gaussian Splatting that
+counts evidence in views and keeps little evidence and conflicting evidence
+apart. A known feature residual, with a threshold from the map's own mapping
+pass, drives the reset and the depth-checked re-admission of changed
+Gaussians. \todo{one sentence with the main measured result on RIO10 and one
+on Replica.} Future work should insert new geometry where content has moved
+and test the field with other feature extractors.
 
 %% ============================================================================
-%% References: papers/ref.bib (BibTeX, IEEEtran style)
+%% References: papers/ref.bib (BibTeX, IEEEtran style); ieeectl.bib holds only
+%% the IEEEtran.bst control entry (written by the preamble on the first pass).
 %% ============================================================================
 \bibliographystyle{IEEEtran}
-\bibliography{ref}
+\bibliography{ieeectl,ref}
 
 \end{document}

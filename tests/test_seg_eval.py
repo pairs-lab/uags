@@ -706,3 +706,40 @@ def test_eval_views_cli(tmp_path):
     assert out["summary"]["1"]["ours_P0"]["u_epi"]["e_red"]["n"] == 1
     assert json.loads((tmp_path / "views_out.json").read_text())["ks"] == [1, 4]
     print(f"PASS eval_views: k=1 e_red {r['n_e_red']} px, AUSE u_epi {r['ause']['u_epi']}")
+
+
+def test_cli_2d_row(tmp_path):
+    """--with-2d: the row '2d_features' scores the evaluation frame's own features (a fake
+    extractor: chair tokens left, table tokens right) through the map's PCA, covers every
+    pixel, gets its own beta on val, and can be selected with --rows."""
+    cli = _load_cli()
+    base = _cli_toy(tmp_path)
+    scenes = str(tmp_path / "scenes.json")
+
+    class Fake:
+        d = 16
+
+        def extract_tokens(self, image):
+            H, W = image.shape[:2]
+            tok = torch.zeros(H // 16, W // 16, 16)
+            tok[:, : W // 32, 0] = 1.0                  # chair (e0) on the left half
+            tok[:, W // 32:, 1] = 1.0                   # table (e1) on the right half
+            return tok
+    cli._EXTRACTOR["clearclip"] = Fake()
+    try:
+        out = cli.main(base + ["--scenes", scenes, "--val-scenes", scenes, "--with-2d",
+                               "--plain-json", "--out", str(tmp_path / "e2d.json")])
+        sc = out["scenes"]["toy"]
+        r2 = sc["rows"]["2d_features"]["all"]
+        assert r2["coverage"] == 1.0 and r2["miou"] > 0.9, r2
+        assert "2d_features" in out["betas"] and "ours_P0" in out["betas"]
+        assert set(r2["ranking"]) == {"msp", "entropy"}          # no own uncertainty
+        only = cli.main(base + ["--scenes", scenes, "--betas", str(tmp_path / "e2d.json"),
+                                "--with-2d", "--rows", "2d_features", "--plain-json",
+                                "--out", str(tmp_path / "only.json")])
+        assert list(only["scenes"]["toy"]["rows"]) == ["2d_features"]
+        assert only["scenes"]["toy"]["rows"]["2d_features"]["all"]["miou"] == r2["miou"]
+    finally:
+        cli._EXTRACTOR.clear()
+    print(f"PASS 2D row: mIoU {r2['miou']:.3f}, coverage {r2['coverage']:.2f}, "
+          f"beta {out['betas']['2d_features']:.2f}")

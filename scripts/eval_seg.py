@@ -33,6 +33,10 @@ Raw ids that are neither classes nor ignored are ignored too and counted per sce
 Rows: ours_P0/P1/P2 (usplat.rows.field_rows), ours_scalar (the 1 - A_d spread only), and
 the rows of --row-factory "module:function", called as fn(ckpt, field, device) -> [Row]
 (e.g. baselines stored in the field checkpoint). --rows selects by name.
+--with-2d adds the row "2d_features": the extractor run on the EVALUATION frame itself, the
+same tokens -> upsample -> PCA path as run_mapping.py (the map's PCA), no 3D map. It covers
+every pixel (alpha = 1), has no own uncertainty (MSP/entropy only) and gets its own beta.
+It loads the extractor on --device, so gate the run for it (LSeg fp32 needs > 3.3 GB).
 
 Backends: gsplat (GPU, the real renderer) or mock (CPU: pinhole projection of the Gaussian
 centres + usplat.mock_rasterizer, isotropic footprint fx * mean scale / z; smoke tests only).
@@ -56,7 +60,7 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from usplat.vmf_field import DirectionalSemanticField                      # noqa: E402
 from usplat.feature_pca import StreamingPCA                                # noqa: E402
-from usplat.rows import field_rows, FieldRow                               # noqa: E402
+from usplat.rows import field_rows, FieldRow, TensorRow                    # noqa: E402
 from usplat.seg_eval import (View, BetaFitter, SegAccumulator, evaluate_view,  # noqa: E402
                              freeze_rows, scene_stats, row_beta, IGNORE)
 
@@ -197,7 +201,8 @@ def load_frames(sc, vocab, args):
         lab, unk = map_labels(_nearest(torch.as_tensor(raw), h, w), vocab)
         n_unknown += unk
         frames.append(dict(idx=idx, viewmat=torch.linalg.inv(c2w.double()).float(), K=K,
-                           w=w, h=h, labels=lab))
+                           w=w, h=h, labels=lab,
+                           image=fr["image"] if getattr(args, "with_2d", False) else None))
     return frames, n_unknown, skipped
 
 
@@ -265,7 +270,12 @@ def load_scene(sc, vocab, args, device):
         f["gt"] = torch.where(lab >= 0, local[lab.clamp_min(0)], lab)
     text = pca.project_text(text_embeddings(vocab, q, args).to(device))    # (K, d), F7
     rows = candidate_rows(field, ckpt, device, args, class_ids=[vocab["ids"][i] for i in q])
-    return dict(name=sc["name"], field=field, splats=splats, frames=frames, text=text,
+    rows2d = []
+    if getattr(args, "with_2d", False) and (
+            not args.rows or ROW_2D in [s.strip() for s in args.rows.split(",")]):
+        rows2d = [TensorRow(ROW_2D, "feature", buf=torch.zeros(1, field.d, device=device))]
+    return dict(name=sc["name"], field=field, splats=splats, frames=frames, text=text, pca=pca,
+                rows2d=rows2d,
                 class_ids=[vocab["ids"][i] for i in q], class_names=[vocab["names"][i] for i in q],
                 rows=rows, n_unknown=n_unknown, n_skipped=skipped)
 
@@ -286,6 +296,8 @@ def candidate_rows(field, ckpt, device, args, class_ids=None):
         raise ValueError(f"duplicate row names {names}")
     if args.rows:
         want = [s.strip() for s in args.rows.split(",") if s.strip()]
+        if getattr(args, "with_2d", False):
+            want = [w for w in want if w != ROW_2D]          # the 2D row is built apart
         miss = [w for w in want if w not in names]
         if miss:
             raise ValueError(f"unknown rows {miss}; available {names}")
@@ -299,12 +311,58 @@ def scene_views(S, args):
                    S["class_ids"], name=str(f["idx"]))
 
 
+ROW_2D = "2d_features"
+_EXTRACTOR = {}
+
+
+def _extractor(args):
+    if args.extractor not in _EXTRACTOR:
+        from usplat.extractors import get_extractor
+        kw = (dict(model_name=args.clip_model, pretrained=args.clip_pretrained)
+              if args.extractor == "clearclip" else {})
+        _EXTRACTOR[args.extractor] = get_extractor(args.extractor, device=args.device, **kw)
+    return _EXTRACTOR[args.extractor]
+
+
+class PixelSource:
+    """'Rasterizer' of the 2D row: returns the frame's own features z (P, d) and alpha = 1,
+    whatever the (1, d + 1) dummy buffer holds (render_row appends the ones channel)."""
+
+    def __init__(self, z):
+        self.z = z
+
+    def __call__(self, buf):
+        if buf.shape[1] != self.z.shape[1] + 1:
+            raise ValueError(f"2D row: buffer has {buf.shape[1]} channels, expected "
+                             f"{self.z.shape[1] + 1} (features + ones, no uncertainties)")
+        ones = torch.ones(self.z.shape[0], 1, device=self.z.device, dtype=self.z.dtype)
+        return torch.cat([self.z, ones], 1)
+
+
+@torch.no_grad()
+def frame_features_2d(S, f, args):
+    """(h*w, d) features of the evaluation frame: the run_mapping.py path (full-resolution
+    tokens -> bilinear upsample to the label grid -> unit -> the map's PCA -> unit)."""
+    from usplat.clip_dense import upsample_tokens
+    tok = _extractor(args).extract_tokens(f["image"])
+    z = S["pca"].project(upsample_tokens(tok, (f["h"], f["w"])))
+    return z.reshape(-1, z.shape[-1]).float()
+
+
+def scene_views_2d(S, args):
+    for f in S["frames"]:
+        yield View(PixelSource(frame_features_2d(S, f, args)), f["gt"], S["text"],
+                   S["class_ids"], name=str(f["idx"]))
+
+
 def fit_on(scenes, vocab, args, device):
     fitter = BetaFitter(args.tau_cov, max_pixels_per_view=args.fit_pixels, seed=args.seed,
                         undef_frac=args.undef_frac)
     for sc in scenes:
         S = load_scene(sc, vocab, args, device)
         fitter.add(S["rows"], scene_views(S, args))
+        if S["rows2d"]:
+            fitter.add(S["rows2d"], scene_views_2d(S, args))
         del S
     betas = fitter.fit()
     return betas, fitter.info, fitter.settings
@@ -332,13 +390,22 @@ def betas_used(rows, betas, raw_probs):
 def evaluate_scene(sc, vocab, betas, args, device):
     S = load_scene(sc, vocab, args, device)
     raw = _raw_probs(args)
-    used = betas_used(S["rows"], betas, raw)
+    used = betas_used(S["rows"] + S["rows2d"], betas, raw)
     rows = freeze_rows(S["rows"])
+    rows2d = freeze_rows(S["rows2d"])
     acc = SegAccumulator(class_names=S["class_names"])
     t0 = time.perf_counter()
+    views2d = scene_views_2d(S, args) if rows2d else None
     for v in scene_views(S, args):
-        acc.add(evaluate_view(rows, v.rasterizer, v.text, v.gt, betas, args.tau_cov,
-                              undef_frac=args.undef_frac, raw_probs=raw))
+        out = evaluate_view(rows, v.rasterizer, v.text, v.gt, betas, args.tau_cov,
+                            undef_frac=args.undef_frac, raw_probs=raw) if rows else {}
+        if views2d is not None:
+            v2 = next(views2d)
+            if v2.name != v.name:
+                raise RuntimeError(f"2D view {v2.name} != 3D view {v.name}")
+            out.update(evaluate_view(rows2d, v2.rasterizer, v2.text, v2.gt, betas,
+                                     args.tau_cov, undef_frac=args.undef_frac, raw_probs=raw))
+        acc.add(out)
     return dict(n_views=acc.n_views, classes=S["class_names"], class_ids=S["class_ids"],
                 betas_used=used, raw_probs=sorted(raw & set(used)),
                 n_unknown_label_pixels=S["n_unknown"], n_skipped_frames=S["n_skipped"],
@@ -472,6 +539,8 @@ def build_parser():
     ap.add_argument("--queries", choices=["present", "all"], default="present")
     ap.add_argument("--rows", default="", help="comma-separated row names (default: all)")
     ap.add_argument("--row-factory", default="", help="module:function -> extra rows")
+    ap.add_argument("--with-2d", action="store_true",
+                    help="add the 2D row: the extractor on each evaluation frame (no map)")
     ap.add_argument("--raw-probs", default="",
                     help="comma-separated probs rows evaluated with their raw probabilities "
                          "(beta 1) when they have no fitted beta")

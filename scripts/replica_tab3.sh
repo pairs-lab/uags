@@ -25,7 +25,8 @@ for s in $SCENES; do
   for v in $VARIANTS; do
     f="$FIELDS/${s}_lseg_${v}.pt"
     [ -f "$f" ] && continue
-    fc=$(python3 -c "from usplat.ablation_rows import field_config_json as f; print(f('$v'))")
+    # segmentation-only fields: no change test (its buckets would double the file size)
+    fc=$(python3 -c "import json; from usplat.ablation_rows import field_config_json as f; c = json.loads(f('$v')); c['change_test'] = False; print(json.dumps(c))")
     scripts/gpu_gate.sh 6000 python3 scripts/run_mapping.py --backend gsplat \
       --dataset replica_semnerf --data "$ROOT/$s/Sequence_1" --stride 5 --downscale "$DOWNSCALE" \
       --ply "$MAPS/${s}_seq1.pt" --extractor lseg --feat-dim 64 --pca-frames 20 \
@@ -38,11 +39,11 @@ COMMON=(--vocab configs/vocab_replica.json --row-factory usplat.ablation_rows:ro
         --extractor lseg --dataset replica_semnerf --stride 10 --downscale "$DOWNSCALE"
         --tau-cov "$TAU_COV" --text-cache "$FIELDS/text_cache_lseg.pt")
 if [ "$STAGE" = val ]; then
-  scripts/gpu_gate.sh 4000 python3 scripts/eval_seg.py "${COMMON[@]}" \
+  scripts/gpu_gate.sh 6000 python3 scripts/eval_seg.py "${COMMON[@]}" \
     --val-scenes "$CFG" --scenes "$CFG" --out "$OUT/eval_val.json"
 else
   [ -f "$OUT/eval_val.json" ] || { echo "run STAGE=val first"; exit 1; }
-  scripts/gpu_gate.sh 4000 python3 scripts/eval_seg.py "${COMMON[@]}" \
+  scripts/gpu_gate.sh 6000 python3 scripts/eval_seg.py "${COMMON[@]}" \
     --betas "$OUT/eval_val.json" --scenes "$CFG" --out "$OUT/eval_test.json"
 fi
 echo "done: tab3 $STAGE -> $OUT"

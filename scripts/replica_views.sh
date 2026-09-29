@@ -3,6 +3,9 @@
 # the Sequence_1 mapping frames, same 3DGS map) scored against the full Tab I field with
 # scripts/eval_views.py. Needs the Tab I fields and $TAB1/eval_val.json (STAGE=val first).
 #   STAGE=val : office_0, room_2      STAGE=test : the 6 test scenes (after Tab I test)
+# One scene at a time: map its k-view fields, score them, then delete them (KEEP=1 keeps
+# them; the disk is small and each field is ~0.3 GB). The k-view fields carry the view-hook
+# baselines (NormLift, averaging, view count) but no CSS and no change test.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
@@ -15,36 +18,55 @@ STAGE=${STAGE:-val}
 KS=${KS:-"10 30 90"}
 DOWNSCALE=${DOWNSCALE:-2}
 TAU_COV=${TAU_COV:-0.5}
+KEEP=${KEEP:-0}
 mkdir -p "$OUT"
 [ -f "$TAB1/eval_val.json" ] || { echo "no $TAB1/eval_val.json: run replica_tab1.sh STAGE=val first"; exit 1; }
 if [ "$STAGE" = val ]; then SCENES="office_0 room_2"; else SCENES="room_0 room_1 office_1 office_2 office_3 office_4"; fi
 
 for s in $SCENES; do
+  [ -f "$OUT/views_${STAGE}_${s}.json" ] && { echo "$s: done"; continue; }
   for k in $KS; do
     f="$FIELDS/${s}_lseg_k${k}.pt"
     [ -f "$f" ] && continue
     scripts/gpu_gate.sh 6000 python3 scripts/run_mapping.py --backend gsplat \
       --dataset replica_semnerf --data "$ROOT/$s/Sequence_1" --stride 5 --downscale "$DOWNSCALE" \
-      --ply "$MAPS/${s}_seq1.pt" --extractor lseg --baselines --vocab configs/vocab_replica.json \
-      --css-eval-data "$ROOT/$s/Sequence_2" --css-eval-stride 10 --feat-dim 64 --pca-frames 20 \
-      --max-keyframes "$k" --out "$f" > "$OUT/map_${s}_k${k}.log" 2>&1
-    grep -E "keyframes used|timing|saved" "$OUT/map_${s}_k${k}.log" || { tail -20 "$OUT/map_${s}_k${k}.log"; exit 1; }
+      --ply "$MAPS/${s}_seq1.pt" --extractor lseg --baselines --feat-dim 64 --pca-frames 20 \
+      --field-config '{"change_test": false}' --max-keyframes "$k" --out "$f" \
+      > "$OUT/map_${s}_k${k}.log" 2>&1 || { tail -20 "$OUT/map_${s}_k${k}.log"; exit 1; }
+    grep -E "keyframes used|timing|saved" "$OUT/map_${s}_k${k}.log"
   done
-done
-
-python3 - "$STAGE" "$SCENES" "$KS" "$OUT/scenes_$STAGE.json" <<'PY'
+  python3 - "$s" "$KS" "$OUT/scenes_${STAGE}_${s}.json" <<'PY'
 import json, sys
-stage, scenes, ks, out = sys.argv[1], sys.argv[2].split(), sys.argv[3].split(), sys.argv[4]
+s, ks, out = sys.argv[1], sys.argv[2].split(), sys.argv[3]
 R = "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset"
 F = "/home/thanhnc/gauss_ws/data/uags_fields"
 M = "/home/thanhnc/gauss_ws/data/uags_maps"
 json.dump([dict(name=s, field=f"{F}/{s}_lseg.pt", ply=f"{M}/{s}_seq1.pt",
                 data=f"{R}/{s}/Sequence_2", dataset="replica_semnerf", stride=10,
-                fields={k: f"{F}/{s}_lseg_k{k}.pt" for k in ks}) for s in scenes],
-          open(out, "w"), indent=1)
+                fields={k: f"{F}/{s}_lseg_k{k}.pt" for k in ks})], open(out, "w"), indent=1)
 PY
-scripts/gpu_gate.sh 4000 python3 scripts/eval_views.py --vocab configs/vocab_replica.json \
-  --row-factory usplat.baselines:row_factory --extractor lseg --dataset replica_semnerf \
-  --stride 10 --downscale "$DOWNSCALE" --tau-cov "$TAU_COV" --text-cache "$FIELDS/text_cache_lseg.pt" \
-  --betas "$TAB1/eval_val.json" --scenes "$OUT/scenes_$STAGE.json" --out "$OUT/views_$STAGE.json"
+  scripts/gpu_gate.sh 4000 python3 scripts/eval_views.py --vocab configs/vocab_replica.json \
+    --row-factory usplat.baselines:row_factory --extractor lseg --dataset replica_semnerf \
+    --stride 10 --downscale "$DOWNSCALE" --tau-cov "$TAU_COV" --text-cache "$FIELDS/text_cache_lseg.pt" \
+    --rows ours_P0,ours_P2,averaging,normlift,viewcount \
+    --betas "$TAB1/eval_val.json" --scenes "$OUT/scenes_${STAGE}_${s}.json" \
+    --out "$OUT/views_${STAGE}_${s}.json" > "$OUT/eval_${STAGE}_${s}.log" 2>&1 \
+    || { tail -30 "$OUT/eval_${STAGE}_${s}.log"; exit 1; }
+  grep -E " k= " "$OUT/eval_${STAGE}_${s}.log" || true
+  if [ "$KEEP" != 1 ]; then for k in $KS; do rm -f "$FIELDS/${s}_lseg_k${k}.pt"; done; fi
+done
+
+python3 - "$OUT" "$STAGE" "$SCENES" <<'PY'
+import json, sys
+sys.path.insert(0, "scripts")
+from eval_views import summarize
+out, stage, scenes = sys.argv[1], sys.argv[2], sys.argv[3].split()
+per = {s: json.load(open(f"{out}/views_{stage}_{s}.json")) for s in scenes}
+ks = per[scenes[0]]["ks"]
+res = {s: per[s]["scenes"][s] for s in scenes}
+json.dump(dict(ks=ks, scenes=res, summary=summarize(res, ks),
+               parts={s: f"{out}/views_{stage}_{s}.json" for s in scenes}),
+          open(f"{out}/views_{stage}.json", "w"), indent=1)
+print(f"merged {len(scenes)} scenes -> {out}/views_{stage}.json")
+PY
 echo "done: views $STAGE -> $OUT/views_$STAGE.json"

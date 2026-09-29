@@ -60,3 +60,24 @@ def test_old_pooled_name_loads_as_history():
     old.pop("calib_names")
     assert DirectionalSemanticField.from_state(old).cfg.calib_mode == "history"
     print("PASS calib_mode rename: old 'pooled' -> 'history', new 'pooled' kept")
+
+
+def test_zero_tensors_saved_as_none_roundtrip():
+    """All-zero statistics (centred channel with centre=False, buckets with change_test=False)
+    are saved as None and come back as zeros; every read-out is unchanged."""
+    import torch.nn.functional as Fn
+    from usplat.vmf_field import DirectionalSemanticField, FieldConfig
+    torch.manual_seed(0)
+    N, d = 50, 8
+    f = DirectionalSemanticField(N, d, FieldConfig(change_test=False))
+    for _ in range(4):
+        f.update_sparse(torch.arange(N), torch.ones(N), Fn.normalize(torch.randn(N, d), dim=-1),
+                        num_pixels=100)
+    s = f.state_dict()
+    assert s["cen_R"] is None and s["Rf"] is None and s["raw_R"] is not None
+    g = DirectionalSemanticField.from_state(s)
+    for a, b in ((f.raw.R, g.raw.R), (f.cen.R, g.cen.R), (f.Rf, g.Rf), (f.c_ring, g.c_ring)):
+        assert torch.equal(a.nan_to_num(-7), b.nan_to_num(-7))
+    assert torch.allclose(f.aleatoric()[0], g.aleatoric()[0], equal_nan=True)
+    assert torch.equal(f.epistemic(), g.epistemic())
+    print("PASS zero tensors saved as None, read-outs unchanged after the round trip")

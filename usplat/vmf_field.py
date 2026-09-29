@@ -684,13 +684,17 @@ class DirectionalSemanticField:
                  zbar=None if self.zbar is None else self.zbar.cpu(),
                  prior_mu=None if self.prior_mu is None else self.prior_mu.cpu(),
                  depth_seen=self.depth_seen)
+        # tensors that are all zero (the centred channel with centre=False, the change-test
+        # buckets with change_test=False) are saved as None: from_state keeps its zeros
+        keep = lambda x: x.cpu() if bool(x.any()) else None
         for name in ("R", "W1", "W2", "Q", "Wr"):
             s[f"raw_{name}"] = getattr(self.raw, name).cpu()
-            s[f"cen_{name}"] = getattr(self.cen, name).cpu()
+            s[f"cen_{name}"] = keep(getattr(self.cen, name))
         for name in ("Rf", "nf", "Rs", "ns", "fB2", "fC", "fCq", "fBq2", "T2", "TQ", "pixel_mass",
                      "depth_abs", "depth_w", "depth_last", "views_since_reset", "c_ring", "c_hist",
                      "c_last", "c_max", "changed", "n_resets"):
-            s[name] = getattr(self, name).cpu()
+            x = getattr(self, name)
+            s[name] = x.cpu() if name in ("depth_last", "c_ring", "c_last") else keep(x)
         return s
 
     @classmethod
@@ -707,9 +711,11 @@ class DirectionalSemanticField:
             f.thr_by_hist = s["thr_by_hist"].to(device, dtype)
         for name in ("R", "W1", "W2", "Q", "Wr"):
             getattr(f.raw, name).copy_(s[f"raw_{name}"])
-            getattr(f.cen, name).copy_(s[f"cen_{name}"])
+            if s.get(f"cen_{name}") is not None:          # None: all zero when saved
+                getattr(f.cen, name).copy_(s[f"cen_{name}"])
         for name in ("Rf", "nf", "Rs", "ns", "fB2", "fC", "fCq", "fBq2", "T2", "TQ", "pixel_mass",
                      "depth_abs", "depth_w", "depth_last", "views_since_reset", "c_ring", "c_hist",
                      "c_last", "c_max", "changed", "n_resets"):
-            getattr(f, name).copy_(s[name])
+            if s.get(name) is not None:
+                getattr(f, name).copy_(s[name])
         return f

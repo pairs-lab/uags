@@ -34,6 +34,17 @@ So the gate stays at 6000 MiB (+2048 headroom) and the stage waits for gaps betw
 | All-zero statistics saved as None | disk has 25 GB free (98% used); a field with its centred channel and change buckets is ~1 GB | 01f39a7 |
 | NormLift 1 - C_inter channel, rbar estimator, flat pooled null | paper review (Table I / III rows) | 4829617 |
 
+## 2 Baseline
+3DGS maps (Sequence_1, every 5th frame = 180 frames, 157 train / 23 held out, i % 8 == 0; 30k iterations; 640x480):
+
+| Scene | Held-out PSNR | SSIM | Gaussians | Train time | Peak GPU | Source |
+|---|---|---|---|---|---|---|
+| office_0 | 41.53 dB | 0.989 | 620,290 | 205 s | 756 MiB | fitter agent run (copied from its report, not re-checked; map meta in /home/thanhnc/gauss_ws/data/uags_maps/office_0_seq1.pt) |
+| room_2 | 37.05 dB | 0.977 | 954,119 | 268 s | 900 MiB | [logs/fit_room_2.log](logs/fit_room_2.log) |
+
+Held-out frames sit between training frames of the same trajectory: the PSNR measures interpolation, not new viewpoints.
+The semantic baselines (averaging, NormLift, view count, CSS, 2D per frame) are rows of Table I, below.
+
 ## 5 Verification
 (filled at the end)
 

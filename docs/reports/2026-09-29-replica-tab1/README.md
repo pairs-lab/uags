@@ -5,7 +5,7 @@ Verdict: IN PROGRESS -- final validation done (bfcab98); test stage running (bas
 Key result: validation (N=2, final code bfcab98): ours P2 ECE 4.88 / NLL 0.824 vs tuned CSS 4.70 / 0.774 (CSS wins); u_epi AUSE 8.81 vs NormLift epi 11.52; P3 NEGATIVE ([table](#validation-table-i-final-code-bfcab98)); test running
 Attempts: 1 (0 Good / 1 Bad: attempt 06 P3) | Time: started 2026-09-29 13:49 +07; final val 2026-09-30 06:50
 
-Running: chain (prep maps/fields -> STAGE=val -> STAGE=test) | [chain.sh copy](logs/chain.sh) | /home/thanhnc/gauss_ws/data/uags_results/tab1/{prep,chain}.log | started 23:22 / 23:45
+Running: Table I test stage ([chain.sh](logs/chain.sh), /home/thanhnc/gauss_ws/data/uags_results/tab1/chain.log); then views + Table III val/test ([chain2.sh](logs/chain2.sh), /home/thanhnc/gauss_ws/data/uags_results/chain2.log)
 
 ## 0 Context
 - Ask: "continue to complete our paper" -> fill Table I (plan section 3) with measured numbers.
@@ -183,7 +183,7 @@ test value (3c1e955; the strongest fair baseline). The paper states it.
   temperatures differ slightly from Tab I because the fitter's pixel subsets change with the rows), F21 (ablation rows
   exist for P0/P2 only), F23 (views figure M=180 point).
 - GPU: USGLoc batches take the card back to back; our jobs start only in gaps (never beside a USGLoc job).
-- Disk: 97% full (28 GB free before the test fields).
+- Disk: 99% full (18 GB free after deleting the obsolete pre-review fields office_0/room_2_lseg_pre.pt, 2 GB).
 
 ## 8 Files
 - Code (this run): scripts/replica_tab1.sh, scripts/replica_tab3.sh, scripts/replica_views.sh, scripts/eval_seg.py,

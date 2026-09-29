@@ -192,9 +192,15 @@ def run_gsplat(args):
         bs = B.default_baselines(field, text=text, class_ids=css_ids)
     css = [b for b in bs if isinstance(b, B.CSS)]
 
-    def run_sequence(seq, desc):
+    import time
+    times = []
+
+    def run_sequence(seq, desc, max_keyframes=None):
         last, used = None, 0
-        for i in tqdm(range(len(seq)), desc=desc):
+        order = range(len(seq))
+        if max_keyframes and max_keyframes < len(seq):             # evenly spaced subset
+            order = sorted(set(torch.linspace(0, len(seq) - 1, max_keyframes).round().long().tolist()))
+        for i in tqdm(order, desc=desc):
             fr_full = seq[i]
             c2w = fr_full["c2w"]
             if not torch.isfinite(c2w).all():
@@ -214,13 +220,21 @@ def run_gsplat(args):
             if args.use_depth and fr.get("depth") is not None:
                 kw = dict(depth_obs=fr["depth"].reshape(-1).to(device),
                           gauss_depth=ras.gaussian_depths())
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t0 = time.perf_counter()
             field.update_view(ras, z, num_pixels=h * w, **kw)
             for c in css:                                       # CSS: its own one-hot pass
                 c.update_view(ras, z)
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            times.append(time.perf_counter() - t0)              # field + baselines update
             used += 1
         return used
 
-    used = run_sequence(ds, "mapping")
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+    used = run_sequence(ds, "mapping", max_keyframes=args.max_keyframes)
     if args.update_data:
         thr = field.calibrate_change_threshold(args.change_quantile)
         print(f"calibrated change threshold (q={args.change_quantile}): {thr:.4f}")
@@ -244,7 +258,13 @@ def run_gsplat(args):
             s = sims[valid, k]
             print(f"query '{p}': max {s.max():.3f} | mean {s.mean():.3f}")
 
-    out = dict(field=field.state_dict(), pca=pca.state_dict(), config=vars(args),
+    timing = dict(keyframes=used, ms_per_keyframe_update=1000 * sum(times) / max(len(times), 1),
+                  peak_alloc_mib=(torch.cuda.max_memory_allocated() / 2 ** 20
+                                  if torch.cuda.is_available() else None),
+                  peak_reserved_mib=(torch.cuda.max_memory_reserved() / 2 ** 20
+                                     if torch.cuda.is_available() else None))
+    print(f"timing: {timing}")
+    out = dict(field=field.state_dict(), pca=pca.state_dict(), config=vars(args), timing=timing,
                field_config=field.cfg.to_dict(), extractor=args.extractor,
                baselines=B.baselines_state(bs) if bs else [], css_class_ids=css_ids)
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
@@ -277,6 +297,8 @@ def main():
                     help='JSON overrides of FieldConfig, e.g. \'{"change_thr": 0.4}\'')
     ap.add_argument("--kf-trans", type=float, default=0.05, help="keyframe gap [m]")
     ap.add_argument("--kf-rot", type=float, default=5.0, help="keyframe gap [deg]")
+    ap.add_argument("--max-keyframes", type=int, default=0,
+                    help="use this many evenly spaced mapping frames (0 = all)")
     ap.add_argument("--update-data", default="",
                     help="root of the UPDATE sequence (same scene after a change)")
     ap.add_argument("--update-stride", type=int, default=5)

@@ -44,6 +44,8 @@ So the gate stays at 6000 MiB (+2048 headroom) and the stage waits for gaps betw
 | Eval OOM at 15:18 | a new USGLoc batch (batch_seeds12: 2 seeds x 7 scenes, ~30 min each) started in the same gap; also the eval kept the field and every row's buffer on the GPU next to LSeg | [logs/oom_eval_val_1518.log](logs/oom_eval_val_1518.log); fix: rows frozen on the CPU, identical buffers stored once, 2D tokens extracted before the rows (7dd4bfe); the gate now never starts beside a USGLoc job (its notes: MASt3R fails with launch timeouts when sharing) |
 | u_ale is defined for few Gaussians but most pixel mass | tau_min = 3 views; most Gaussians are tiny (median pixel mass over 179 views: 4.2 px office_0, 1.6 px room_2; a full view is a0*H*W = 7.7 px) | [logs/support_stats.log](logs/support_stats.log): defined for 22.4% / 12.2% of Gaussians but 84.2% / 81.8% of pixel mass; u_ale mean 0.020 / 0.007 (LSeg features agree across views) |
 
+| Feature 3DGS training on office_0 died at 05:08 with cudaErrorLaunchTimeout after 4k clean iterations (loss 0.0224 -> 0.0081) | this GPU also drives the display (gnome-shell), so a kernel that runs past the watchdog kills the process; 30k-iteration trainings launch ~100x more kernels than a mapping pass | [logs/cuda_timeout_distill_office_0_0508.log](logs/cuda_timeout_distill_office_0_0508.log); fix: the training state is checkpointed every 2k iterations and resumed (a resumed run equals an uninterrupted one: tests/test_distill.py), the pipeline retries a failed GPU step up to 3 times, and the LEGaussians decoder init follows the seed (d359bc4) |
+
 ## 2 Baseline
 3DGS maps (Sequence_1, every 5th frame = 180 frames, 157 train / 23 held out, i % 8 == 0; 30k iterations; 640x480):
 

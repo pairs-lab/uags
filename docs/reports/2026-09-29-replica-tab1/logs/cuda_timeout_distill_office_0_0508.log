@@ -1,0 +1,31 @@
+[gpu_gate] 2026-09-30 05:06:35 free 11930 MiB >= 9048; running: python3 scripts/distill_features.py --field /home/thanhnc/gauss_ws/data/uags_fields/office_0_lseg.pt --method f3dgs
+f3dgs: 620290 Gaussians, 179 mapping frames of 180 (main field /home/thanhnc/gauss_ws/data/uags_fields/office_0_lseg.pt)
+[distill f3dgs] iter 1000/30000 loss 0.0224
+[distill f3dgs] iter 2000/30000 loss 0.0129
+[distill f3dgs] iter 3000/30000 loss 0.0090
+[distill f3dgs] iter 4000/30000 loss 0.0081
+Traceback (most recent call last):
+  File "/tmp/claude-1005/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/wt_eval/scripts/distill_features.py", line 157, in <module>
+    main()
+  File "/tmp/claude-1005/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/wt_eval/scripts/distill_features.py", line 123, in main
+    res = D.train_features(views, N, d, method=args.method, iters=args.iters, lr=args.lr,
+  File "/tmp/claude-1005/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/wt_eval/usplat/distill.py", line 133, in train_features
+    img = ras(torch.cat(cols, dim=1))
+  File "/tmp/claude-1005/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/wt_eval/usplat/gsplat_adapter.py", line 67, in __call__
+    render, _ = self._rasterize(feature_buffer)
+  File "/tmp/claude-1005/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/wt_eval/usplat/gsplat_adapter.py", line 55, in _rasterize
+    render, alpha, _meta = rasterization(
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/gsplat/rendering.py", line 634, in rasterization
+    tiles_per_gauss, isect_ids, flatten_ids = isect_tiles(
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/gsplat/cuda/_wrapper.py", line 504, in isect_tiles
+    tiles_per_gauss, isect_ids, flatten_ids = _make_lazy_cuda_func("intersect_tile")(
+  File "/home/thanhnc/.local/lib/python3.12/site-packages/gsplat/cuda/_wrapper.py", line 17, in call_cuda
+    return getattr(_C, name)(*args, **kwargs)
+torch.AcceleratorError: CUDA error: the launch timed out and was terminated
+Search for `cudaErrorLaunchTimeout' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+

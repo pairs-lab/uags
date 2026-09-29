@@ -582,7 +582,8 @@ content out of the robust set (Table~\ref{tab:ablation})?
 rendered by Semantic-NeRF~\cite{zhi2021semanticnerf}: 8 scenes with 101 class
 ids, where id 0 marks unlabeled pixels that we ignore. We validate on
 office\_0 and room\_2 and test on room\_0, room\_1 and office\_1 to office\_4.
-Each method maps on every 5th frame of Sequence\_1 (180 frames). We evaluate
+Each method maps on every 5th frame of Sequence\_1 (180 frames, of which a
+pose filter drops near-duplicates, leaving 176 to 180). We evaluate
 on every 10th frame of Sequence\_2 (90 frames), which no method sees while
 mapping. The query vocabulary of a scene is the set of classes present in its
 evaluation frames. One ensemble of five prompt templates, chosen on the
@@ -610,15 +611,18 @@ we use it only in an oracle row.
 frames with gsplat~\cite{ye2024gsplat}, using degree-0 color, \ph{} iterations
 and at most \ph{} Gaussians. Every method uses this geometry, which stays fixed
 afterwards, and the same LSeg features, compressed to $d=64$
-(\secref{sec:features}). The coverage floor $\tau_{\mathrm{cov}}=\ph$ and all
-temperatures are set on the validation scenes. We freeze every choice before
-the test scenes run, and we run them once. We report the mean and standard
-deviation over the test scenes ($N=6$ for Replica, $N=7$ for RIO10).
+(\secref{sec:features}). The coverage floor $\tau_{\mathrm{cov}}=0.5$ is fixed
+before any validation run. All temperatures, and the CSS prior named below, are
+set on the validation scenes. We
+freeze every choice before the test scenes run, and we run them once. We report
+the mean and the population standard deviation over the test scenes ($N=6$ for
+Replica, $N=7$ for RIO10).
 
 \textbf{Segmentation baselines.} All baselines share our geometry, features and
 splat weights, and each gets its own temperature, fit by NLL on the validation
 scenes. \emph{2D features} apply the extractor to the
-evaluation frame itself, with no map. \emph{Averaging} is the pixel-weighted
+evaluation frame itself, with no map. This row covers every pixel, while the
+map rows count the pixels their geometry does not cover as wrong. \emph{Averaging} is the pixel-weighted
 mean feature of Gradient-Weighted Feature
 Back-Projection~\cite{joseph2025gradbp}, with no uncertainty of its own
 \todo{compare with the authors' code on one validation scene}.
@@ -632,8 +636,12 @@ NormLift defines no epistemic or aleatoric uncertainty. From its quantities
 we build the reference scores $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$
 and $1-\mathcal{R}$. \emph{CSS}~\cite{wilson2025css} keeps a Dirichlet
 posterior over a closed label set, and each pixel votes for the class whose
-text is closest to its feature. CSS receives the full vocabulary at mapping
-time, which the open-vocabulary rows do not need. We composite its variance
+text is closest to its feature. CSS receives, at mapping time, the classes present in the scene's evaluation
+frames (the set every row is queried with), which the open-vocabulary rows do
+not get while mapping. Its counts are pixel masses at the mapping resolution
+under a flat prior $\alpha_0$. We read the same counts out with
+$\alpha_0\in\{0.01, 0.1, 1, 10\}$ and report the value with the lowest
+validation NLL, so CSS is compared at its best prior. We composite its variance
 with the linear splat weights of every other channel, not with squared
 weights as CSS does.
 
@@ -671,7 +679,10 @@ probability, NLL, the Brier score, and AURC, the area under the risk-coverage
 curve with pixels ranked by one minus the maximum probability. A labeled pixel
 with rendered opacity $\alpha_p<\tau_{\mathrm{cov}}$, or with a tied top class
 score, counts as wrong. An uncovered pixel also gets the uniform predictive
-and ranks as the most uncertain pixel for every uncertainty.
+and ranks as the most uncertain pixel for every uncertainty. A covered pixel
+whose own uncertainty is undefined (our $u^{\mathrm{ale}}$ below $\tau_{\min}$
+views) ranks above every defined value of that channel, so the rule never
+removes pixels from the ranking. We report the share of such pixels.
 
 \textbf{Uncertainty ranking.} We use the area under the sparsification
 error~\cite{ilg2018uncertainty} in its mean-gap form,
@@ -709,9 +720,8 @@ labels that our row does not use.
 %% ----------------------------------------------------------------------------
 \subsection{Static Scenes: Accuracy, Calibration and Ranking}
 \label{sec:exp-replica}
-%% NormLift 1 - C_inter row: usplat/baselines.py defines c_inter() but
-%% uncertainties() exposes only normlift_1-R and normlift_epi. Expose
-%% "normlift_1-Cinter" before this row runs.
+%% NormLift 1 - C_inter row: usplat/baselines.py channel "normlift_1-Cinter".
+%% Table rows are written by scripts/make_tables.py from the eval JSON.
 \begin{table*}[t]
 \centering
 \caption{Segmentation and calibration on the Replica test scenes (mean $\pm$
@@ -866,10 +876,10 @@ sentence on synthetic calibration data.} Fig.~\ref{fig:qual} shows examples.
 \begin{table}[t]
 \centering
 \caption{Ablations on the test scenes, mean over $N=6$ (top) and $N=7$
-(bottom). Each row changes one part of the full method. AUSE:
-$u^{\mathrm{epi}}$ against $e_{\mathrm{red}}$ (epi) and $u^{\mathrm{ale}}$
-against $e_{\mathrm{irr}}$ (ale), averaged over the 10-, 30- and 90-frame
-fields. AP at the Gaussian (G) and object (O) level. Kept: share of stale
+(bottom). Each row changes one part of the full method. AUSE: the row's
+$u^{\mathrm{epi}}$ (epi) and $u^{\mathrm{ale}}$ (ale) against the 0/1 error
+of the full map (the split into $e_{\mathrm{red}}$ and $e_{\mathrm{irr}}$ is
+Fig.~\ref{fig:views}). AP at the Gaussian (G) and object (O) level. Kept: share of stale
 Gaussians in the robust set after the update. All metrics except NLL in \%.
 \todo{replace placeholders.}}
 \label{tab:ablation}

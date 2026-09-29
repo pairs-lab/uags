@@ -130,6 +130,50 @@ def field_rows(field, prefix="ours", modes=("P0", "P1", "P2"), p2_base="P0",
     return rows
 
 
+@dataclass
+class FieldProbRow(Row):
+    """P3: the per-Gaussian class predictive, rendered as a mixture (kind "probs").
+        q_n(c) = softmax_c(beta_g * m_n . t_c),   m_n = A_d(kappa_post,n) mu*_n   (P1 direction)
+    over the QUERIED classes t (K, d) in the field space, computed at query time from the
+    field (open vocabulary: nothing is fixed at mapping time). The evaluator renders
+    q_p = sum_n w_{p,n} q_n / alpha_p and applies its own temperature to log q_p (fit on val),
+    so beta_g sets how peaked each Gaussian's distribution is BEFORE mixing and the post-hoc
+    temperature rescales the mixture. A Gaussian without evidence has m_n = 0, hence the
+    uniform q_n. beta_g is a hyperparameter chosen on the validation scenes."""
+    field: object = None
+    text: Optional[torch.Tensor] = None
+    beta_g: float = 20.0
+    channels: Sequence[str] = ("u_epi", "u_ale")
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.kind != "probs":
+            raise ValueError(f"row {self.name!r}: P3 is a probs row")
+        if self.field is None or self.text is None:
+            raise ValueError(f"row {self.name!r}: FieldProbRow needs field and text")
+        if not self.beta_g > 0:
+            raise ValueError(f"row {self.name!r}: beta_g must be > 0")
+
+    @torch.no_grad()
+    def buffer(self):
+        from .predictive import gaussian_buffer
+        m = gaussian_buffer(self.field, "P1")
+        t = self.text.to(m.device, m.dtype)
+        return torch.softmax(self.beta_g * (m @ t.t()), dim=-1)
+
+    def uncertainties(self):
+        return {c: _field_channel(self.field, c) for c in self.channels}
+
+
+P3_BETAS = (10.0, 20.0, 40.0)        # beta_g grid of P3; the validation NLL picks one
+
+
+def p3_rows(field, text, prefix="ours", betas=P3_BETAS):
+    """'<prefix>_P3_b<beta_g>' rows (usplat.rows.FieldProbRow) for the queried text."""
+    return [FieldProbRow(f"{prefix}_P3_b{b:g}", "probs", field=field, text=text, beta_g=float(b))
+            for b in betas]
+
+
 @torch.no_grad()
 def freeze(row: Row) -> TensorRow:
     """Snapshot buffer() and uncertainties() once (evaluate many views of a fixed map)."""

@@ -596,7 +596,8 @@ def test_cli_mock_backend(tmp_path):
     assert res["summary"]["ours_P0"]["all"]["miou"]["n"] == 1
     # the betas of this run can be read back for a test-only run, with their settings
     betas = cli.load_betas(str(out_path))
-    assert set(betas) == {"ours_P0", "ours_P1", "ours_P2", "ours_scalar"}
+    assert set(betas) == {"ours_P0", "ours_P1", "ours_P2", "ours_scalar",
+                          "ours_P3_b10", "ours_P3_b20", "ours_P3_b40"}
     assert sc["betas_used"]["ours_P0"] == betas["ours_P0"]
     st = cli.load_fit_settings(str(out_path))
     assert st["undef_frac"] == 0.5 and st["tau_cov"] == 0.5
@@ -820,3 +821,50 @@ def test_frozen_on_shares_nan_channels():
     assert fr["c"].unc["u_ale"] is not fr["a"].unc["u_ale"]
     assert fr["a"].buf is fr["b"].buf is fr["c"].buf
     print("PASS NaN-aware sharing")
+
+
+def test_p3_mixture_row():
+    """P3 (usplat.rows.FieldProbRow): q_n = softmax(beta_g A_d(kappa) mu* . t) per Gaussian,
+    uniform for a Gaussian without evidence, rendered as the weighted mixture of q_n."""
+    from usplat.rows import FieldProbRow, p3_rows, P3_BETAS
+    torch.manual_seed(0)
+    N, d, K = 4, 8, 3
+    f = DirectionalSemanticField(N, d, FieldConfig(change_test=False))
+    text = Fn.normalize(torch.randn(K, d), dim=-1)
+    z = Fn.normalize(text[[0, 1, 2]] + 0.1 * torch.randn(3, d), dim=-1)
+    for _ in range(3):
+        f.update_sparse(torch.arange(3), torch.ones(3), z, num_pixels=100)   # Gaussian 3 unseen
+    row = FieldProbRow("p3", "probs", field=f, text=text, beta_g=20.0)
+    q = row.buffer()
+    want = torch.softmax(20.0 * f.mean_direction() @ text.t(), dim=-1)
+    assert torch.allclose(q, want) and torch.allclose(q.sum(-1), torch.ones(N))
+    assert torch.allclose(q[3], torch.full((K,), 1.0 / K))                   # no evidence
+    assert (q[:3].argmax(-1) == torch.arange(3)).all()
+    assert set(row.uncertainties()) == {"u_epi", "u_ale"}
+    names = [r.name for r in p3_rows(f, text)]
+    assert names == [f"ours_P3_b{b:g}" for b in P3_BETAS]
+    # the evaluator's probs path mixes the per-Gaussian distributions: q_p = sum w q_n / alpha
+    w = torch.tensor([[0.5, 0.25, 0.0, 0.0]])                                  # one pixel
+    ras = lambda buf: w @ buf
+    rr = seg_eval.render_row(freeze(row), ras)
+    mix = (w @ q) / w.sum()
+    assert torch.allclose(rr.feat / rr.alpha[:, None], mix, atol=1e-6)
+    print(f"PASS P3: analytic mixture, uniform when unseen, rows {names}")
+
+
+def test_cli_p3_rows(tmp_path):
+    """eval_seg builds the P3 rows from the scene's projected text, fits their temperature on
+    val and evaluates them; --no-p3 leaves them out."""
+    cli = _load_cli()
+    base = _cli_toy(tmp_path)
+    scenes = str(tmp_path / "scenes.json")
+    out = cli.main(base + ["--val-scenes", scenes, "--scenes", scenes, "--plain-json",
+                           "--out", str(tmp_path / "p3.json")])
+    rows = out["scenes"]["toy"]["rows"]
+    p3 = [r for r in rows if r.startswith("ours_P3_b")]
+    assert len(p3) == 3 and all(r in out["betas"] for r in p3)
+    assert all(rows[r]["all"]["miou"] > 0.9 for r in p3), {r: rows[r]["all"]["miou"] for r in p3}
+    none = cli.main(base + ["--val-scenes", scenes, "--scenes", scenes, "--no-p3", "--plain-json",
+                            "--out", str(tmp_path / "nop3.json")])
+    assert not [r for r in none["scenes"]["toy"]["rows"] if r.startswith("ours_P3")]
+    print(f"PASS CLI P3 rows: {p3}")

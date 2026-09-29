@@ -30,7 +30,9 @@ Vocabulary file (YAML or JSON):
     classes: {12: {name: wall, prompt: wall}, 13: floor, ...}   prompt defaults to name
 Raw ids that are neither classes nor ignored are ignored too and counted per scene.
 
-Rows: ours_P0/P1/P2 (usplat.rows.field_rows), ours_scalar (the 1 - A_d spread only), and
+Rows: ours_P0/P1/P2 (usplat.rows.field_rows), ours_scalar (the 1 - A_d spread only),
+ours_P3_b<beta_g> (usplat.rows.FieldProbRow: the per-Gaussian predictive rendered as a
+mixture, one row per beta_g of usplat.rows.P3_BETAS; --no-p3 leaves them out), and
 the rows of --row-factory "module:function", called as fn(ckpt, field, device) -> [Row]
 (e.g. baselines stored in the field checkpoint). --rows selects by name.
 --with-2d adds the row "2d_features": the extractor run on the EVALUATION frame itself, the
@@ -60,7 +62,7 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from usplat.vmf_field import DirectionalSemanticField                      # noqa: E402
 from usplat.feature_pca import StreamingPCA                                # noqa: E402
-from usplat.rows import field_rows, FieldRow, TensorRow                    # noqa: E402
+from usplat.rows import field_rows, FieldRow, TensorRow, p3_rows           # noqa: E402
 from usplat.seg_eval import (View, BetaFitter, SegAccumulator, evaluate_view,  # noqa: E402
                              freeze_rows, scene_stats, row_beta, IGNORE)
 
@@ -279,7 +281,8 @@ def load_scene(sc, vocab, args, device):
         lab = f["labels"]
         f["gt"] = torch.where(lab >= 0, local[lab.clamp_min(0)], lab)
     text = pca.project_text(text_embeddings(vocab, q, args).to(device))    # (K, d), F7
-    rows = candidate_rows(field, ckpt, "cpu", args, class_ids=[vocab["ids"][i] for i in q])
+    rows = candidate_rows(field, ckpt, "cpu", args, class_ids=[vocab["ids"][i] for i in q],
+                          text=text)
     rows = frozen_on(rows, device)
     rows2d = []
     if want2d:
@@ -354,9 +357,11 @@ def frozen_on(rows, device):
     return out
 
 
-def candidate_rows(field, ckpt, device, args, class_ids=None):
+def candidate_rows(field, ckpt, device, args, class_ids=None, text=None):
     rows = field_rows(field, "ours")
     rows.append(FieldRow("ours_scalar", "feature", field=field, mode="P0", channels=("spread",)))
+    if text is not None and not getattr(args, "no_p3", False):
+        rows += p3_rows(field, text.to(field.device))  # P3: mixture of per-Gaussian predictives
     if args.row_factory:
         mod, fn = args.row_factory.split(":")
         factory = getattr(importlib.import_module(mod), fn)
@@ -631,6 +636,7 @@ def build_parser():
     ap.add_argument("--row-factory", default="", help="module:function -> extra rows")
     ap.add_argument("--allow-field-mismatch", action="store_true",
                     help="with --betas: evaluate fields built differently from the val fields")
+    ap.add_argument("--no-p3", action="store_true", help="leave out the P3 mixture rows")
     ap.add_argument("--with-2d", action="store_true",
                     help="add the 2D row: the extractor on each evaluation frame (no map)")
     ap.add_argument("--raw-probs", default="",

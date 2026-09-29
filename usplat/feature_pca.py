@@ -55,11 +55,40 @@ class StreamingPCA:
         out = z.to(self.basis.device, self.dtype) @ self.basis
         return Fn.normalize(out, dim=-1) if renormalize else out
 
+    @torch.no_grad()
+    def project_text(self, t):
+        """Map unit text embeddings (..., in_dim) into the compressed space WITHOUT
+        renormalising ("decode first"). For a unit field direction mu in the subspace,
+        mu . (B^T t) = (B mu) . t is the cosine in the FULL space between the decoded
+        feature and the text. Renormalising B^T t instead inflates texts that keep
+        little energy in the image subspace and changes the argmax label."""
+        assert self.basis is not None, "call fit() first"
+        return t.to(self.basis.device, self.dtype) @ self.basis
+
     def state_dict(self):
-        return dict(basis=self.basis, in_dim=self.in_dim, out_dim=self.out_dim)
+        return dict(basis=None if self.basis is None else self.basis.cpu(),
+                    in_dim=self.in_dim, out_dim=self.out_dim)
 
     @classmethod
     def from_state(cls, state, device="cpu"):
         p = cls(state["in_dim"], state["out_dim"], device=device)
         p.basis = state["basis"].to(device)
         return p
+
+
+class RunningMean:
+    """Mean feature of the mapping frames (the centre zbar of the centred channel)."""
+
+    def __init__(self, dim, device="cpu"):
+        self.s = torch.zeros(dim, device=device, dtype=torch.float64)
+        self.n = 0
+
+    @torch.no_grad()
+    def add(self, z):
+        z = z.reshape(-1, self.s.shape[0])
+        self.s += z.to(self.s.device, torch.float64).sum(0)
+        self.n += z.shape[0]
+
+    def mean(self, dtype=torch.float32):
+        assert self.n > 0, "add() some features first"
+        return (self.s / self.n).to(dtype)

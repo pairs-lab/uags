@@ -24,7 +24,7 @@ import torch.nn.functional as Fn
 
 
 class EFEPlanner:
-    def __init__(self, field, lam=1.0, aleatoric_min_obs=5.0):
+    def __init__(self, field, lam=1.0, aleatoric_min_obs=None):
         self.field = field
         self.lam = float(lam)
         self.aleatoric_min_obs = aleatoric_min_obs
@@ -40,6 +40,9 @@ class EFEPlanner:
         discount = torch.ones_like(epi)
         known = valid
         discount[known] = (1.0 - ale[known]).clamp(0.05, 1.0)
+        # content flagged as changed stays gated even though its evidence was reset
+        # (a reset makes u_epi high and u_ale undefined, which would re-attract views)
+        discount[self.field.changed] = 0.05
         gain_per_gauss = epi * discount                         # (N,)
         return visibility @ gain_per_gauss                      # (V,)
 

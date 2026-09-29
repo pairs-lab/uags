@@ -74,13 +74,27 @@ def main():
     print(f"PASS mass: sum n_eff = {n_eff.sum():.1f} vs alpha mass "
           f"{alpha.sum():.1f} (rel gap {rel:.2e})")
 
+    # --- 2b. per-Gaussian identity: one-hot render gives the explicit weights -
+    with torch.no_grad():
+        Wexp = ras(torch.eye(N, device=device))           # (P, N) = w_{p,n}
+    R_ref, n_ref = Wexp.t() @ z, Wexp.sum(0)
+    r_err = (R - R_ref).abs().max().item()
+    n_err = (n_eff - n_ref).abs().max().item()
+    scale = max(n_ref.max().item(), 1.0)
+    assert r_err < 1e-4 * scale and n_err < 1e-4 * scale, (r_err, n_err, scale)
+    print(f"PASS per-Gaussian identity: max |R - W^T z| = {r_err:.2e}, "
+          f"max |n - W^T 1| = {n_err:.2e} (max mass {scale:.1f})")
+
     # --- 3. vMF invariants on the real rasterizer ----------------------------
-    field = DirectionalSemanticField(N, d, kappa_lik=10.0, device=device)
+    from usplat.vmf_field import FieldConfig
+    field = DirectionalSemanticField(N, d, FieldConfig(change_test=False), device=device)
+    field.set_centre(torch.zeros(d, device=device))
     z0 = Fn.normalize(torch.randn(d, device=device), dim=0)
-    field.update_from_rasterizer(ras, z0.expand(H * W, d).contiguous())
-    seen = field.n_eff > 1.0
+    field.update_view(ras, z0.expand(H * W, d).contiguous())
+    seen = field.n_eff > 0.99                              # one full view
     cos = (field.mu_post()[seen] * z0).sum(-1)
     rbar = field.mean_resultant_length()[seen]
+    assert seen.any()
     assert (cos > 0.999).all(), cos.min()
     assert (rbar > 0.999).all(), rbar.min()
     print(f"PASS constant-direction: min cos(mu_post, z) = {cos.min():.5f}, "
@@ -90,13 +104,43 @@ def main():
     field.reset()
     for t in range(6):
         zt = z0 if t % 2 == 0 else -z0
-        field.update_from_rasterizer(ras, zt.expand(H * W, d).contiguous())
+        field.update_view(ras, zt.expand(H * W, d).contiguous())
     ale, valid = field.aleatoric(min_obs=3.0)
     assert valid.any()
     assert ale[valid].mean() > 0.5, ale[valid].mean()
     print(f"PASS conflict: mean aleatoric under flipping semantics = "
           f"{ale[valid].mean():.3f} (> 0.5)")
+
+    # temporal change: 4 views of z0, then z1 -> the change test fires
+    # mechanics check with a fixed threshold (the pipeline calibrates it per scene)
+    field = DirectionalSemanticField(N, d, FieldConfig(fast_memory=0.5, change_thr=0.5),
+                                     device=device)
+    field.set_centre(torch.zeros(d, device=device))
+    z1 = torch.randn(d, device=device)
+    z1 = Fn.normalize(z1 - (z1 @ z0) * z0, dim=0)            # orthogonal new content
+    for t in range(6):
+        zt = z0 if t < 4 else z1
+        field.update_view(ras, zt.expand(H * W, d).contiguous())
+    ref = field.cfg.view_mass_frac * H * W                 # mass of one full view
+    full = field.pixel_mass >= 6 * ref                     # a full view every time
+    assert full.any()
+    rate = field.changed[full].float().mean().item()
+    assert rate > 0.9, rate
+    print(f"PASS change test: {rate * 100:.1f}% of well-observed Gaussians flagged after z0 -> z1")
     print("ALL GPU CHECKS PASSED")
+
+
+def test_gsplat_gpu():
+    """pytest entry: skipped without CUDA or the gsplat backend."""
+    import pytest
+    if not torch.cuda.is_available():
+        pytest.skip("no CUDA device")
+    try:
+        from gsplat.cuda._backend import _C
+        assert _C is not None
+    except Exception:
+        pytest.skip("gsplat CUDA backend not built")
+    main()
 
 
 if __name__ == "__main__":

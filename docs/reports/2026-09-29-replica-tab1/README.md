@@ -1,8 +1,8 @@
 # Replica Table I: open-vocabulary segmentation and calibration
 2026-09-29 | root: /home/thanhnc/gauss_ws/src/uags | git: master@778bb64 | [all reports](../INDEX.md)
 Follows: [Data, baselines and evaluation infrastructure](../2026-09-29-data-and-baselines/README.md)
-Verdict: IN PROGRESS -- final validation done (bfcab98); test stage running (baseline training on the 6 test scenes, then one evaluation)
-Key result: validation (N=2, final code bfcab98): ours P2 ECE 4.88 / NLL 0.824 vs tuned CSS 4.70 / 0.774 (CSS wins); u_epi AUSE 8.81 vs NormLift epi 11.52; P3 NEGATIVE ([table](#validation-table-i-final-code-bfcab98)); test running
+Verdict: IN PROGRESS -- Table I test done and in the paper (d287321); views figure and Table III running
+Key result: test (N=6, one shot): AUSE of our u_ale 8.50 vs NormLift 1-C_inter 8.76, CSS variance 11.20, LEGaussians 19.73 (best uncertainty); tuned CSS best calibrated (ECE 5.05 vs ours P2 8.70) ([table](#test-table-i-one-shot-run-code-224fe1e))
 Attempts: 1 (0 Good / 1 Bad: attempt 06 P3) | Time: started 2026-09-29 13:49 +07; final val 2026-09-30 06:50
 
 Running: [chain3.sh](logs/chain3.sh): Table I val eval -> Table I test (once) -> views + Table III val/test | /home/thanhnc/gauss_ws/data/uags_results/chain3.log | started 2026-09-30 ~08:55
@@ -75,6 +75,46 @@ The semantic baselines (averaging, NormLift, view count, CSS, 2D per frame) are 
 | 06 | P3: render the per-Gaussian class predictive q_n(c) = softmax(beta_g A_d(kappa) mu*.t_c) as a mixture (like CSS, but open-vocabulary: computed at query time); motivated by CSS ECE 4.7 vs ours 7.1 on office_0 (partial val, N=1, [log](logs/eval_val_partial_2013.log)) | val (N=2): beta_g = 40 chosen by NLL; P3 NLL 0.847 / ECE 5.01 vs P2 0.824 / 4.88 vs P0 0.833 / 6.51 ([json](logs/eval_val_final_bfcab98.json)) | Bad (NEGATIVE): the rule fixed before the run (P3 enters the paper only if its val NLL beats P2) says no; mixing per-Gaussian predictives helps ECE over P0 but not over the adaptive temperature | -- |
 
 (Attempts 01-05 are in the [data-and-baselines run](../2026-09-29-data-and-baselines/README.md).)
+
+### Test Table I (one-shot run, code 224fe1e)
+Mean +- population std over the 6 test scenes (room_0, room_1, office_1-4), all pixels (coverage rule), with the
+temperatures and row choices frozen on validation (CSS alpha0 = 0.01, LEGaussians lambda_u = 4; P3 excluded by the
+rule). Command: [chain3.sh](logs/chain3.sh) -> `STAGE=test scripts/replica_tab1.sh` in a clean worktree at 224fe1e,
+2026-09-30 08:56-09:20. Source: [logs/eval_test_224fe1e.json](logs/eval_test_224fe1e.json),
+[log](logs/eval_test_224fe1e.log); LaTeX rows: [logs/table1_rows.tex](logs/table1_rows.tex) (make_tables.py, now in
+papers/main.tex, commit d287321). The test split was evaluated once; an earlier attempt (08:37) was refused by the
+identity check before producing any number ([log](logs/refused_test_eval_0837.log)).
+
+| Row | mIoU | Acc | ECE | NLL | Brier | AURC | AUSE own u | AUSE MSP |
+|---|---|---|---|---|---|---|---|---|
+| 2D features, per frame | 26.34 +- 4.87 | 74.86 | 11.78 | 1.12 | 40.46 | 16.33 | -- | 12.10 |
+| Averaging (GradBP) | 27.91 +- 3.44 | 76.66 | 9.62 | 1.00 | 36.65 | 14.00 | -- | 10.54 |
+| NormLift 1-R / 1-C_inter / epi | same predictive | | | | | | 14.52 / 8.76 / 19.30 | |
+| View count | same predictive | | | | | | 22.43 | |
+| Feature 3DGS | 27.85 +- 2.92 | 76.96 | 10.01 | 1.04 | 37.00 | 14.56 | -- | 10.97 |
+| LEGaussians (lambda_u = 4) | 23.97 +- 2.29 | 74.87 | 10.59 | 1.14 | 39.97 | 15.85 | 19.73 | 11.88 |
+| CSS (alpha0 = 0.01) | 28.54 +- 3.33 | 77.17 | 5.05 | 1.01 | 35.05 | 11.54 | 11.20 | 8.13 |
+| CSS (alpha0 = 1, default; not chosen) | 28.35 | 77.01 | 6.55 | 1.07 | 36.65 | 14.39 | 15.60 | 10.81 |
+| Ours P0 | 27.96 +- 3.62 | 76.77 | 9.86 | 1.00 | 36.40 | 13.78 | 8.50 (u_ale), 16.38 (u_epi) | 10.36 |
+| Ours P1 | 27.86 | 76.70 | 10.21 | 1.04 | 37.50 | 12.89 | 8.50 | 9.42 |
+| Ours P2 | 27.96 | 76.77 | 8.70 +- 5.56 | 1.00 | 36.20 | 12.24 | 8.50 | 8.82 |
+| Ours P3 (beta_g = 40; not in the paper) | 27.93 | 76.73 | 8.98 | 1.03 | 37.07 | 13.00 | 8.51 | 9.46 |
+
+Per scene (ours P2 / CSS mIoU, ECE; AUSE of u_ale / NormLift 1-C_inter / CSS var_top / LEGaussians u):
+
+| Scene | mIoU P2 / CSS | ECE P2 / CSS | AUSE ours / NormLift / CSS / LEGaussians |
+|---|---|---|---|
+| room_0 | 26.9 / 28.5 | 6.9 / 4.9 | 9.42 / 7.77 / 11.50 / 24.86 |
+| room_1 | 26.8 / 27.3 | 15.5 / 6.7 | 10.26 / 11.00 / 10.25 / 21.77 |
+| office_1 | 25.0 / 26.1 | 16.9 / 7.3 | 19.23 / 21.58 / 32.75 / 27.42 |
+| office_2 | 29.4 / 28.7 | 2.8 / 4.5 | 3.69 / 4.43 / 2.78 / 12.74 |
+| office_3 | 24.4 / 25.2 | 3.2 / 3.7 | 3.47 / 3.19 / 4.38 / 13.71 |
+| office_4 | 35.2 / 35.5 | 6.8 / 3.2 | 4.91 / 4.57 / 5.55 / 17.88 |
+
+Our u_ale has a lower AUSE than NormLift's 1-C_inter on 3 of 6 test scenes. Where the baseline wins: tuned CSS
+has the best mIoU, ECE, Brier, AURC and MSP AUSE (it is told the scene's classes at mapping time); NLL ties
+(1.00 vs 1.01). Claims allowed by these numbers: u_ale is the best own-uncertainty ranking of the 0/1 error; P2 is the
+best open-vocabulary predictive; "calibrated" is NOT used (P2 wins ECE but ties NLL, the rule in the draft).
 
 ### Validation Table I (final code bfcab98)
 Mean over office_0, room_2 (N=2); all pixels (coverage rule); lower is better except mIoU/Acc. Command: the chain

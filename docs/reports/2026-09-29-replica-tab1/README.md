@@ -5,7 +5,7 @@ Verdict: IN PROGRESS -- Table I test done and in the paper (d287321); views figu
 Key result: test (N=6, one shot): AUSE of our u_ale 8.50 ~ NormLift 1-C_inter 8.76 (3/6 scenes), < CSS variance 11.20, << LEGaussians 19.73; tuned CSS best calibrated (ECE 5.05 vs ours P2 8.70) ([table](#test-table-i-one-shot-run-code-224fe1e))
 Attempts: 1 (0 Good / 1 Bad: attempt 06 P3) | Time: started 2026-09-29 13:49 +07; final val 2026-09-30 06:50
 
-Running: [chain3.sh](logs/chain3.sh): Table I val eval -> Table I test (once) -> views + Table III val/test | /home/thanhnc/gauss_ws/data/uags_results/chain3.log | started 2026-09-30 ~08:55
+Running: [chain4.sh](logs/chain4.sh): views val (re-run with the defined-pixel analysis) -> Table III val -> views test -> Table III test | /home/thanhnc/gauss_ws/data/uags_results/chain4.log | started 2026-09-30 ~09:50
 
 ## 0 Context
 - Ask: "continue to complete our paper" -> fill Table I (plan section 3) with measured numbers.
@@ -119,6 +119,25 @@ CORRECTION (same day, from the per-scene table): u_ale beats NormLift's 1-C_inte
 office_1, office_2); the mean gap (8.50 vs 8.76) comes mostly from office_1. So the claim is "on par with NormLift
 1-C_inter, better than the CSS variance (4 of 6 scenes) and than LEGaussians' u (6 of 6)", not "the best"; the paper
 text was corrected before commit.
+
+### Views figure, validation (code 224fe1e; primary rule)
+AUSE (x100, lower is better) against e_red (wrong with M views, right with the full map) and e_irr (wrong in both), mean
+over office_0, room_2 (N=2). Command: `STAGE=val scripts/replica_views.sh` (chain3, 09:20-09:34); source:
+[logs/views/views_val_224fe1e.json](logs/views/views_val_224fe1e.json).
+
+| M | u_epi red / irr | u_ale red / irr | NormLift 1-C_inter | NormLift epi | view count | MSP (P0) |
+|---|---|---|---|---|---|---|
+| 10 | 1.07 / 10.26 | 3.94 / 15.16 | 1.97 / 9.92 | 2.39 / 12.54 | 1.99 / 11.85 | 0.72 / 6.36 |
+| 30 | 0.43 / 9.66 | 0.78 / 10.11 | 0.37 / 5.49 | 0.83 / 11.96 | 0.73 / 11.81 | 0.16 / 5.30 |
+| 90 | 0.15 / 8.93 | 0.14 / 5.75 | 0.14 / 5.42 | 0.58 / 11.98 | 0.53 / 11.29 | 0.03 / 4.89 |
+
+The separation claim holds for u_epi (it ranks e_red better than u_ale and than NormLift's and the view count's
+epistemic scores at every M) but NOT for u_ale at M = 10, 30 (worse than u_epi on e_irr; NormLift 1-C_inter better at
+every M); MSP of the predictive ranks both targets best. Cause (hypothesis): the rule fixed before any run ranks an
+undefined u_ale (support < tau_min = 3 views: most Gaussians at small M) as most uncertain, so low evidence enters the
+aleatoric ranking. Decision (on validation, before any views test run): keep that rule as the primary result and add a
+secondary analysis, labelled post hoc, that scores every row on the pixels where u_ale is defined (206c0b7); the views
+validation is re-run with it (chain4).
 
 ### Validation Table I (final code bfcab98)
 Mean over office_0, room_2 (N=2); all pixels (coverage rule); lower is better except mIoU/Acc. Command: the chain

@@ -1,0 +1,17 @@
+[gpu_gate] 2026-09-30 09:27:49 free 11930 MiB >= 9048; running: python3 scripts/eval_views.py --vocab configs/vocab_replica.json --row-factory usplat.baselines:row_factory --extractor lseg --dataset replica_semnerf --stride 10 --downscale 2 --tau-cov 0.5 --text-cache /home/thanhnc/gauss_ws/data/uags_fields/text_cache_lseg.pt --rows ours_P0,ours_P2,averaging,normlift,viewcount --betas /home/thanhnc/gauss_ws/data/uags_results/tab1/eval_val.json --scenes /home/thanhnc/gauss_ws/data/uags_results/views/scenes_val_room_2.json --out /home/thanhnc/gauss_ws/data/uags_results/views/views_val_room_2.json
+   room_2 k=  10        ours_P0 mIoU 0.282 n_red 250966 n_irr 1061368 AUSE red/irr msp:0.004/0.046 entropy:0.005/0.041 u_epi:0.004/0.099 u_ale:0.034/0.136
+   room_2 k=  10        ours_P2 mIoU 0.282 n_red 250966 n_irr 1061368 AUSE red/irr msp:0.004/0.046 entropy:0.004/0.042 u_epi:0.004/0.099 u_ale:0.034/0.136
+   room_2 k=  10      averaging mIoU 0.283 n_red 255935 n_irr 1048065 AUSE red/irr msp:0.004/0.046 entropy:0.005/0.041
+   room_2 k=  10       normlift mIoU 0.283 n_red 255935 n_irr 1048065 AUSE red/irr msp:0.004/0.046 entropy:0.005/0.041 normlift_1-R:0.030/0.125 normlift_epi:0.032/0.132 normlift_1-Cinter:0.010/0.063
+   room_2 k=  10      viewcount mIoU 0.283 n_red 255935 n_irr 1048065 AUSE red/irr msp:0.004/0.046 entropy:0.005/0.041 viewcount:0.023/0.128 viewcount_a0:0.009/0.091
+   room_2 k=  30        ours_P0 mIoU 0.325 n_red 97373 n_irr 1058555 AUSE red/irr msp:0.001/0.046 entropy:0.002/0.041 u_epi:0.001/0.079 u_ale:0.006/0.079
+   room_2 k=  30        ours_P2 mIoU 0.325 n_red 97373 n_irr 1058555 AUSE red/irr msp:0.001/0.042 entropy:0.002/0.039 u_epi:0.001/0.079 u_ale:0.006/0.079
+   room_2 k=  30      averaging mIoU 0.324 n_red 102361 n_irr 1049093 AUSE red/irr msp:0.001/0.048 entropy:0.002/0.044
+   room_2 k=  30       normlift mIoU 0.324 n_red 102361 n_irr 1049093 AUSE red/irr msp:0.001/0.048 entropy:0.002/0.044 normlift_1-R:0.007/0.101 normlift_epi:0.008/0.115 normlift_1-Cinter:0.003/0.030
+   room_2 k=  30      viewcount mIoU 0.324 n_red 102361 n_irr 1049093 AUSE red/irr msp:0.001/0.048 entropy:0.002/0.044 viewcount:0.006/0.105 viewcount_a0:0.003/0.081
+   room_2 k=  90        ours_P0 mIoU 0.324 n_red 75177 n_irr 1133445 AUSE red/irr msp:0.001/0.045 entropy:0.002/0.041 u_epi:0.001/0.074 u_ale:0.002/0.042
+   room_2 k=  90        ours_P2 mIoU 0.324 n_red 75177 n_irr 1133445 AUSE red/irr msp:0.001/0.039 entropy:0.002/0.035 u_epi:0.001/0.074 u_ale:0.002/0.042
+   room_2 k=  90      averaging mIoU 0.323 n_red 79848 n_irr 1122116 AUSE red/irr msp:0.001/0.045 entropy:0.002/0.041
+   room_2 k=  90       normlift mIoU 0.323 n_red 79848 n_irr 1122116 AUSE red/irr msp:0.001/0.045 entropy:0.002/0.041 normlift_1-R:0.007/0.087 normlift_epi:0.010/0.116 normlift_1-Cinter:0.002/0.039
+   room_2 k=  90      viewcount mIoU 0.323 n_red 79848 n_irr 1122116 AUSE red/irr msp:0.001/0.045 entropy:0.002/0.041 viewcount:0.008/0.095 viewcount_a0:0.003/0.085
+wrote /home/thanhnc/gauss_ws/data/uags_results/views/views_val_room_2.json

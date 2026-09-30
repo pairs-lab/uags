@@ -608,9 +608,9 @@ mesh depth of each rescan \todo{verify} shows the new state of the scene, and
 we use it only in an oracle row.
 
 \textbf{Map and features.} For each scene we fit one 3D-GS map on the mapping
-frames with gsplat~\cite{ye2024gsplat}, using degree-0 color, \ph{} iterations
-and at most \ph{} Gaussians. Every method uses this geometry, which stays fixed
-afterwards, and the same LSeg features, compressed to $d=64$
+frames with gsplat~\cite{ye2024gsplat} (degree-0 color, 30k iterations, at most
+$10^6$ Gaussians). Every method uses this fixed geometry and the same LSeg
+features, compressed to $d=64$
 (\secref{sec:features}). The coverage floor $\tau_{\mathrm{cov}}=0.5$ is fixed
 in advance, and all temperatures are set on the validation scenes. We
 freeze every choice before the test scenes run, and we run them once. We report
@@ -633,14 +633,13 @@ implement it as its paper defines it, without its KNN voting refinement.
 It defines no epistemic or aleatoric uncertainty, so from its quantities we
 build the scores $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$
 and $1-\mathcal{R}$. \emph{Feature 3DGS}~\cite{zhou2024feature} and
-\emph{LEGaussians}~\cite{shi2024legaussians} train the features on the same
-map, frames and features (Adam at their rate $10^{-3}$, until the loss gains
-less than 1\% over 5k iterations, at most 30k). Feature 3DGS fits one feature
-per Gaussian under an $L_1$ rendering loss. LEGaussians decodes a rendered 8-D
-code into 128 feature codes and learns $u\in[0,1]$ per Gaussian, which
-down-weights a pixel's cross-entropy at the price $\lambda_u\bar U$
-($\lambda_u\in\{1,2,4\}$ chosen on validation; its paper: 1). We quantize
-our features and drop its smoothing term. \emph{CSS}~\cite{wilson2025css} keeps a Dirichlet
+\emph{LEGaussians}~\cite{shi2024legaussians} train the features (Adam at their
+rate $10^{-3}$, at most 30k iterations, stopped when the loss gains less than
+1\% over 5k). Feature 3DGS fits a feature per Gaussian with an $L_1$ rendering
+loss. LEGaussians renders an 8-D code decoded into 128 feature codes and
+learns $u\in[0,1]$ per Gaussian, which down-weights a pixel's cross-entropy at
+the price $\lambda_u\bar U$ ($\lambda_u\in\{1,2,4\}$ chosen on validation,
+its paper: 1; no smoothing term). \emph{CSS}~\cite{wilson2025css} keeps a Dirichlet
 posterior over a closed label set, and each pixel votes for the class whose
 text is closest to its feature. CSS receives the classes present in the evaluation frames at mapping time,
 which the open-vocabulary rows do not get. Its flat prior
@@ -689,9 +688,9 @@ ranks above every defined value.
 \textbf{Uncertainty ranking.} We use the area under the sparsification
 error~\cite{ilg2018uncertainty} in its mean-gap form,
 $\mathrm{AUSE}=\int_0^1[\bar e_u(f)-\bar e_\star(f)]\,df$, on a uniform grid
-of $f$. Here $\bar e_u(f)$ is the mean error of the pixels left after we
-remove the fraction $f$ with the highest uncertainty $u$, and $\bar
-e_\star(f)$ is the same with pixels ordered by their error. A tie in $u$
+of $f$, where $\bar e_u(f)$ is the mean error left after removing the fraction
+$f$ of pixels with the highest $u$, and $\bar e_\star(f)$ uses the error as
+$u$. A tie in $u$
 (e.g. view counts) takes the mean error of its pixels, the expectation over a
 random order. We grade each
 channel against the error it is meant for. For a field built from $M$ of the
@@ -729,9 +728,9 @@ labels that our row does not use.
 \caption{Segmentation and calibration on the Replica test scenes (mean $\pm$
 std, $N=6$). mIoU, accuracy, ECE, AURC and AUSE in \%, Brier $\times100$, NLL
 in nats. OV: accepts queries that were not known at mapping time. AUSE$_u$:
-AUSE of the row's own uncertainty against the 0/1 error (the learned
-uncertainty for LEGaussians, the variance for CSS, $u^{\mathrm{ale}}$ for ours). \reimpl Our re-implementation from the paper.
-\todo{replace placeholders.}}
+AUSE of the row's own uncertainty against the 0/1 error (LEGaussians: its
+$u$; CSS: variance; ours: $u^{\mathrm{ale}}$). \reimpl Our re-implementation.
+CSS $\alpha_0=0.01$ and LEGaussians $\lambda_u=4$ chosen on validation.}
 \label{tab:replica}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
@@ -740,31 +739,34 @@ uncertainty for LEGaussians, the variance for CSS, $u^{\mathrm{ale}}$ for ours).
 Method & OV & mIoU$\uparrow$ & Acc.$\uparrow$ & ECE$\downarrow$
 & NLL$\downarrow$ & Brier$\downarrow$ & AURC$\downarrow$ & AUSE$_u\downarrow$\\
 \midrule
-2D features, per frame                      & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & --\\
-Averaging~\cite{joseph2025gradbp}\reimpl    & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & --\\
-NormLift~\cite{zang2026normlift}\reimpl, $1-\mathcal{R}$ & \checkmark
-  & \multicolumn{6}{c}{same predictive as averaging} & \phs\\
-NormLift\reimpl, $1-C_{\mathrm{inter}}$     & \checkmark
-  & \multicolumn{6}{c}{same predictive as averaging} & \phs\\
-Feature 3DGS~\cite{zhou2024feature}\reimpl  & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & --\\
-LEGaussians~\cite{shi2024legaussians}\reimpl & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
-CSS (Dirichlet)~\cite{wilson2025css}\reimpl & $\times$   & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
+%% generated by scripts/make_tables.py tab1 docs/reports/2026-09-29-replica-tab1/logs/eval_test_224fe1e.json --variant all --val docs/reports/2026-09-29-replica-tab1/logs/eval_val_224fe1e.json; scenes per row N = [6]; chosen on val: {'@css': 'css_a0.01', '@p3': 'ours_P3_b40', '@legs': 'legs_l4'}
+2D features, per frame & \checkmark & 26.3{\scriptsize$\,\pm\,$4.9} & 74.9{\scriptsize$\,\pm\,$9.9} & 11.8{\scriptsize$\,\pm\,$5.7} & 1.12{\scriptsize$\,\pm\,$0.52} & 40.5{\scriptsize$\,\pm\,$15.9} & 16.3{\scriptsize$\,\pm\,$10.3} & --\\
+Averaging~\cite{joseph2025gradbp}\reimpl & \checkmark & 27.9{\scriptsize$\,\pm\,$3.4} & 76.7{\scriptsize$\,\pm\,$8.4} & 9.6{\scriptsize$\,\pm\,$4.0} & 1.00{\scriptsize$\,\pm\,$0.44} & 36.6{\scriptsize$\,\pm\,$13.4} & 14.0{\scriptsize$\,\pm\,$9.2} & --\\
+NormLift~\cite{zang2026normlift}\reimpl, $1-\mathcal{R}$ & \checkmark & \multicolumn{6}{c}{same predictive as averaging} & 14.5{\scriptsize$\,\pm\,$10.7}\\
+NormLift\reimpl, $1-C_{\mathrm{inter}}$ & \checkmark & \multicolumn{6}{c}{same predictive as averaging} & 8.8{\scriptsize$\,\pm\,$6.3}\\
+Feature 3DGS~\cite{zhou2024feature}\reimpl & \checkmark & 27.9{\scriptsize$\,\pm\,$2.9} & 77.0{\scriptsize$\,\pm\,$8.0} & 10.0{\scriptsize$\,\pm\,$4.5} & 1.04{\scriptsize$\,\pm\,$0.44} & 37.0{\scriptsize$\,\pm\,$13.5} & 14.6{\scriptsize$\,\pm\,$8.6} & --\\
+LEGaussians~\cite{shi2024legaussians}\reimpl & \checkmark & 24.0{\scriptsize$\,\pm\,$2.3} & 74.9{\scriptsize$\,\pm\,$8.2} & 10.6{\scriptsize$\,\pm\,$4.6} & 1.14{\scriptsize$\,\pm\,$0.43} & 40.0{\scriptsize$\,\pm\,$13.4} & 15.8{\scriptsize$\,\pm\,$9.1} & 19.7{\scriptsize$\,\pm\,$5.4}\\
+CSS (Dirichlet)~\cite{wilson2025css}\reimpl & $\times$ & 28.5{\scriptsize$\,\pm\,$3.3} & 77.2{\scriptsize$\,\pm\,$8.1} & 5.1{\scriptsize$\,\pm\,$1.5} & 1.01{\scriptsize$\,\pm\,$0.49} & 35.1{\scriptsize$\,\pm\,$12.8} & 11.5{\scriptsize$\,\pm\,$8.8} & 11.2{\scriptsize$\,\pm\,$10.1}\\
 \midrule
-Ours P0 (plug-in)                           & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
-Ours P1 (posterior mean)                    & \checkmark & \phs & \phs & \phs & \phs & \phs & \phs & \phs\\
-Ours P2 (adaptive $\beta$)                  & \checkmark
-  & \multicolumn{2}{c}{as P0} & \phs & \phs & \phs & \phs & \phs\\
+Ours P0 (plug-in) & \checkmark & 28.0{\scriptsize$\,\pm\,$3.6} & 76.8{\scriptsize$\,\pm\,$8.4} & 9.9{\scriptsize$\,\pm\,$4.0} & 1.00{\scriptsize$\,\pm\,$0.43} & 36.4{\scriptsize$\,\pm\,$13.3} & 13.8{\scriptsize$\,\pm\,$9.1} & 8.5{\scriptsize$\,\pm\,$5.5}\\
+Ours P1 (posterior mean) & \checkmark & 27.9{\scriptsize$\,\pm\,$3.5} & 76.7{\scriptsize$\,\pm\,$8.3} & 10.2{\scriptsize$\,\pm\,$4.7} & 1.04{\scriptsize$\,\pm\,$0.46} & 37.5{\scriptsize$\,\pm\,$13.2} & 12.9{\scriptsize$\,\pm\,$8.7} & 8.5{\scriptsize$\,\pm\,$5.5}\\
+Ours P2 (adaptive $\beta$) & \checkmark & \multicolumn{2}{c}{as P0} & 8.7{\scriptsize$\,\pm\,$5.6} & 1.00{\scriptsize$\,\pm\,$0.43} & 36.2{\scriptsize$\,\pm\,$13.3} & 12.2{\scriptsize$\,\pm\,$8.0} & 8.5{\scriptsize$\,\pm\,$5.5}\\
 \bottomrule
 \end{tabular}
 \end{table*}
 
-Table~\ref{tab:replica} tests accuracy and the predictive. P0 renders the
-view-weighted mean of the same features that averaging uses, so the accuracy
-columns are a parity check. NormLift keeps the averaging feature and differs
-only in its uncertainty. P2 rescales the P0 logits of each pixel, so it keeps
-the P0 labels and changes only the confidence. The question is whether P1 or P2 lowers NLL and ECE compared with
-P0 and with averaging, each at its own temperature. \todo{interpret once
-measured. Use the word ``calibrated'' only if P1 or P2 wins on NLL and ECE.}
+In Table~\ref{tab:replica}, P0 renders the view-weighted mean of the features
+that averaging uses (a parity check), NormLift differs from averaging only in
+its uncertainty, and P2 changes only the confidence of the P0 labels. P0 matches
+averaging (28.0 vs 27.9 mIoU), and every fused map beats the 2D features of
+the frame itself (26.3). Training the features does not help: Feature 3DGS
+equals averaging, and LEGaussians loses four points to its quantization. P2
+lowers ECE from 9.9 to 8.7 and AURC from 13.8 to 12.2 at the same NLL. CSS,
+told the scene's classes while mapping, is the best calibrated row (ECE 5.1);
+among the open-vocabulary rows P2 is. Our $u^{\mathrm{ale}}$ ranks the errors
+best of all uncertainties (AUSE 8.5; NormLift $1-C_{\mathrm{inter}}$ 8.8, CSS
+variance 11.2), while the learned $u$ of LEGaussians ranks them worse than its
+own confidence (19.7 vs 11.9).
 
 \begin{figure}[t]
   \centering
@@ -964,17 +966,15 @@ Gaussian.
 \subsection{Limitations}
 \label{sec:limitations}
 The geometry is fixed after mapping, so moved content is not inserted at its
-new place. The features limit the absolute accuracy. Every row uses LSeg, and
-fusion cannot fix a class that the features confuse in every view. The change
-statistic is a known residual, and its threshold assumes a static mapping
-sequence. Content that moves during mapping enters the null and raises the
-threshold. The mapping-pass scores are also in-sample, because the map and
-the PCA are fit on those frames. The false-alarm rate on a new sequence can
-thus exceed the nominal rate. The 5\,cm depth check cannot keep out the
-Gaussians of a thin removed object, such as a book on a table, since they lie
-within 5\,cm of the surface behind them. We re-implemented averaging,
-NormLift, CSS and the feature residual of CL-Splats from their papers, and
-differences from the authors' code may remain. \todo{Keep only if the RIO10
+new place. The features limit the absolute accuracy: fusion cannot fix a class
+that LSeg confuses in every view. The change statistic is a known residual
+whose threshold assumes a static mapping sequence. Content that moves during
+mapping raises it, and the mapping-pass scores are in-sample (the map and the
+PCA are fit on those frames), so the false-alarm rate on a new sequence can
+exceed the nominal rate. The 5\,cm depth check cannot keep out a thin removed
+object, such as a book on a table. All baselines are our re-implementations
+(LEGaussians on our features), and differences from the authors' code may
+remain. \todo{Keep only if the RIO10
 class map fails:} The predictive is evaluated on synthetic data (Replica) only.
 
 %% ============================================================================

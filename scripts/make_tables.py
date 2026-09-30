@@ -37,8 +37,9 @@ TAB1 = [
     ("Ours P0 (plug-in)", "ours_P0", "u_ale", "all"),
     ("Ours P1 (posterior mean)", "ours_P1", "u_ale", "all"),
     ("Ours P2 (adaptive $\\beta$)", "ours_P2", "u_ale", "asP0"),
-    ("Ours P3 (mixture)", "@p3", "u_ale", "all"),
 ]
+# attempt 06 (P3, "@p3") stays out of Table I: its validation NLL did not beat P2's (the
+# rule fixed before the run); scripts/make_tables.py choose --key p3 still reports its choice
 COLS = [("miou", 100.0), ("acc", 100.0), ("ece", 100.0), ("nll", 1.0), ("brier", 100.0),
         ("aurc", 100.0)]
 # family: (row prefix, default row, criterion on the validation summary; lower is better)

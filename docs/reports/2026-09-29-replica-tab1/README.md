@@ -2,7 +2,7 @@
 2026-09-29 | root: /home/thanhnc/gauss_ws/src/uags | git: master@778bb64 | [all reports](../INDEX.md)
 Follows: [Data, baselines and evaluation infrastructure](../2026-09-29-data-and-baselines/README.md)
 Verdict: IN PROGRESS -- Table I test done and in the paper (d287321); views figure and Table III running
-Key result: test (N=6, one shot): AUSE of our u_ale 8.50 vs NormLift 1-C_inter 8.76, CSS variance 11.20, LEGaussians 19.73 (best uncertainty); tuned CSS best calibrated (ECE 5.05 vs ours P2 8.70) ([table](#test-table-i-one-shot-run-code-224fe1e))
+Key result: test (N=6, one shot): AUSE of our u_ale 8.50 ~ NormLift 1-C_inter 8.76 (3/6 scenes), < CSS variance 11.20, << LEGaussians 19.73; tuned CSS best calibrated (ECE 5.05 vs ours P2 8.70) ([table](#test-table-i-one-shot-run-code-224fe1e))
 Attempts: 1 (0 Good / 1 Bad: attempt 06 P3) | Time: started 2026-09-29 13:49 +07; final val 2026-09-30 06:50
 
 Running: [chain3.sh](logs/chain3.sh): Table I val eval -> Table I test (once) -> views + Table III val/test | /home/thanhnc/gauss_ws/data/uags_results/chain3.log | started 2026-09-30 ~08:55
@@ -115,6 +115,10 @@ Our u_ale has a lower AUSE than NormLift's 1-C_inter on 3 of 6 test scenes. Wher
 has the best mIoU, ECE, Brier, AURC and MSP AUSE (it is told the scene's classes at mapping time); NLL ties
 (1.00 vs 1.01). Claims allowed by these numbers: u_ale is the best own-uncertainty ranking of the 0/1 error; P2 is the
 best open-vocabulary predictive; "calibrated" is NOT used (P2 wins ECE but ties NLL, the rule in the draft).
+CORRECTION (same day, from the per-scene table): u_ale beats NormLift's 1-C_inter on only 3 of 6 scenes (room_1,
+office_1, office_2); the mean gap (8.50 vs 8.76) comes mostly from office_1. So the claim is "on par with NormLift
+1-C_inter, better than the CSS variance (4 of 6 scenes) and than LEGaussians' u (6 of 6)", not "the best"; the paper
+text was corrected before commit.
 
 ### Validation Table I (final code bfcab98)
 Mean over office_0, room_2 (N=2); all pixels (coverage rule); lower is better except mIoU/Acc. Command: the chain

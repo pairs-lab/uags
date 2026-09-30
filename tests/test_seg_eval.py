@@ -706,6 +706,11 @@ def test_eval_views_cli(tmp_path):
     assert set(r["ause"]) >= {"u_epi", "u_ale", "msp", "entropy"}
     assert out["summary"]["1"]["ours_P0"]["u_epi"]["e_red"]["n"] == 1
     assert json.loads((tmp_path / "views_out.json").read_text())["ks"] == [1, 4]
+    assert r["on_ale_defined"]["n_pixels"] == 0          # 1 view: u_ale undefined everywhere
+    d4 = k4["on_ale_defined"]                            # 4 views: the defined-pixel analysis
+    assert 0 < d4["share"] <= 1 and d4["n_pixels"] <= k4["n_pixels"]
+    assert set(d4["ause"]) >= {"u_epi", "u_ale", "msp"}
+    assert "4" in out["summary_on_ale_defined"]
     print(f"PASS eval_views: k=1 e_red {r['n_e_red']} px, AUSE u_epi {r['ause']['u_epi']}")
 
 

@@ -35,7 +35,8 @@ sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 import eval_seg as ES                                                      # noqa: E402
 from usplat.seg_eval import (SegAccumulator, evaluate_view, freeze_rows,   # noqa: E402
-                             views_cross_ause, scene_stats)
+                             views_cross_ause, scene_stats, cross_ause, error_targets,
+                             ranking_signals, _aligned_keep)
 
 
 def accumulate(S, betas, args, rows_wanted):
@@ -61,6 +62,36 @@ def row_names(S, args):
     return want
 
 
+REF_ROW, REF_CHANNEL = "ours_P0", "u_ale"
+
+
+def on_defined(res, acc_k, acc_full, rows, args):
+    """Secondary analysis (added after the validation run, labelled as such in the paper):
+    every row's signals scored on the SAME pixels, those covered in both maps where our
+    u_ale is defined (support >= tau_min views). The primary AUSE ranks an undefined u_ale as
+    the most uncertain (the rule fixed before any run), which mixes low evidence into the
+    aleatoric ranking; this asks how the channels rank the errors once u_ale exists."""
+    if REF_ROW not in rows:
+        return
+    ref, ref_full = acc_k.arrays(REF_ROW), acc_full.arrays(REF_ROW)
+    if REF_CHANNEL not in ref["u"]:
+        return
+    keep, _ = _aligned_keep(ref, ref_full, True)
+    sub = keep & torch.isfinite(ref["u"][REF_CHANNEL])
+    if not bool(sub.any()):                   # u_ale undefined everywhere (e.g. 1 view)
+        for r in rows:
+            res[r]["on_ale_defined"] = dict(ause={}, n_pixels=0, share=0.0, n_e_red=0, n_e_irr=0)
+        return
+    for r in rows:
+        ak, af = acc_k.arrays(r), acc_full.arrays(r)
+        t = error_targets(ak["correct"][sub], af["correct"][sub])
+        sig = ranking_signals(ak)
+        res[r]["on_ale_defined"] = dict(
+            ause=cross_ause({s: v[sub] for s, v in sig.items()}, t, args.ause_bins),
+            n_pixels=int(sub.sum()), share=float(sub.sum()) / max(int(keep.sum()), 1),
+            n_e_red=int(t["e_red"].sum()), n_e_irr=int(t["e_irr"].sum()))
+
+
 def evaluate_scene(sc, vocab, betas, args, device, ks):
     t0 = time.perf_counter()
     S_full = ES.load_scene(sc, vocab, args, device)
@@ -83,6 +114,7 @@ def evaluate_scene(sc, vocab, betas, args, device, ks):
             res[r] = views_cross_ause(acc_k.arrays(r), acc_full.arrays(r),
                                       ause_bins=args.ause_bins)
             res[r]["miou_k"] = mk[r]["all"].get("miou")
+        on_defined(res, acc_k, acc_full, rows, args)
         out["k"][str(k)] = dict(field=path, n_mapping_views=n_map, rows=res)
         for r in rows:
             a = res[r]["ause"]
@@ -109,6 +141,25 @@ def summarize(results, ks):
     return summ
 
 
+def summarize_on_defined(results, ks):
+    """The secondary analysis (on_defined): {k: {row: {signal: {target: stats}}, share}}."""
+    summ = {}
+    for k in ks:
+        per = [res["k"][str(k)]["rows"] for res in results.values()]
+        rows = sorted(set.intersection(*[set(p) for p in per])) if per else []
+        rows = [r for r in rows if all("on_ale_defined" in p[r] for p in per)]
+        summ[str(k)] = {}
+        for r in rows:                    # a scene with no defined pixel counts as NaN
+            sigs = sorted({s for p in per for s in p[r]["on_ale_defined"]["ause"]})
+            get = lambda p, s, t: p[r]["on_ale_defined"]["ause"].get(s, {}).get(t, float("nan"))
+            summ[str(k)][r] = {s: {t: scene_stats([get(p, s, t) for p in per])
+                                   for t in ("e_red", "e_irr")} for s in sigs}
+        if rows:
+            summ[str(k)]["share"] = scene_stats([p[rows[0]]["on_ale_defined"]["share"]
+                                                 for p in per])
+    return summ
+
+
 def run(args):
     device = args.device
     if device.startswith("cuda"):
@@ -128,7 +179,7 @@ def run(args):
             raise ValueError(f"scene {sc['name']}: no field for k = {miss}")
     res = {sc["name"]: evaluate_scene(sc, vocab, betas, args, device, ks) for sc in scenes}
     return dict(betas_path=os.path.abspath(args.betas), betas=betas, ks=ks, scenes=res,
-                summary=summarize(res, ks))
+                summary=summarize(res, ks), summary_on_ale_defined=summarize_on_defined(res, ks))
 
 
 def build_parser():

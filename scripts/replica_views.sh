@@ -74,12 +74,13 @@ done
 python3 - "$OUT" "$STAGE" "$SCENES" <<'PY'
 import json, sys
 sys.path.insert(0, "scripts")
-from eval_views import summarize
+from eval_views import summarize, summarize_on_defined
 out, stage, scenes = sys.argv[1], sys.argv[2], sys.argv[3].split()
 per = {s: json.load(open(f"{out}/views_{stage}_{s}.json")) for s in scenes}
 ks = per[scenes[0]]["ks"]
 res = {s: per[s]["scenes"][s] for s in scenes}
 json.dump(dict(ks=ks, scenes=res, summary=summarize(res, ks),
+               summary_on_ale_defined=summarize_on_defined(res, ks),
                parts={s: f"{out}/views_{stage}_{s}.json" for s in scenes}),
           open(f"{out}/views_{stage}.json", "w"), indent=1)
 print(f"merged {len(scenes)} scenes -> {out}/views_{stage}.json")

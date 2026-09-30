@@ -139,6 +139,22 @@ aleatoric ranking. Decision (on validation, before any views test run): keep tha
 secondary analysis, labelled post hoc, that scores every row on the pixels where u_ale is defined (206c0b7); the views
 validation is re-run with it (chain4).
 
+### Views figure, validation re-run with the defined-pixel analysis (code 206c0b7)
+Source: [logs/views/views_val_206c0b7.json](logs/views/views_val_206c0b7.json). The primary numbers reproduce the
+first run (largest AUSE change 1e-5 x100; one pixel of ~6.8M flipped: GPU float order in the re-mapped k-view fields).
+Secondary analysis (post hoc, decided on validation): every row scored on the pixels where our u_ale is defined.
+
+| M | u_ale defined on | u_ale on e_irr | u_epi on e_irr | NormLift 1-C_inter on e_irr | MSP on e_irr |
+|---|---|---|---|---|---|
+| 10 | 1.3% of covered pixels | 2.35 | 8.43 | 2.42 | 1.45 |
+| 30 | 29.3% | 2.08 | 6.89 | 2.07 | 1.88 |
+| 90 | 73.8% | 3.34 | 7.92 | 3.36 | 3.34 |
+
+Reading: once u_ale exists it ranks irreducible errors 2-4x better than u_epi and on par with NormLift's 1 - C_inter
+(the bias correction matters below tau_min, where u_ale is not defined); MSP matches or beats it. Supported claim:
+the two channels play complementary roles (u_epi: reducible errors, all pixels; u_ale: irreducible errors, where
+defined), not "each channel ranks its own error everywhere".
+
 ### Validation Table I (final code bfcab98)
 Mean over office_0, room_2 (N=2); all pixels (coverage rule); lower is better except mIoU/Acc. Command: the chain
 ([logs/chain.sh](logs/chain.sh)) ran `STAGE=val scripts/replica_tab1.sh` in a clean worktree at bfcab98

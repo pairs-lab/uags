@@ -290,6 +290,7 @@ def load_scene(sc, vocab, args, device):
     code = (ckpt.get("code") or {}).get("mapping_code_sha256")
     return dict(name=sc["name"], field=field, splats=splats, frames=frames, text=text, pca=pca,
                 field_identity=field_identity(ckpt), field_code=code,
+                aux_identities=sorted(set(ckpt.get("_aux_identities") or [])),
                 rows2d=rows2d,
                 class_ids=[vocab["ids"][i] for i in q], class_names=[vocab["names"][i] for i in q],
                 rows=rows, n_unknown=n_unknown, n_skipped=skipped)
@@ -309,14 +310,15 @@ def field_identity(ckpt):
                extractor_options=ckpt.get("extractor_options"),
                field_config=ckpt.get("field_config"),
                args={k: cfg.get(k) for k in IDENTITY_ARGS})
-    if ckpt.get("_aux_identities"):          # files a row factory read (e.g. distilled rows)
-        key["aux"] = sorted(ckpt["_aux_identities"])
     return hashlib.sha256(json.dumps(_plain_json(key), sort_keys=True).encode()).hexdigest()
 
 
-def check_field_identity(ident, settings, scene, args):
-    """In --betas mode, refuse a field built differently from the fields the betas were fit
-    on (a field without a recorded code version counts as different)."""
+def check_field_identity(ident, aux, settings, scene, args):
+    """In --betas mode, refuse a scene built differently from the validation scenes the betas
+    were fit on: its field identity must be one of theirs, and every auxiliary file a row
+    factory read (e.g. a distilled baseline) must match one read on validation (validation may
+    hold more, e.g. a hyperparameter grid). A field without a recorded code version counts as
+    different. Called right after the scene is loaded, before any evaluation."""
     if not args.betas or getattr(args, "allow_field_mismatch", False):
         return
     val = (settings or {}).get("field_identities")
@@ -327,6 +329,10 @@ def check_field_identity(ident, settings, scene, args):
         raise ValueError(f"scene {scene}: field identity {ident[:12]} is not one of the "
                          f"validation fields' {[v[:12] for v in val]} (different mapping code, "
                          f"extractor options, FieldConfig or protocol); rebuild the fields")
+    extra = sorted(set(aux) - set((settings or {}).get("aux_identities") or []))
+    if extra:
+        raise ValueError(f"scene {scene}: auxiliary files {[e[:12] for e in extra]} were not "
+                         f"built like any read on validation (another code or config)")
 
 
 @torch.no_grad()
@@ -440,10 +446,11 @@ def scene_views_2d(S, args):
 def fit_on(scenes, vocab, args, device):
     fitter = BetaFitter(args.tau_cov, max_pixels_per_view=args.fit_pixels, seed=args.seed,
                         undef_frac=args.undef_frac)
-    ids = set()
+    ids, aux = set(), set()
     for sc in scenes:
         S = load_scene(sc, vocab, args, device)
         ids.add(S["field_identity"])
+        aux |= set(S["aux_identities"])
         fitter.add(S["rows"], scene_views(S, args))
         if S["rows2d"]:
             fitter.add(S["rows2d"], scene_views_2d(S, args))
@@ -452,7 +459,7 @@ def fit_on(scenes, vocab, args, device):
         warnings.warn(f"validation fields were built differently ({len(ids)} identities): "
                       f"rebuild them with one code version")
     betas = fitter.fit()
-    settings = dict(fitter.settings, field_identities=sorted(ids))
+    settings = dict(fitter.settings, field_identities=sorted(ids), aux_identities=sorted(aux))
     return betas, fitter.info, settings
 
 
@@ -475,8 +482,9 @@ def betas_used(rows, betas, raw_probs):
     return used
 
 
-def evaluate_scene(sc, vocab, betas, args, device):
+def evaluate_scene(sc, vocab, betas, args, device, settings=None):
     S = load_scene(sc, vocab, args, device)
+    check_field_identity(S["field_identity"], S["aux_identities"], settings, sc["name"], args)
     raw = _raw_probs(args)
     used = betas_used(S["rows"] + S["rows2d"], betas, raw)
     rows = freeze_rows(S["rows"])
@@ -496,6 +504,7 @@ def evaluate_scene(sc, vocab, betas, args, device):
         acc.add(out)
     return dict(n_views=acc.n_views, classes=S["class_names"], class_ids=S["class_ids"],
                 field_identity=S["field_identity"], field_code=S["field_code"],
+                aux_identities=S["aux_identities"],
                 betas_used=used, raw_probs=sorted(raw & set(used)),
                 n_unknown_label_pixels=S["n_unknown"], n_skipped_frames=S["n_skipped"],
                 eval_s=time.perf_counter() - t0, rows=acc.metrics(args.ece_bins, args.ause_bins))
@@ -600,9 +609,8 @@ def run(args, rec=None):
         res = {}
         partial = f"{args.out}.partial.json"
         for sc in _load_structured(args.scenes):
-            res[sc["name"]] = evaluate_scene(sc, vocab, out["betas"], args, device)
-            check_field_identity(res[sc["name"]]["field_identity"], out.get("beta_fit_settings"),
-                                 sc["name"], args)
+            res[sc["name"]] = evaluate_scene(sc, vocab, out["betas"], args, device,
+                                             settings=out.get("beta_fit_settings"))
             with open(partial, "w") as f:           # a crash later keeps the finished scenes
                 json.dump(_plain_json(dict(out, scenes=res)), f, indent=1)
             for r, m in res[sc["name"]]["rows"].items():

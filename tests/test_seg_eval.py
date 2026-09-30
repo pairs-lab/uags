@@ -868,3 +868,20 @@ def test_cli_p3_rows(tmp_path):
                             "--out", str(tmp_path / "nop3.json")])
     assert not [r for r in none["scenes"]["toy"]["rows"] if r.startswith("ours_P3")]
     print(f"PASS CLI P3 rows: {p3}")
+
+
+def test_check_field_identity_aux_subset():
+    """Validation may hold more auxiliary files (a hyperparameter grid) than a test scene; a
+    test file must match one of them, and the main field identity must match exactly."""
+    import types
+    cli = _load_cli()
+    args = types.SimpleNamespace(betas="fit.json", allow_field_mismatch=False)
+    st = dict(field_identities=["F"], aux_identities=["a", "b", "c"])
+    cli.check_field_identity("F", ["a", "c"], st, "s", args)               # subset: fine
+    with pytest.raises(ValueError, match="auxiliary"):
+        cli.check_field_identity("F", ["a", "z"], st, "s", args)
+    with pytest.raises(ValueError, match="field identity"):
+        cli.check_field_identity("G", ["a"], st, "s", args)
+    cli.check_field_identity("G", ["z"], st, "s",                          # override
+                             types.SimpleNamespace(betas="f", allow_field_mismatch=True))
+    print("PASS identity check: exact field, auxiliary files a subset of validation's")

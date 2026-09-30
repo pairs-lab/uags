@@ -5,7 +5,7 @@ Verdict: IN PROGRESS -- final validation done (bfcab98); test stage running (bas
 Key result: validation (N=2, final code bfcab98): ours P2 ECE 4.88 / NLL 0.824 vs tuned CSS 4.70 / 0.774 (CSS wins); u_epi AUSE 8.81 vs NormLift epi 11.52; P3 NEGATIVE ([table](#validation-table-i-final-code-bfcab98)); test running
 Attempts: 1 (0 Good / 1 Bad: attempt 06 P3) | Time: started 2026-09-29 13:49 +07; final val 2026-09-30 06:50
 
-Running: Table I test stage ([chain.sh](logs/chain.sh), /home/thanhnc/gauss_ws/data/uags_results/tab1/chain.log); then views + Table III val/test ([chain2.sh](logs/chain2.sh), /home/thanhnc/gauss_ws/data/uags_results/chain2.log)
+Running: [chain3.sh](logs/chain3.sh): Table I val eval -> Table I test (once) -> views + Table III val/test | /home/thanhnc/gauss_ws/data/uags_results/chain3.log | started 2026-09-30 ~08:55
 
 ## 0 Context
 - Ask: "continue to complete our paper" -> fill Table I (plan section 3) with measured numbers.
@@ -45,6 +45,8 @@ So the gate stays at 6000 MiB (+2048 headroom) and the stage waits for gaps betw
 | u_ale is defined for few Gaussians but most pixel mass | tau_min = 3 views; most Gaussians are tiny (median pixel mass over 179 views: 4.2 px office_0, 1.6 px room_2; a full view is a0*H*W = 7.7 px) | [logs/support_stats.log](logs/support_stats.log): defined for 22.4% / 12.2% of Gaussians but 84.2% / 81.8% of pixel mass; u_ale mean 0.020 / 0.007 (LSeg features agree across views) |
 
 | Feature 3DGS training on office_0 died at 05:08 with cudaErrorLaunchTimeout after 4k clean iterations (loss 0.0224 -> 0.0081) | this GPU also drives the display (gnome-shell), so a kernel that runs past the watchdog kills the process; 30k-iteration trainings launch ~100x more kernels than a mapping pass | [logs/cuda_timeout_distill_office_0_0508.log](logs/cuda_timeout_distill_office_0_0508.log); fix: the training state is checkpointed every 2k iterations and resumed (a resumed run equals an uninterrupted one: tests/test_distill.py), the pipeline retries a failed GPU step up to 3 times, and the LEGaussians decoder init follows the seed (d359bc4) |
+
+| First test evaluation (08:37) refused by the field-identity check, before any metric was printed or saved | the check hashed the main field AND every auxiliary file into one identity; the validation scenes also hold the LEGaussians lambda_u = 1, 2 files, so the hashes differed although every file matched; it also checked only after a whole scene was evaluated | [logs/refused_test_eval_0837.log](logs/refused_test_eval_0837.log) (no test numbers: status "running", no metrics, no partial file); fix 224fe1e: main field identity exact, auxiliary files a subset of validation's, checked right after loading; the validation eval is re-run to record both sets (same betas) |
 
 ## 2 Baseline
 3DGS maps (Sequence_1, every 5th frame = 180 frames, 157 train / 23 held out, i % 8 == 0; 30k iterations; 640x480):

@@ -1,14 +1,13 @@
 # Reports: uags
 ## Current state
-Method in code; paper text now matches it ([paper revision 1](2026-09-29-paper-revision-1/README.md), 8 pages, all numbers
-placeholders). Extractor: LSeg (Replica val 2D worst-scene mIoU 23.2, [attempt 05](2026-09-29-data-and-baselines/attempts/05-extractor-study.md)).
-Running: Replica Table I validation stage ([report](2026-09-29-replica-tab1/README.md)); Fig views and Tab III pipelines ready.
-Open: RIO10 access form (user); 7-page target; support = summed view weight (Kish never binds on u_epi).
-Last updated 2026-09-29.
+Replica Table I is measured and in the paper ([report](2026-09-29-replica-tab1/README.md), test N=6, one shot): our
+aleatoric channel ranks errors on par with NormLift's 1-C_inter and better than CSS / LEGaussians; tuned closed-set CSS is
+the best calibrated; Feature 3DGS and LEGaussians (added as SOTA baselines) do not beat fusion. Running: views figure and
+Table III. Open: RIO10 access (user), P3 attempt negative, paper at 8 pages (journal class). Last updated 2026-09-30.
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|
-| 2026-09-29 | [Replica Table I](2026-09-29-replica-tab1/README.md) | IN PROGRESS | val (N=2): tuned CSS best calibrated (NLL 0.774 vs ours P2 0.824); ours best open-vocab; P3 negative; test running |
+| 2026-09-29 | [Replica Table I](2026-09-29-replica-tab1/README.md) | IN PROGRESS | test (N=6): u_ale AUSE 8.50 ~ NormLift 8.76, < CSS 11.2, << LEGaussians 19.7; tuned CSS best calibrated; Table I in paper; views + Tab III running |
 | 2026-09-29 | [Paper revision 1](2026-09-29-paper-revision-1/README.md) | DONE | text matches code, ieeeconf, anonymous; 29 review fixes; 8 pages |
 | 2026-09-29 | [Bibliography moved to ref.bib](2026-09-29-bibliography/README.md) | DONE | 49 entries verified; compiles with BibTeX, 0 errors/undefined |
 | 2026-09-29 | [Data, baselines and eval infrastructure](2026-09-29-data-and-baselines/README.md) | IN PROGRESS | Replica ready; CLIP bug fixed; LSeg chosen (val worst-scene mIoU 13.4 -> 23.2); change score = residual on proxy |

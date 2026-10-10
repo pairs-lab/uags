@@ -8,7 +8,9 @@ It is the one special function the field needs:
     MAP concentration A_d(kappa_hat) = ||R + m0|| / (n + c0);
   * the posterior mean of the direction is E[mu] = A_d(kappa_post) mu*, which the
     mean-field predictive uses to shrink poorly-supported Gaussians;
-  * 1 - A_d(kappa) is the exact expected angular spread E[1 - cos].
+  * 1 - A_d(kappa) is the exact expected angular spread E[1 - cos];
+  * A_d(kappa)/kappa is the variance of a vMF sample along each tangent direction
+    (tangent_var), which the vote predictive P4 moment-matches (usplat.predictive).
 
 The Bessel ratio is evaluated once per dimension d on a log-spaced kappa grid (float64)
 and then interpolated in torch, so the per-Gaussian calls stay on the GPU.
@@ -80,6 +82,17 @@ def a_d_inv(d: int, r: torch.Tensor) -> torch.Tensor:
     out = torch.where(rr <= 0, torch.zeros_like(out), out)
     out = torch.where(torch.isnan(rr), rr, out)
     return out.to(r.dtype)
+
+
+def tangent_var(d: int, kappa: torch.Tensor) -> torch.Tensor:
+    """A_d(kappa)/kappa, elementwise: the variance of x ~ vMF(mu, kappa) along any direction
+    orthogonal to mu, from E[x x^T] = (A/kappa) I + (1 - d A/kappa) mu mu^T (the trace is 1;
+    mu^T E[x x^T] mu = 1 - (d-1) A/kappa = E[(mu^T x)^2]). 1/d at kappa = 0 (uniform), -> 0
+    as kappa -> inf. Used by the tangent-Gaussian vote sampler (usplat.predictive)."""
+    a = a_d(d, kappa).to(torch.float64)
+    kap = kappa.detach().to(torch.float64)
+    out = torch.where(kap > 0, a / kap.clamp_min(_KAPPA_MIN), torch.full_like(a, 1.0 / d))
+    return out.to(kappa.dtype)
 
 
 def _interp(x, xp, fp):

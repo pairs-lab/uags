@@ -34,7 +34,9 @@ Rows: ours_P0/P1/P2 (usplat.rows.field_rows), ours_scalar (the 1 - A_d spread on
 ours_P3_b<beta_g> (usplat.rows.FieldProbRow: the per-Gaussian predictive rendered as a
 mixture, one row per beta_g of usplat.rows.P3_BETAS; --no-p3 leaves them out), and
 the rows of --row-factory "module:function", called as fn(ckpt, field, device) -> [Row]
-(e.g. baselines stored in the field checkpoint). --rows selects by name.
+(e.g. baselines stored in the field checkpoint). --rows selects by name. --v2-rows adds the
+Table I v2 candidates (P2 on the P1 base, the P1 prior grid, the P4 vote predictive; see
+candidate_rows and configs/tab1_v2_prereg.json).
 --with-2d adds the row "2d_features": the extractor run on the EVALUATION frame itself, the
 same tokens -> upsample -> PCA path as run_mapping.py (the map's PCA), no 3D map. It covers
 every pixel (alpha = 1), has no own uncertainty (MSP/entropy only) and gets its own beta.
@@ -367,10 +369,16 @@ def frozen_on(rows, device):
 
 
 def candidate_rows(field, ckpt, device, args, class_ids=None, text=None):
+    """The rows of one scene. --v2-rows adds the Table I v2 candidates (usplat.rows.v2_rows:
+    ours_P2p1, ours_P1_c<c0>, and with the scene's text ours_P4_a<alpha0>_s<lam>,
+    ours_P4_inf), read-outs of the same saved field; default off: the v1 rows only."""
     rows = field_rows(field, "ours")
     rows.append(FieldRow("ours_scalar", "feature", field=field, mode="P0", channels=("spread",)))
     if text is not None and not getattr(args, "no_p3", False):
         rows += p3_rows(field, text.to(field.device))  # P3: mixture of per-Gaussian predictives
+    if getattr(args, "v2_rows", False):
+        from usplat.rows import v2_rows
+        rows += v2_rows(field, None if text is None else text.to(field.device))
     import inspect
     for spec in [s.strip() for s in (args.row_factory or "").split(",") if s.strip()]:
         mod, fn = spec.split(":")
@@ -649,6 +657,9 @@ def build_parser():
     ap.add_argument("--allow-field-mismatch", action="store_true",
                     help="with --betas: evaluate fields built differently from the val fields")
     ap.add_argument("--no-p3", action="store_true", help="leave out the P3 mixture rows")
+    ap.add_argument("--v2-rows", action="store_true",
+                    help="add the Table I v2 candidates (usplat.rows.v2_rows: ours_P2p1, the P1 "
+                         "c0 grid, the P4 vote grid; configs/tab1_v2_prereg.json)")
     ap.add_argument("--with-2d", action="store_true",
                     help="add the 2D row: the extractor on each evaluation frame (no map)")
     ap.add_argument("--raw-probs", default="",

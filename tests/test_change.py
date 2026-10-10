@@ -367,8 +367,84 @@ def test_slow_decay_uses_stream_view_weight():
             assert torch.allclose(f.raw.W1, 100.0 * Wt.sum(0), rtol=1e-5)
     print("PASS slow_decay: S decays by lambda^w (stream view weight), centre on or off")
 
+
+def _brute_tests(views, thr, k=2, tau=3, edges=(4.0, 6.0, 10.0, 20.0, 40.0)):
+    """Brute-force change test for full-weight views and fast_memory = 0. views: list of
+    (ids, U (n, d)); thr(v, bucket) -> threshold at view v. Per Gaussian: the views since its
+    last reset; c = 1 - cos(sum of the earlier ones, current) is defined from the tau-th view
+    on; the test uses the min of the last k defined c, in the history bucket of ns = views - 1;
+    a fire restarts the history at the current view and clears the ring.
+    returns per view (tested ids, fired ids, tested buckets, fired buckets)."""
+    hist, ring, out = {}, {}, []
+    for v, (ids, U) in enumerate(views):
+        tested, fired, tb, fb = [], [], [], []
+        for n, u in zip(ids.tolist(), U.double()):
+            h = hist.setdefault(n, [])
+            h.append(u)
+            if len(h) < tau:
+                continue
+            c = 1 - Fn.cosine_similarity(torch.stack(h[:-1]).sum(0), u, dim=0, eps=1e-8)
+            r = ring.setdefault(n, [])
+            r.append(float(c))
+            del r[:-k]
+            if len(r) < k:
+                continue
+            b = int(torch.bucketize(torch.tensor(float(len(h) - 1)), torch.tensor(edges)))
+            tested.append(n); tb.append(b)
+            if min(r) > thr(v, b):
+                fired.append(n); fb.append(b)
+                hist[n], ring[n] = [u], []
+        out.append((tested, fired, tb, fb))
+    return out
+
+
+def test_test_counters_and_state():
+    """last_tested / last_fired per view and n_tests / n_fires per history bucket equal a
+    brute-force change test (mapping pass with threshold inf, then a calibrated per-history
+    threshold loose enough to fire); the mapping-pass test count equals the null histogram;
+    the counters survive state_dict / from_state, and a state saved before them loads with
+    zeros."""
+    torch.manual_seed(0)
+    N, d, V, half = 300, 8, 30, 15
+    mu = Fn.normalize(torch.randn(N, d), dim=-1)
+    views = []
+    for v in range(V):
+        ids = torch.nonzero(torch.rand(N) < 0.7).squeeze(1)       # partial coverage per view
+        views.append((ids, Fn.normalize(mu[ids] + 0.4 * torch.randn(len(ids), d), dim=-1)))
+    f = DirectionalSemanticField(N, d, FieldConfig(view_mass_frac=0.01, readmit_depth=None))
+    got = []
+    for v, (ids, U) in enumerate(views):
+        if v == half:
+            assert torch.equal(f.n_tests.double(), f.c_hist.sum(1))   # mapping: tests = null
+            assert int(f.n_fires.sum()) == 0
+            f.calibrate_change_threshold(0.9)              # a loose threshold: fires happen
+        _view(f, ids, U)
+        got.append((f.last_tested.clone(), f.last_fired.clone()))
+    thr = f.thr_by_hist.tolist()
+    ref = _brute_tests(views, lambda v, b: float("inf") if v < half else thr[b])
+    nt, nf = torch.zeros(6, dtype=torch.long), torch.zeros(6, dtype=torch.long)
+    for v, ((tested, fired), (t_ids, f_ids, tb, fb)) in enumerate(zip(got, ref)):
+        assert torch.nonzero(tested).squeeze(1).tolist() == sorted(t_ids), v
+        assert torch.nonzero(fired).squeeze(1).tolist() == sorted(f_ids), v
+        nt += torch.bincount(torch.tensor(tb, dtype=torch.long), minlength=6)
+        nf += torch.bincount(torch.tensor(fb, dtype=torch.long), minlength=6)
+    assert torch.equal(f.n_tests, nt) and torch.equal(f.n_fires, nf)
+    assert int(f.n_fires.sum()) == int(f.n_resets.sum()) > 0
+    s = f.state_dict()
+    g = DirectionalSemanticField.from_state(s)
+    for name in ("last_tested", "last_fired", "n_tests", "n_fires"):
+        assert torch.equal(getattr(f, name), getattr(g, name)), name
+    old = {k: v for k, v in s.items() if k not in ("last_tested", "last_fired", "n_tests",
+                                                    "n_fires", "m_max")}
+    h = DirectionalSemanticField.from_state(old)
+    assert int(h.n_tests.sum()) == 0 and not h.last_tested.any()
+    assert torch.equal(h.raw.R, f.raw.R)
+    print(f"PASS counters = brute force: {int(f.n_tests.sum())} tests, "
+          f"{int(f.n_fires.sum())} fires; round trip and old states")
+
 if __name__ == "__main__":
     test_slow_decay_uses_stream_view_weight()
+    test_test_counters_and_state()
     test_change_reset_readmit()
     test_readmit_without_depth_uses_views()
     test_buckets_partition_and_decay()

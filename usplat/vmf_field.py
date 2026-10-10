@@ -62,6 +62,11 @@ changed Gaussian re-enters the robust set only after `readmit_views` new views A
 observed-depth residual (non-oracle depth input), so a removed object's Gaussians cannot
 come back with stale geometry.
 
+Test record: after each view last_tested (N,) marks the Gaussians whose persistent score was
+defined (they were tested) and last_fired those above the threshold; n_tests / n_fires count
+both per history bucket. On a static sequence n_fires / n_tests is the REALISED per-view
+false-alarm rate that the quantile q targets (scripts/run_mapping.py --summary-json).
+
 Every fix has a switch in FieldConfig so the ablations can turn it off one at a time;
 FieldConfig.legacy() reproduces the field at git ab28fb4 (tests/test_legacy.py).
 """
@@ -223,6 +228,14 @@ class _Channel:
         return self.Wr / self.W1.clamp_min(_EPS)
 
 
+# per-Gaussian / per-bucket tensors of state_dict (after the channels). States saved before
+# the test record (last_tested ... n_fires) lack them: from_state keeps the zeros
+_STATE_TENSORS = ("Rf", "nf", "Rs", "ns", "fB2", "fC", "fCq", "fBq2", "T2", "TQ", "pixel_mass",
+                  "depth_abs", "depth_w", "depth_last", "views_since_reset", "c_ring", "c_hist",
+                  "c_last", "c_max", "changed", "n_resets", "last_tested", "last_fired",
+                  "n_tests", "n_fires")
+
+
 class DirectionalSemanticField:
     HIST_EDGES = (4.0, 6.0, 10.0, 20.0, 40.0)   # slow-bucket history (views) buckets
     MIN_NULL = 200                              # null samples a bucket needs for its own thr
@@ -260,6 +273,14 @@ class DirectionalSemanticField:
         nb = len(self.HIST_EDGES) + 1
         self.c_hist = torch.zeros(nb, 4000, device=self.device, dtype=torch.float64)
         self.thr_by_hist = None                                # (nb,) after calibration
+        # test record: last_tested = the persistent score was defined at the last view (the
+        # Gaussian was tested), last_fired = it exceeded the threshold; n_tests / n_fires count
+        # them per history bucket over the field's life (fires / tests = realised per-view
+        # false-alarm rate on a static sequence)
+        self.last_tested = torch.zeros(N, dtype=torch.bool, device=self.device)
+        self.last_fired = torch.zeros(N, dtype=torch.bool, device=self.device)
+        self.n_tests = torch.zeros(nb, dtype=torch.int64, device=self.device)
+        self.n_fires = torch.zeros(nb, dtype=torch.int64, device=self.device)
         self.pixel_mass = z(N)                                 # sum_v m_v (ablation)
         self.depth_abs, self.depth_w = z(N), z(N)              # |observed - Gaussian| depth
         self.views_since_reset = z(N)                          # view units in every mode
@@ -436,6 +457,9 @@ class DirectionalSemanticField:
                 self.c_hist.index_put_((hb[ok], bins), torch.ones_like(v), accumulate=True)
             thr = self.thr_by_hist[hb] if self.thr_by_hist is not None else cfg.change_thr
             fire = ok & (c_p > thr)
+            self.last_tested, self.last_fired = ok, fire
+            self.n_tests += torch.bincount(hb[ok], minlength=self.n_tests.numel())
+            self.n_fires += torch.bincount(hb[fire], minlength=self.n_fires.numel())
             if bool(fire.any()):
                 self.raw.reset(fire); self.cen.reset(fire)
                 self.depth_abs[fire] = 0; self.depth_w[fire] = 0
@@ -529,6 +553,17 @@ class DirectionalSemanticField:
         self.c_max.zero_()
         self.c_last.fill_(float("nan"))
         return thr
+
+    @torch.no_grad()
+    def set_change_threshold(self, thr):
+        """One fixed threshold for every history size (the fixed-threshold ablation: a value
+        carried over from the validation scenes instead of the scene's own null). Like
+        calibrate_change_threshold it starts a fresh c_max / c_last record."""
+        self.thr_by_hist = None
+        self.cfg.change_thr = float(thr)
+        self.c_max.zero_()
+        self.c_last.fill_(float("nan"))
+        return self.cfg.change_thr
 
     def _null_dissimilarity(self, W2, Q):
         """E0[1 - cos(S, F)] when both buckets sample the same distribution
@@ -683,6 +718,8 @@ class DirectionalSemanticField:
         self.depth_last.fill_(float("nan")); self.c_last.fill_(float("nan"))
         self.c_ring.fill_(float("nan")); self.c_hist.zero_(); self.thr_by_hist = None
         self.changed.zero_(); self.n_resets.zero_()
+        for t in (self.last_tested, self.last_fired, self.n_tests, self.n_fires):
+            t.zero_()
 
     def state_dict(self):
         s = dict(config=self.cfg.to_dict(), N=self.N, d=self.d, dtype=str(self.dtype),
@@ -697,9 +734,7 @@ class DirectionalSemanticField:
         for name in ("R", "W1", "W2", "Q", "Wr"):
             s[f"raw_{name}"] = getattr(self.raw, name).cpu()
             s[f"cen_{name}"] = keep(getattr(self.cen, name))
-        for name in ("Rf", "nf", "Rs", "ns", "fB2", "fC", "fCq", "fBq2", "T2", "TQ", "pixel_mass",
-                     "depth_abs", "depth_w", "depth_last", "views_since_reset", "c_ring", "c_hist",
-                     "c_last", "c_max", "changed", "n_resets"):
+        for name in _STATE_TENSORS:
             x = getattr(self, name)
             s[name] = x.cpu() if name in ("depth_last", "c_ring", "c_last") else keep(x)
         return s
@@ -720,9 +755,7 @@ class DirectionalSemanticField:
             getattr(f.raw, name).copy_(s[f"raw_{name}"])
             if s.get(f"cen_{name}") is not None:          # None: all zero when saved
                 getattr(f.cen, name).copy_(s[f"cen_{name}"])
-        for name in ("Rf", "nf", "Rs", "ns", "fB2", "fC", "fCq", "fBq2", "T2", "TQ", "pixel_mass",
-                     "depth_abs", "depth_w", "depth_last", "views_since_reset", "c_ring", "c_hist",
-                     "c_last", "c_max", "changed", "n_resets"):
+        for name in _STATE_TENSORS:
             if s.get(name) is not None:
                 getattr(f, name).copy_(s[name])
         return f

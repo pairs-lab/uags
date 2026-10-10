@@ -11,6 +11,8 @@ scannetv2-labels.combined.tsv two levels up, as in the download):
    without label-filt the frames are those of the old loader (labels None);
  * prepare_scannet: colour / 2 as usplat.datasets.downscale (image and K), the rest
    symlinked, idempotent, other settings and incomplete exports refused;
+ * scannet_frame_view: the evaluation frames with a finite pose, so run_mapping.py's CSS
+   vocabulary is exactly the classes eval_seg.py queries (not those of mapping frames);
  * eval_seg.py end to end on CPU (mock backend) with the real configs/vocab_scannet.json:
    offset frames only, the lost-tracking frame skipped, NYU40 ids outside the 19 classes
    ignored, no unknown ids;
@@ -217,6 +219,65 @@ def test_prepare_scannet_matches_downscale(tmp_path):
         prepare_scannet(str(src), str(tmp_path / "y"))
     print(f"PASS prepare_scannet: colour / 2 equals downscale(native, 2) up to JPEG "
           f"(mean abs diff {diff:.2f}); K, labels, depth, poses identical")
+
+
+def test_frame_view_gives_css_the_evaluation_classes(tmp_path):
+    """The CSS vocabulary (run_mapping.py css_vocabulary on the view, stride 1) equals the
+    classes of the frames eval_seg.py evaluates: floor only in frames 10 and 15 (mapping /
+    unused) and cabinet only in the lost evaluation frame 25 stay out; every 5th frame of the
+    whole scan (the old rule) would add both."""
+    import argparse
+    import cv2
+    import sys
+    scan = _fake_scan(tmp_path / "d" / "scans" / "scene0004_00", n=50, hw=(24, 32),
+                      label_hw=(24, 32), lost=(25,))
+    with open(tmp_path / "d" / "scannetv2-labels.combined.tsv", "a") as f:
+        f.write("5\tcabinet\tcabinet\t1\t3\t1\tx\ty\n")             # raw 5 -> NYU40 3 (cabinet)
+    for i in range(50):
+        lab = _raw_labels(24, 32, i)
+        if i not in (10, 15):
+            lab[lab == 3] = 1
+        if i == 25:
+            lab[10:14, 10:14] = 5
+        cv2.imwrite(str(scan / "label-filt" / f"{i}.png"), lab)
+    from usplat.datasets import scannet_frame_view
+    view = tmp_path / "view"
+    rec = scannet_frame_view(str(scan), str(view), stride=20, offset=5)
+    assert rec["frames"] == [5, 45] and rec["lost"] == [25]
+    assert sorted(os.listdir(view / "color")) == ["45.jpg", "5.jpg"]
+    for name in ("depth", "pose", "label-filt", "intrinsic", "scannetv2-labels.combined.tsv"):
+        assert (view / name).is_symlink(), name
+    ds = ScanNetDataset(str(view))
+    assert [ds[i]["index"] for i in range(len(ds))] == [5, 45]
+    assert ds.label_map == str(view / "scannetv2-labels.combined.tsv")
+    sys.path.insert(0, str(REPO / "scripts"))
+    try:
+        import run_mapping
+    finally:
+        sys.path.remove(str(REPO / "scripts"))
+    css = lambda data, stride: run_mapping.css_vocabulary(argparse.Namespace(
+        vocab=str(REPO / "configs" / "vocab_scannet.json"), dataset="scannet",
+        css_eval_data=str(data), css_eval_stride=stride, extractor="lseg"))[0]
+    cli = _load_cli()
+    vocab = cli.load_vocab(str(REPO / "configs" / "vocab_scannet.json"))
+    args = cli.build_parser().parse_args(["--vocab", "v", "--out", "o", "--downscale", "1"])
+    frames, _, skipped = cli.load_frames(dict(name="s", data=str(scan), dataset="scannet",
+                                              stride=20, offset=5), vocab, args)
+    present = torch.unique(torch.cat([f["labels"].reshape(-1) for f in frames]))
+    queried = [vocab["ids"][i] for i in present.tolist() if i >= 0]
+    assert [f["idx"] for f in frames] == [5, 45] and skipped == 1
+    assert css(view, 1) == queried == [1, 5]                       # wall, chair
+    assert css(scan, 5) == [1, 2, 3, 5]                            # + floor, cabinet
+    # idempotent; other settings and stray frames refused
+    assert scannet_frame_view(str(scan), str(view), stride=20, offset=5) == rec
+    with pytest.raises(ValueError, match="another"):
+        scannet_frame_view(str(scan), str(view), stride=20, offset=0)
+    os.symlink(scan / "color" / "10.jpg", view / "color" / "10.jpg")
+    os.remove(view / "view.json")
+    with pytest.raises(ValueError, match="outside the view"):
+        scannet_frame_view(str(scan), str(view), stride=20, offset=5)
+    print(f"PASS scannet_frame_view: CSS vocabulary {css(view, 1)} = the evaluation frames' "
+          f"classes {queried}; every 5th frame would give {css(scan, 5)}")
 
 
 # ---------------------------------------------------------------------------- eval_seg

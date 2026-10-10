@@ -132,9 +132,15 @@ class ScanNetDataset(_PosedRGBD):
     3DGS work reports ScanNet (OpenGaussian, NeurIPS 2024, scripts/eval_scannet.py target_id;
     NormLift follows that protocol). Which subset is evaluated is the vocabulary's choice
     (configs/vocab_scannet.json: those 19 classes, every other NYU40 id ignored), not the
-    loader's. The tsv is `label_map`, else the first of <root>, <root>/.., <root>/../.. that
-    holds it (the ScanNet download keeps it beside scans/); label-filt without it is an error
-    (raw ids are not class ids). Without label-filt, labels is None.
+    loader's. (OpenGaussian scores 3D points, the *_vh_clean_2.labels.ply vertices; these are
+    2D per-pixel labels, so its numbers are not comparable with ours.) The tsv is
+    `label_map`, else the first of <root>, <root>/.., <root>/../.. that holds it (the ScanNet
+    download keeps it beside scans/); label-filt without it is an error (raw ids are not
+    class ids). Without label-filt, labels is None. eval_seg.py resamples the labels once
+    more onto its render grid, again by nearest neighbour: on a prepared scan (labels
+    968x1296 -> colour 484x648 -> render 242x324) the two steps pick a label pixel about one
+    native pixel (1/4 render pixel) off the direct nearest one, a small boundary shift shared
+    by every row.
 
     Depth (640x480) is not registered to the colour image (1296x968; the normalised
     intrinsics differ by about 1%): intrinsic_depth.txt is returned as K_depth, which
@@ -288,6 +294,61 @@ def prepare_scannet(src, dst, factor=2, quality=95, label_map=None):
     rec["status"] = "ok"
     with open(rp, "w") as fh:
         json.dump(rec, fh, indent=1)
+    return rec
+
+
+def scannet_frame_view(src, dst, stride, offset=0):
+    """Write `dst`, a ScanNet layout holding only the frames offset, offset + stride, ... of
+    the scan `src` (positions in its sorted colour frames, as ScanNetDataset selects them)
+    whose pose is finite: color/<i>.jpg symlinked per frame; depth/, pose/, label-filt/,
+    intrinsic/ and the label map symlinked whole. ScanNetDataset(dst) (stride 1) then holds
+    exactly the frames scripts/eval_seg.py evaluates with that stride and offset (it skips
+    lost-tracking poses). dst/view.json records the settings and frame numbers; a rerun with
+    the same settings only fills in missing links, other settings are refused.
+
+    Why: run_mapping.py's css_vocabulary gives the closed-set CSS baseline the classes of
+    --css-eval-data read with --css-eval-stride (no offset). On Replica those are the
+    evaluation frames; over a whole ScanNet scan (e.g. every 5th frame) they would add the
+    classes of mapping frames, columns whose votes CSS's rows(class_ids) then discards."""
+    import json
+    stride, offset = int(stride), int(offset)
+    if stride < 1 or offset < 0:
+        raise ValueError(f"stride must be >= 1 and offset >= 0 (got {stride}, {offset})")
+    rgb = sorted(glob.glob(os.path.join(src, "color", "*.jpg")),
+                 key=lambda p: int(os.path.basename(p).split(".")[0]))
+    if not rgb:
+        raise FileNotFoundError(f"{src}/color: no frames")
+    frames, lost = [], []
+    for p in rgb[offset::stride]:
+        stem = os.path.basename(p).split(".")[0]
+        pose = np.loadtxt(os.path.join(src, "pose", stem + ".txt"))
+        (frames if np.isfinite(pose).all() else lost).append(int(stem))
+    rec = dict(src=os.path.abspath(src), stride=stride, offset=offset, frames=frames, lost=lost)
+    rp = os.path.join(dst, "view.json")
+    if os.path.exists(rp):
+        old = json.load(open(rp))
+        diff = sorted(k for k, v in rec.items() if old.get(k) != v)
+        if diff:
+            raise ValueError(f"{dst} is a view with another {', '.join(diff)}; remove it first")
+    os.makedirs(os.path.join(dst, "color"), exist_ok=True)
+    extra = sorted(set(os.listdir(os.path.join(dst, "color"))) - {f"{i}.jpg" for i in frames})
+    if extra:
+        raise ValueError(f"{dst}/color holds frames outside the view: {extra[:10]}")
+    for i in frames:
+        link = os.path.join(dst, "color", f"{i}.jpg")
+        if not os.path.lexists(link):
+            os.symlink(os.path.abspath(os.path.join(src, "color", f"{i}.jpg")), link)
+    lm = ScanNetDataset.find_label_map(src)
+    for name, target in (("depth", os.path.join(src, "depth")),
+                         ("pose", os.path.join(src, "pose")),
+                         ("label-filt", os.path.join(src, "label-filt")),
+                         ("intrinsic", os.path.join(src, "intrinsic")),
+                         (SCANNET_LABEL_MAP, lm)):
+        if target and os.path.exists(target) and not os.path.lexists(os.path.join(dst, name)):
+            os.symlink(os.path.abspath(target), os.path.join(dst, name))
+    with open(rp + ".tmp", "w") as fh:
+        json.dump(rec, fh, indent=1)
+    os.replace(rp + ".tmp", rp)
     return rec
 
 

@@ -367,10 +367,16 @@ def frozen_on(rows, device):
 
 
 def candidate_rows(field, ckpt, device, args, class_ids=None, text=None):
+    """The rows of one scene. --v2-rows adds the Table I v2 candidates (usplat.rows.v2_rows:
+    ours_P2p1, ours_P1_c<c0>, and with the scene's text ours_P4_a<alpha0>_s<lam>,
+    ours_P4_inf), read-outs of the same saved field; default off: the v1 rows only."""
     rows = field_rows(field, "ours")
     rows.append(FieldRow("ours_scalar", "feature", field=field, mode="P0", channels=("spread",)))
     if text is not None and not getattr(args, "no_p3", False):
         rows += p3_rows(field, text.to(field.device))  # P3: mixture of per-Gaussian predictives
+    if getattr(args, "v2_rows", False):
+        from usplat.rows import v2_rows
+        rows += v2_rows(field, None if text is None else text.to(field.device))
     import inspect
     for spec in [s.strip() for s in (args.row_factory or "").split(",") if s.strip()]:
         mod, fn = spec.split(":")
@@ -649,6 +655,9 @@ def build_parser():
     ap.add_argument("--allow-field-mismatch", action="store_true",
                     help="with --betas: evaluate fields built differently from the val fields")
     ap.add_argument("--no-p3", action="store_true", help="leave out the P3 mixture rows")
+    ap.add_argument("--v2-rows", action="store_true",
+                    help="add the Table I v2 candidates (usplat.rows.v2_rows: ours_P2p1, the P1 "
+                         "c0 grid, the P4 vote grid; configs/tab1_v2_prereg.json)")
     ap.add_argument("--with-2d", action="store_true",
                     help="add the 2D row: the extractor on each evaluation frame (no map)")
     ap.add_argument("--raw-probs", default="",

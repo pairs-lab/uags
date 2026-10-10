@@ -1,0 +1,56 @@
+{
+ "name": "Table I v2 (Replica): read-out-only predictives selected on validation",
+ "registered": "2026-10-10",
+ "status": "registered before any v2 run (validation or test); scripts/replica_tab1_v2.sh refuses to run while this file has uncommitted changes",
+ "v1": {
+  "test_commit": "224fe1e",
+  "test_record": "docs/reports/2026-09-29-replica-tab1/logs/eval_test_224fe1e.json",
+  "val_record": "docs/reports/2026-09-29-replica-tab1/logs/eval_val_224fe1e.json"
+ },
+ "maps": "the existing v1 3DGS maps and fields (no re-mapping, no distillation): every new row is a read-out of the saved field statistics",
+ "pipeline": "scripts/replica_tab1_v2.sh: STAGE=val (fit one temperature per row on the validation scenes, evaluate them, write the selection), then STAGE=test once",
+ "scenes": {
+  "validation": "configs/replica_val.json",
+  "test": "configs/replica_test.json"
+ },
+ "test_look": "SECOND look at the Replica test split: the first was Table I v1 (code 224fe1e); the v2 report and the paper say so",
+ "grids": {
+  "p1_c0": [0.01, 0.03, 0.1, 0.3, 1],
+  "p4_alpha0": [0.01, 0.1, 1],
+  "p4_lambda": [0.5, 1, 2],
+  "p4_samples": 256,
+  "p4_seed": 0,
+  "p4_inf_alpha0": 0.01
+ },
+ "metric": {
+  "name": "nll",
+  "variant": "all",
+  "pooling": "pixels",
+  "text": "validation NLL in nats with the coverage rule (variant 'all'), pooled over the labelled pixels of all validation scenes: sum_s n_s NLL_s / sum_s n_s, n_s = labelled pixels of scene s; temperatures fit by eval_seg.py on the same validation scenes (one per row, as in v1)"
+ },
+ "tie": {
+  "tol": 0.0001,
+  "rule": "candidates within tol nats of the lowest value tie; the tie goes to the one listed first; lists run from the reference setting outward (P1: c0 = 1, the FieldConfig default; P4: lambda = 1, the vMF moment match, then alpha0 = 1, the flat Dirichlet of CSS's default; @ours_v2: the v1 predictive ours_P2 first, so a v2 row must beat it by more than tol)"
+ },
+ "choices": {
+  "@p1": {
+   "rows": ["ours_P1_c1", "ours_P1_c0.3", "ours_P1_c0.1", "ours_P1_c0.03", "ours_P1_c0.01"]
+  },
+  "@p4": {
+   "rows": ["ours_P4_a1_s1", "ours_P4_a0.1_s1", "ours_P4_a0.01_s1",
+            "ours_P4_a1_s0.5", "ours_P4_a0.1_s0.5", "ours_P4_a0.01_s0.5",
+            "ours_P4_a1_s2", "ours_P4_a0.1_s2", "ours_P4_a0.01_s2"]
+  },
+  "@ours_v2": {
+   "rows": ["ours_P2", "ours_P2p1", "@p1", "@p4"]
+  }
+ },
+ "ablations": ["ours_P4_inf"],
+ "reporting": [
+  "Every candidate (ours_P2, ours_P2p1, the P1 c0 grid, the P4 grid) and the ablation ours_P4_inf is evaluated on validation and test and reported in the v2 report, selected or not; test numbers of rows not selected are labelled 'not selected'.",
+  "@ours_v2 is the open-vocabulary predictive of Table I v2; if it is ours_P2, Table I keeps v1's P2 and the v2 rows are reported as not better on validation.",
+  "The v1 rows, betas and test record are kept unchanged; v2 numbers live in their own records (uags_results/tab1_v2).",
+  "The selection is final once STAGE=test starts: test numbers never change a choice, a grid, a tie rule or this file.",
+  "The paper states that the v2 rows were scored on the Replica test split in a second look, after the v1 table, with every choice fixed on validation beforehand."
+ ]
+}

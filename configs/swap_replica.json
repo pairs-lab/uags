@@ -45,7 +45,7 @@
  "eval": {
   "query_classes": "the classes with labelled pixels in the scene's mapping or update frames (the bank's classes), vocabulary order",
   "rows": ["ours", "ours_noreset", "averaging"],
-  "ours_noreset": "the same run with --field-config '{\"change_test\": false}' and the reset field's PCA (--pca-from)",
+  "ours_noreset": "the same run with --fixed-change-thr inf (the change test runs, the same c, never a reset) and the reset field's PCA (--pca-from); eval_change.py refuses it unless it saw the reset field's features (mapping code, run arguments, PCA, centre, frames log)",
   "common_rows": ["ours_c_max", "u_ale", "1-rbar"]
  },
  "criterion": {

@@ -12,11 +12,14 @@
   GT         SwapGT equals the brute-force W^T one-hot sums; labels at 0.5 / 0.05, targets
              fold the source into its target, objects are classes
   end to end a tiny Replica-format scene on disk: bank (fake extractor) -> fields with and
-             without reset (mock rasterizer, the shared-interface call) -> gt-swap (mock) ->
-             eval -> criterion: the reset field is the most accurate on swapped Gaussians
+             without reset (mock rasterizer, the shared-interface call; no reset = the change
+             test with an infinite threshold) -> gt-swap (mock) -> eval (the compare field's
+             features checked) -> criterion: the reset field is the most accurate on swapped
+             Gaussians
   script     replica_swap.sh DRY_RUN: the commands and their flags (run_mapping's own argparse
-             plus the two shared-interface flags; eval_change / make_swap_bank parsers), map
-             and refusal rules (dirty tree, no validation record, other spec, finished test)
+             plus the T2 flags: the two shared-interface flags, --fixed-change-thr and
+             --change-baselines; eval_change / make_swap_bank parsers), map and refusal rules
+             (dirty tree, no validation record, other spec, finished test)
 """
 import importlib.util
 import json
@@ -311,9 +314,10 @@ def _toy_spec(tmp_path):
     return str(p), spec
 
 
-def _map_fields(tmp_path, root, spec_path, bank_path, change_test, log_name):
-    """run_mapping.py's loop on the CPU: mapping pass, calibration (change test on), update
-    pass with the shared-interface transform call."""
+def _map_fields(tmp_path, root, spec_path, bank_path, reset, log_name):
+    """run_mapping.py's loop on the CPU: mapping pass, calibration (reset) or none (the
+    threshold stays inf, as --fixed-change-thr inf: c is scored, nothing resets), update pass
+    with the shared-interface transform call."""
     import sys
     sys.path.insert(0, os.path.join(REPO, "scripts"))
     from eval_seg import PinholeMockRasterizer
@@ -327,7 +331,7 @@ def _map_fields(tmp_path, root, spec_path, bank_path, change_test, log_name):
     pca = StreamingPCA(D, D)
     pca.basis = torch.eye(D)
     ext = FakeExtractor()
-    cfg = FieldConfig(change_test=change_test, readmit_depth=None)
+    cfg = FieldConfig(readmit_depth=None)
     cfg.change_thr = float("inf")
     field = DirectionalSemanticField(N, D, cfg)
     nl = NormLift.for_field(field, with_averaging=True)
@@ -346,10 +350,10 @@ def _map_fields(tmp_path, root, spec_path, bank_path, change_test, log_name):
                                         fr["K"], w, h)
             field.update_view(ras, z, num_pixels=h * w)
     run_sequence(make_dataset("replica_semnerf", os.path.join(root, "toy", "Sequence_1")), False)
-    if change_test:
+    if reset:
         field.calibrate_change_threshold(0.999)
     run_sequence(make_dataset("replica_semnerf", os.path.join(root, "toy", "Sequence_2")), True)
-    out = tmp_path / f"field_{int(change_test)}.pt"
+    out = tmp_path / f"field_{int(reset)}.pt"
     torch.save(dict(field=field.state_dict(), pca=pca.state_dict(), baselines=baselines_state([nl]),
                     config=dict(feature_transform="usplat.swap:swap_factory",
                                 feature_transform_arg=arg)), out)
@@ -387,8 +391,8 @@ def test_end_to_end_cpu(tmp_path):
     assert rec["status"] == "ok" and rec["metrics"]["pairs"][0]["target_id"] == CLS["table"]
     # 2. fields with and without the reset, through the shared-interface call
     f1, field = _map_fields(tmp_path, root, spec_path, bank_path, True, "f1.frames.json")
-    f0, _ = _map_fields(tmp_path, root, spec_path, bank_path, False, "f0.frames.json")
-    assert int((field.n_resets >= 1).sum()) > 0
+    f0, field0 = _map_fields(tmp_path, root, spec_path, bank_path, False, "f0.frames.json")
+    assert int((field.n_resets >= 1).sum()) > 0 and int(field0.n_resets.sum()) == 0
     log = json.load(open(tmp_path / "f1.frames.json"))
     assert [f["i"] for f in log["frames"]] == [0, 1, 2, 3]
     # 3. ground truth (mock backend, the frames the transform logged)
@@ -470,7 +474,8 @@ def test_replica_swap_sh_dry_run(tmp_path):
     cmds = _commands(r.stdout)
     assert len(cmds) == 5 * 2 + 1                         # 5 steps per val scene + criterion
     mapping_flags = _run_mapping_flags()
-    shared = {"--feature-transform", "--feature-transform-arg"}     # the T2 shared interface
+    shared = {"--feature-transform", "--feature-transform-arg",     # the T2 shared interface
+              "--fixed-change-thr", "--change-baselines"}           # and T2's change flags
     ec = _load_cli("eval_change").build_parser()
     mb = _load_cli("make_swap_bank").build_parser()
     root = str(tmp_path / "Replica")
@@ -480,7 +485,7 @@ def test_replica_swap_sh_dry_run(tmp_path):
         a = mb.parse_args(bank[4:])
         assert a.scene == s and a.root == root and a.out.endswith(f"banks/{s}.pt")
         for cmd in (reset, noreset):
-            assert cmd[:4] == ["scripts/gpu_gate.sh", "9000", "python3", "scripts/run_mapping.py"]
+            assert cmd[:4] == ["scripts/gpu_gate.sh", "10000", "python3", "scripts/run_mapping.py"]
             flags = {t for t in cmd[4:] if t.startswith("--")}
             assert flags - mapping_flags <= shared, flags - mapping_flags
             v = dict(zip(cmd[4:], cmd[5:]))
@@ -491,16 +496,18 @@ def test_replica_swap_sh_dry_run(tmp_path):
             assert arg["scene"] == s and arg["spec"] == "configs/swap_replica.json"
             assert arg["bank"] == a.out and arg["log"].endswith(".frames.json")
         v0 = dict(zip(noreset[4:], noreset[5:]))
-        assert json.loads(v0["--field-config"]) == {"change_test": False}
+        assert v0["--fixed-change-thr"] == "inf" and float(v0["--fixed-change-thr"]) == float("inf")
         assert v0["--pca-from"] == dict(zip(reset[4:], reset[5:]))["--out"]
-        assert "--field-config" not in reset
+        assert "--field-config" not in reset and "--field-config" not in noreset
+        assert "--fixed-change-thr" not in reset
+        assert "--change-baselines" in reset and "--change-baselines" not in noreset
         assert gt[:4] == ["scripts/gpu_gate.sh", "7000", "python3", "scripts/eval_change.py"]
         g = ec.parse_args(gt[4:])
         assert g.cmd == "gt-swap" and g.downscale == 2 and g.backend == "gsplat"
         assert g.frames_log == SW.parse_arg(dict(zip(reset[4:], reset[5:]))["--feature-transform-arg"])["log"]
         assert ev[:2] == ["python3", "scripts/eval_change.py"]
         e = ec.parse_args(ev[2:])
-        assert e.cmd == "eval" and e.split == "val" and e.scene == s
+        assert e.cmd == "eval" and e.split == "val" and e.scene == s and e.reference == ""
         assert e.compare_field == [f"ours_noreset={v0['--out']}"]
     c = ec.parse_args(cmds[-1][2:])
     assert c.cmd == "criterion" and len(c.records) == 2 and c.reference == ""
@@ -531,6 +538,8 @@ def test_replica_swap_sh_dry_run(tmp_path):
     assert len(cmds) == 5 * 6 + 1
     c = ec.parse_args(cmds[-1][2:])
     assert c.split == "test" and c.reference.endswith("criterion_val.json") and len(c.records) == 6
+    evs = [ec.parse_args(cmd[2:]) for cmd in cmds if cmd[:3] == ["python3", "scripts/eval_change.py", "eval"]]
+    assert len(evs) == 6 and all(e.split == "test" and e.reference == c.reference for e in evs)
     (out / "criterion_test.json").write_text(json.dumps(dict(status="ok")))
     r = _run_sh(tmp_path, "test")
     assert r.returncode == 1 and "finished test run" in r.stdout

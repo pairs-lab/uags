@@ -4,10 +4,12 @@
 #   bank      scripts/make_swap_bank.py: resolve the spec's pair rule (labels + text only), cut
 #             real target-class features from mapping frames (GPU: LSeg)
 #   reset     run_mapping.py on Sequence_1, update pass on Sequence_2 through
-#             --feature-transform usplat.swap:swap_factory (the default field: change test on)
-#   noreset   the same with --field-config '{"change_test": false}' and the reset field's PCA
-#             (--pca-from), so both fields see identical features. NEEDS run_mapping.py to skip
-#             calibrate_change_threshold when the change test is off (it raises otherwise)
+#             --feature-transform usplat.swap:swap_factory (the default field: change test on),
+#             with --change-baselines (the residual rows; read only from a checkpoint whose
+#             ChangeBaselines state is marked update-pass only, usplat/change_eval.py)
+#   noreset   the same with --fixed-change-thr inf (the change test runs, the same c, never a
+#             reset) and the reset field's PCA (--pca-from), so both fields see identical
+#             features; eval_change.py checks it (code, arguments, PCA, centre, frames logs)
 #   gt        scripts/eval_change.py gt-swap: update-pass splat mass on swapped pixels over the
 #             frames the transform logged (GPU: gsplat)
 #   eval      scripts/eval_change.py eval (CPU): change rows + accuracy on swapped / static
@@ -18,7 +20,8 @@
 #                criterion record of the same spec ($OUT/criterion_val.json), when
 #                $OUT/criterion_test.json holds a finished test run, and when a scene's finished
 #                test record comes from another commit (FORCE_TEST=1 overrides the last two).
-#                The criterion refuses test fields built with other mapping code than val's.
+#                eval_change.py enforces the same rules itself (eval gets --reference) and
+#                refuses test fields built with other mapping code than val's.
 # Never writes into the Tab I outputs: the maps are READ from $MAPS (scripts/replica_tab1.sh);
 # banks, fields and ground truth go to $SWAP, records and logs to $OUT. Every GPU step goes
 # through scripts/gpu_gate.sh. Existing banks/fields/GT are reused. DRY_RUN=1 prints each
@@ -35,7 +38,7 @@ OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/swap}
 SPEC=${SPEC:-configs/swap_replica.json}
 STAGE=${STAGE:-val}
 DRY_RUN=${DRY_RUN:-0}
-MAP_NEED=${MAP_NEED:-9000}       # as replica_tab1.sh (mapping + baselines)
+MAP_NEED=${MAP_NEED:-10000}      # as replica_static_fa.sh (mapping + baselines + residuals)
 BANK_NEED=${BANK_NEED:-5000}     # LSeg fp32 on the bank frames
 GT_NEED=${GT_NEED:-7000}         # one K-channel render per update frame
 TS=$(date +%Y%m%d-%H%M%S)
@@ -100,6 +103,8 @@ done
 mkdir -p "$SWAP/banks" "$SWAP/fields" "$SWAP/gt" "$SWAP/scores" "$OUT"
 FT=()                                   # eval_change.py refuses to overwrite a finished test record
 [ "$STAGE" = test ] && [ "${FORCE_TEST:-0}" = 1 ] && FT=(--force-test)
+REF=()                                  # test: scored after the finished validation criterion
+[ "$STAGE" = test ] && REF=(--reference "$OUT/criterion_val.json")
 
 RECORDS=()
 for s in $SCENES; do
@@ -123,13 +128,13 @@ for s in $SCENES; do
           --update-data "$ROOT/$s/$USEQ" --update-stride "$USTRIDE"
           --feature-transform usplat.swap:swap_factory)
   [ -f "$F" ] || step "$OUT/map_${s}.$TS.log" scripts/gpu_gate.sh "$MAP_NEED" \
-    python3 scripts/run_mapping.py "${COMMON[@]}" \
+    python3 scripts/run_mapping.py "${COMMON[@]}" --change-baselines \
     --feature-transform-arg "bank=$BANK,spec=$SPEC,scene=$s,log=$SWAP/fields/${s}_swap.frames.json" \
     --out "$F"
   [ -f "$F0" ] || step "$OUT/map_${s}_noreset.$TS.log" scripts/gpu_gate.sh "$MAP_NEED" \
     python3 scripts/run_mapping.py "${COMMON[@]}" \
     --feature-transform-arg "bank=$BANK,spec=$SPEC,scene=$s,log=$SWAP/fields/${s}_swap_noreset.frames.json" \
-    --field-config '{"change_test": false}' --pca-from "$F" --out "$F0"
+    --fixed-change-thr inf --pca-from "$F" --out "$F0"
   [ -f "$GT" ] || step "$OUT/gt_${s}.$TS.log" scripts/gpu_gate.sh "$GT_NEED" \
     python3 scripts/eval_change.py gt-swap --ply "$MAPS/${s}_seq1.pt" --data "$ROOT/$s/$USEQ" \
     --dataset replica_semnerf --update-stride "$USTRIDE" \
@@ -137,10 +142,8 @@ for s in $SCENES; do
     --downscale "$DOWNSCALE" --backend gsplat --device cuda --out "$GT" --record "$OUT/gt_${s}.json"
   step "$OUT/eval_${STAGE}_${s}.$TS.log" python3 scripts/eval_change.py eval --field "$F" --gt "$GT" \
     --config "$SPEC" --scene "$s" --split "$STAGE" --compare-field "ours_noreset=$F0" \
-    --dump-scores "$SWAP/scores/${STAGE}_${s}.pt" "${FT[@]}" --out "$REC"
+    --dump-scores "$SWAP/scores/${STAGE}_${s}.pt" "${REF[@]}" "${FT[@]}" --out "$REC"
 done
-REF=()
-[ "$STAGE" = test ] && REF=(--reference "$OUT/criterion_val.json")
 step "$OUT/criterion_${STAGE}.$TS.log" python3 scripts/eval_change.py criterion --config "$SPEC" \
   --split "$STAGE" --records "${RECORDS[@]}" "${REF[@]}" "${FT[@]}" --out "$OUT/criterion_${STAGE}.json"
 [ "$DRY_RUN" = 1 ] || cat "$OUT/criterion_${STAGE}.$TS.log"

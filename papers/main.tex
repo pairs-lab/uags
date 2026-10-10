@@ -755,18 +755,32 @@ Ours P2 (adaptive $\beta$) & \checkmark & \multicolumn{2}{c}{as P0} & 8.7{\scrip
 \end{tabular}
 \end{table*}
 
-In Table~\ref{tab:replica}, P0 renders the view-weighted mean of the features
-that averaging uses (a parity check), NormLift differs from averaging only in
-its uncertainty, and P2 changes only the confidence of the P0 labels. P0 matches
-averaging (28.0 vs 27.9 mIoU), and every fused map beats the 2D features of
-the frame itself (26.3). Training the features does not help: Feature 3DGS
-equals averaging, and LEGaussians loses four points to its quantization. P2
-lowers ECE from 9.9 to 8.7 and AURC from 13.8 to 12.2 at the same NLL. CSS,
-told the scene's classes while mapping, is the best calibrated row (ECE 5.1);
-among the open-vocabulary rows P2 is. Our $u^{\mathrm{ale}}$ ranks the errors
-as well as NormLift's $1-C_{\mathrm{inter}}$ (AUSE 8.5 vs 8.8, lower on three
-of six scenes) and better than the CSS variance (11.2), while the learned $u$
-of LEGaussians ranks them worse than its own confidence (19.7 vs 11.9).
+%% Per-scene counts below: eval_test_224fe1e.json (docs/reports/2026-09-29-
+%% replica-tab1/logs), metrics.scenes[s].rows[r].all.{miou,ece,nll,brier,aurc}
+%% for r in ours_P0/P1/P2, averaging, css_a0.01, 2d_features; AUSE from
+%% .all.ranking.{u_ale,normlift_1-Cinter,css_var_top,legs_u,msp}.ause; the
+%% random order is .ranking.legs_u.random_gap. P2 lower than averaging /
+%% CSS on ECE 3/2, NLL 5/3, Brier 6/1, AURC 6/2 of 6; P2 < P0 on AURC 6/6,
+%% ECE 3/6; P1 < P0 on NLL 1/6, ECE 2/6. LEGaussians u collapse at
+%% lambda_u = 4: replica-tab1 README, "Validation Table I (final code bfcab98)".
+In Table~\ref{tab:replica}, P0 renders the view-weighted mean of the averaging
+features and matches averaging (28.0 vs 27.9 mIoU), a parity check. Every map
+row except LEGaussians (24.0) is above the 2D features of the frame itself in
+the mean (26.3), P0 on four of six scenes. For our third contribution, the
+posterior mean is a negative result: P1 does not lower NLL or ECE against P0
+(1.04 vs 1.00, 10.2 vs 9.9). P2 keeps the NLL of P0 and lowers AURC from 13.8
+to 12.2 on all six scenes, but ECE (9.9 to 8.7) on only three. Against
+averaging, P2 is lower on 3, 5, 6 and 6 of the six scenes in ECE, NLL, Brier
+and AURC; against CSS on 2, 3, 1 and 2. CSS has the lowest ECE (5.1), Brier
+and AURC, P2 the lowest among open-vocabulary rows; their NLL ties (1.00 vs
+1.01). CSS differs from all other rows in its input (the scene's classes at
+mapping time) and its read-out (per-pixel class votes). \todo{control for the
+input: CSS with the full vocabulary, pending.} Our $u^{\mathrm{ale}}$ ranks
+the errors on par with NormLift's $1-C_{\mathrm{inter}}$ (AUSE 8.5 vs 8.8,
+lower on three of six scenes) and better than the CSS variance (11.2, four of
+six). On validation, the learned $u$ of LEGaussians collapsed to zero at the
+chosen $\lambda_u=4$; its test AUSE (19.7) is near that of a random order
+(20.6).
 
 \begin{figure}[t]
   \centering

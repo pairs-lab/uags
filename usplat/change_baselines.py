@@ -54,6 +54,10 @@ Fusion: fuse_rank averages normalised ranks with equal fixed weights (ties get t
 rank, NaN the lowest rank 0). It is a pre-registered row: nothing is fitted. Ranks are NOT
 invariant to which Gaussians are ranked, so the population is part of the definition:
 pre-registered as the AP population (observed, not hidden, labelled), passed as `mask`.
+
+Label-free thresholds (ResidualNull): the field's rule applied to each residual, a q-quantile
+of its own per-view persistent residuals over the (static) mapping pass, pooled; the update
+pass then counts tests and fires per view (the static false-alarm run, run_mapping.py).
 """
 from __future__ import annotations
 from typing import Sequence
@@ -348,6 +352,92 @@ class ChangeBaselines:
         for name, st in s["series"].items():
             cb._series(name).load_state_dict(st)
         return cb
+
+
+# ------------------------------------------------------------ label-free thresholds
+class ResidualNull:
+    """Label-free thresholds of the residual baselines and their realised per-view false-alarm
+    counts, with the rule of the field's calibrate_change_threshold (scripts/run_mapping.py
+    --change-baselines --summary-json).
+
+    Per view v the test statistic of residual g at Gaussian n is its persistent value
+        rbar_{v,n} = min of the last k observed residuals            (TemporalScore.ring)
+    defined where v observes n and n has >= k observations: the per-view value of the kmin
+    filter, as the field's score is the min of its last k defined c.
+      record(cb, per_view)  mapping pass, static by assumption: every defined rbar is a null
+                            sample and enters one histogram per residual (BINS bins on
+                            [0, hi]: hi = 2 for the NCC and cosine residuals, DEPTH_HI m for
+                            depth; larger values count in the last bin)
+      calibrate(q)          threshold = upper edge of the q bin (the field's estimator)
+      test(cb, per_view)    per view: defined tests and fires rbar > threshold
+    POOLED, one null per residual: the field keeps one null per slow-bucket history size, but a
+    residual compares the view with a fixed map (ncc: the 3DGS colours; depth: its geometry) or
+    with a render that mixes the histories of every Gaussian on the pixel (feat), so it has no
+    per-Gaussian history size. The baselines never reset: a Gaussian above its threshold is
+    tested, and fires, again at its next view."""
+
+    BINS = 20000
+    DEPTH_HI = 4.0                                   # [m] histogram range of depth residuals
+
+    def __init__(self, bins=BINS, depth_hi=DEPTH_HI):
+        self.bins, self.depth_hi = int(bins), float(depth_hi)
+        self.hist: dict[str, torch.Tensor] = {}      # name -> (bins,) float64 counts (CPU)
+        self.thr: dict[str, float] = {}              # name -> threshold after calibrate()
+        self.saturated: dict[str, bool] = {}         # the q bin was the last (>= hi) bin
+        self.q = None
+
+    def hi(self, name):
+        return self.depth_hi if name.startswith("depth") else 2.0
+
+    @staticmethod
+    @torch.no_grad()
+    def statistic(cb: "ChangeBaselines", per_view):
+        """{name: (defined (N,) bool, rbar (N,))} for the view cb.update() just returned."""
+        out = {}
+        for name, r in per_view.items():
+            ts = cb.series[name]
+            defined = torch.isfinite(r) & (ts.count >= ts.k)
+            out[name] = (defined, ts.ring.min(dim=1).values)
+        return out
+
+    @torch.no_grad()
+    def record(self, cb, per_view):
+        for name, (defined, rb) in self.statistic(cb, per_view).items():
+            hi = self.hi(name)
+            v = rb[defined].double().clamp(0.0, hi)
+            b = (v * (self.bins / hi)).long().clamp(max=self.bins - 1)
+            h = self.hist.setdefault(name, torch.zeros(self.bins, dtype=torch.float64))
+            h += torch.bincount(b, minlength=self.bins).double().cpu()
+
+    def calibrate(self, q):
+        """name -> threshold: the upper edge of the q bin of the residual's mapping-pass null
+        (inf when no score was ever defined: that row cannot fire)."""
+        self.q = float(q)
+        for name, h in self.hist.items():
+            if float(h.sum()) == 0:
+                self.thr[name], self.saturated[name] = float("inf"), False
+                continue
+            cdf = torch.cumsum(h, 0) / h.sum()
+            i = int(torch.searchsorted(cdf, torch.tensor([self.q], dtype=cdf.dtype))
+                    .clamp(max=self.bins - 1))
+            self.thr[name] = (i + 1) * self.hi(name) / self.bins
+            self.saturated[name] = i == self.bins - 1
+        return dict(self.thr)
+
+    @torch.no_grad()
+    def test(self, cb, per_view):
+        """name -> (tests, fires) of this view; a residual without a null never fires."""
+        out = {}
+        for name, (defined, rb) in self.statistic(cb, per_view).items():
+            fire = defined & (rb > self.thr.get(name, float("inf")))
+            out[name] = (int(defined.sum()), int(fire.sum()))
+        return out
+
+    def summary(self):
+        return {name: dict(threshold=self.thr.get(name), quantile=self.q,
+                           null_samples=int(h.sum()), saturated=self.saturated.get(name),
+                           hist_range=self.hi(name), bins=self.bins, rule="pooled")
+                for name, h in self.hist.items()}
 
 
 # ------------------------------------------------------------ evaluation helpers

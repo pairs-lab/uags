@@ -13,7 +13,7 @@ Supported layouts:
       <root>/results/frame%06d.jpg, <root>/results/depth%06d.png, <root>/traj.txt
   * ScanNet (exported):
       <root>/color/%d.jpg, <root>/depth/%d.png, <root>/pose/%d.txt,
-      <root>/intrinsic/intrinsic_color.txt
+      <root>/intrinsic/intrinsic_color.txt, [<root>/label-filt/%d.png] (ScanNetDataset)
   * 7-Scenes:
       <root>/frame-%06d.color.png, .depth.png, .pose.txt
 """
@@ -35,14 +35,17 @@ def _imread(path):
 
 
 class _PosedRGBD:
-    def __init__(self, stride=1):
+    def __init__(self, stride=1, offset=0):
         self.stride = max(1, int(stride))
+        self.offset = int(offset)            # frames offset, offset + stride, ... (default 0)
+        if self.offset < 0:
+            raise ValueError(f"negative frame offset {offset}")
 
     def __len__(self):
-        return (self._n + self.stride - 1) // self.stride
+        return (max(0, self._n - self.offset) + self.stride - 1) // self.stride
 
     def __getitem__(self, i):
-        return self.frame(i * self.stride)
+        return self.frame(self.offset + i * self.stride)
 
     def frame(self, idx):
         raise NotImplementedError
@@ -76,17 +79,112 @@ class ReplicaDataset(_PosedRGBD):
         return dict(image=img, depth=depth, c2w=c2w, K=self.K.clone())
 
 
+SCANNET_LABEL_MAP = "scannetv2-labels.combined.tsv"
+
+
+def scannet_label_lut(path, to="nyu40id"):
+    """(max id + 1,) int64 lookup table: raw ScanNet label id -> column `to` of
+    scannetv2-labels.combined.tsv (id -> nyu40id by default); ids the file does not list -> 0."""
+    import csv
+    with open(path, newline="") as f:
+        rd = csv.DictReader(f, delimiter="\t")
+        if not rd.fieldnames or "id" not in rd.fieldnames or to not in rd.fieldnames:
+            raise ValueError(f"{path}: needs columns 'id' and '{to}' (got {rd.fieldnames})")
+        pairs = []
+        for row in rd:
+            try:
+                pairs.append((int(row["id"]), int(row[to])))
+            except (TypeError, ValueError):
+                continue                                    # blank or malformed row
+    if not pairs:
+        raise ValueError(f"{path}: no 'id' -> '{to}' rows")
+    lut = np.zeros(max(i for i, _ in pairs) + 1, np.int64)
+    for i, c in pairs:
+        lut[i] = c
+    return lut
+
+
+def _nearest_labels(lab, h, w):
+    """Label map (H, W) -> (h, w) by centre-aligned nearest neighbour (no blending; the rule of
+    scripts/eval_seg.py _nearest)."""
+    H, W = lab.shape
+    if (H, W) == (h, w):
+        return lab
+    r = np.minimum(((np.arange(h) + 0.5) * H / h).astype(np.int64), H - 1)
+    c = np.minimum(((np.arange(w) + 0.5) * W / w).astype(np.int64), W - 1)
+    return lab[r][:, c]
+
+
 class ScanNetDataset(_PosedRGBD):
+    """ScanNet v2 (Dai et al., CVPR 2017) as exported by the official SensReader, with
+    scene*_2d-label-filt.zip unzipped into the scan folder:
+        <root>/color/<i>.jpg, depth/<i>.png (mm, 0 = none), pose/<i>.txt (camera-to-world,
+        OpenCV), intrinsic/intrinsic_color.txt [, intrinsic_depth.txt], [label-filt/<i>.png]
+    <i> = frame number in the .sens stream. The dataset holds the sorted frames offset,
+    offset + stride, ... (frame numbers for a complete export, which prepare_scannet checks);
+    each frame carries index = its frame number.
+
+    Labels (label-filt present): the 16-bit raw ScanNet ids are mapped through
+    scannetv2-labels.combined.tsv (id -> nyu40id; ids it does not list -> 0, unannotated) and
+    resized to the colour resolution by centre-aligned nearest neighbour. NYU40 because the
+    ScanNet class sets used for evaluation are lists of NYU40 ids: the 20-class ScanNet
+    benchmark and its 19-class subset without "other furniture", on which open-vocabulary
+    3DGS work reports ScanNet (OpenGaussian, NeurIPS 2024, scripts/eval_scannet.py target_id;
+    NormLift follows that protocol). Which subset is evaluated is the vocabulary's choice
+    (configs/vocab_scannet.json: those 19 classes, every other NYU40 id ignored), not the
+    loader's. The tsv is `label_map`, else the first of <root>, <root>/.., <root>/../.. that
+    holds it (the ScanNet download keeps it beside scans/); label-filt without it is an error
+    (raw ids are not class ids). Without label-filt, labels is None.
+
+    Depth (640x480) is not registered to the colour image (1296x968; the normalised
+    intrinsics differ by about 1%): intrinsic_depth.txt is returned as K_depth, which
+    usplat.gs_fit's depth init uses (usplat.datasets.downscale only resamples the depth onto
+    the colour grid). A lost-tracking pose (-inf entries) is returned as is; the consumers
+    skip non-finite poses, as for every loader here (eval_seg.py load_frames, run_mapping.py
+    select, gs_fit.fit_dataset)."""
     DEPTH_SCALE = 1000.0
 
-    def __init__(self, root, stride=1):
-        super().__init__(stride)
+    def __init__(self, root, stride=1, offset=0, label_map=None):
+        super().__init__(stride, offset)
         self.root = root
         self.rgb = sorted(glob.glob(os.path.join(root, "color", "*.jpg")),
                           key=lambda p: int(os.path.basename(p).split(".")[0]))
         self._n = len(self.rgb)
         K = np.loadtxt(os.path.join(root, "intrinsic", "intrinsic_color.txt"))
         self.K = torch.from_numpy(K[:3, :3].astype(np.float32))
+        kd = os.path.join(root, "intrinsic", "intrinsic_depth.txt")
+        self.K_depth = (torch.from_numpy(np.loadtxt(kd)[:3, :3].astype(np.float32))
+                        if os.path.exists(kd) else None)
+        self.label_dir = os.path.join(root, "label-filt")
+        self.label_map, self.lut = None, None
+        if os.path.isdir(self.label_dir):
+            self.label_map = label_map or self.find_label_map(root)
+            if self.label_map is None:
+                raise FileNotFoundError(
+                    f"{self.label_dir} holds raw ScanNet ids but no {SCANNET_LABEL_MAP} was "
+                    f"found in {root} or its two parents (pass label_map=)")
+            self.lut = scannet_label_lut(self.label_map)
+
+    @staticmethod
+    def find_label_map(root):
+        """The first of <root>, <root>/.., <root>/../.. holding scannetv2-labels.combined.tsv."""
+        for d in (root, os.path.join(root, os.pardir), os.path.join(root, os.pardir, os.pardir)):
+            p = os.path.join(d, SCANNET_LABEL_MAP)
+            if os.path.isfile(p):
+                return os.path.normpath(p)
+        return None
+
+    def labels(self, stem, hw):
+        """NYU40 ids (h, w) int64 of frame `stem` on the colour grid hw; None without a label."""
+        p = os.path.join(self.label_dir, stem + ".png")
+        if self.lut is None or not os.path.exists(p):
+            return None
+        raw = _imread(p)
+        if raw.ndim != 2:
+            raise ValueError(f"{p}: expected a single-channel label map")
+        raw = raw.astype(np.int64)
+        lab = np.where(raw < len(self.lut), self.lut[np.minimum(raw, len(self.lut) - 1)], 0)
+        return torch.from_numpy(np.ascontiguousarray(_nearest_labels(lab, *hw)))
 
     def frame(self, idx):
         stem = os.path.basename(self.rgb[idx]).split(".")[0]
@@ -98,7 +196,99 @@ class ScanNetDataset(_PosedRGBD):
             depth = torch.from_numpy(d)
         pose = np.loadtxt(os.path.join(self.root, "pose", stem + ".txt"))
         c2w = torch.from_numpy(pose.astype(np.float32))
-        return dict(image=img, depth=depth, c2w=c2w, K=self.K.clone())
+        out = dict(image=img, depth=depth, c2w=c2w, K=self.K.clone(),
+                   labels=self.labels(stem, tuple(img.shape[:2])), index=int(stem))
+        if self.K_depth is not None:
+            out["K_depth"] = self.K_depth.clone()
+        return out
+
+
+def prepare_scannet(src, dst, factor=2, quality=95, label_map=None):
+    """Write the ScanNet scan `src` (SensReader export) with its colour downscaled by `factor`
+    into `dst`, a layout ScanNetDataset reads: each colour frame resized as
+    usplat.datasets.downscale does (cv2 INTER_AREA to (W // f, H // f)) and stored as JPEG
+    (quality `quality`), intrinsic_color.txt scaled by w / W and h / H (downscale's rule), the
+    other intrinsic files copied, depth/, pose/, label-filt/ and the label map symlinked.
+    dst/prepare.json records the settings (status "running" until every frame is written);
+    a rerun with the same settings only fills in missing frames, other settings are refused.
+
+    Why: at the native 1296x968 LSeg would run at 4x the pixels of Replica's 640x480 frames
+    (its settings were frozen on Replica validation) and run_mapping.py's CPU token store
+    (fp32, token stride 8) would hold ~40 MB per mapping frame; at f = 2 (648x484) the
+    frames match Replica and the depth's 640x480, as ScanNet work runs at reduced resolution
+    too (640x480: NICE-SLAM, SplaTAM; 320x240: OpenScene's 2D export). The export must be
+    complete (frame numbers 0..n-1, a pose file per frame) so that stride / offset select
+    frame numbers; ValueError otherwise."""
+    import cv2
+    import json
+    import shutil
+    f = int(factor)
+    if f < 1:
+        raise ValueError(f"factor must be >= 1 (got {factor})")
+    num = lambda p: int(os.path.basename(p).split(".")[0])
+    ids = sorted(num(p) for p in glob.glob(os.path.join(src, "color", "*.jpg")))
+    if not ids:
+        raise FileNotFoundError(f"{src}/color: no frames")
+    if ids != list(range(len(ids))):
+        miss = sorted(set(range(ids[-1] + 1)) - set(ids))
+        raise ValueError(f"{src}: frame numbers are not 0..{len(ids) - 1} (missing {miss[:10]}"
+                         f"{' ...' if len(miss) > 10 else ''}); export every frame (frame_skip 1)")
+    poses = {num(p) for p in glob.glob(os.path.join(src, "pose", "*.txt"))}
+    if not set(ids) <= poses:
+        raise ValueError(f"{src}/pose: {len(set(ids) - poses)} frames have no pose file")
+    lm = label_map or ScanNetDataset.find_label_map(src)
+    if os.path.isdir(os.path.join(src, "label-filt")) and lm is None:
+        raise FileNotFoundError(f"{src}/label-filt needs {SCANNET_LABEL_MAP} (pass label_map=)")
+    H, W = _imread(os.path.join(src, "color", "0.jpg")).shape[:2]
+    h, w = H // f, W // f
+    K = np.loadtxt(os.path.join(src, "intrinsic", "intrinsic_color.txt"))
+    Ks = K.copy()
+    Ks[0] *= w / W
+    Ks[1] *= h / H
+    rec = dict(src=os.path.abspath(src), factor=f, quality=int(quality), n_frames=len(ids),
+               native_hw=[H, W], hw=[h, w], K_native=K[:3, :3].tolist(), K=Ks[:3, :3].tolist(),
+               label_map=None if lm is None else os.path.abspath(lm), status="running")
+    rp = os.path.join(dst, "prepare.json")
+    if os.path.exists(rp):
+        old = json.load(open(rp))
+        diff = {k: (old.get(k), rec[k]) for k in ("src", "factor", "quality", "n_frames", "hw")
+                if old.get(k) != rec[k]}
+        if diff:
+            raise ValueError(f"{dst} was prepared with other settings {diff}; remove it first")
+    os.makedirs(os.path.join(dst, "color"), exist_ok=True)
+    os.makedirs(os.path.join(dst, "intrinsic"), exist_ok=True)
+    with open(rp, "w") as fh:
+        json.dump(rec, fh, indent=1)
+    for i in ids:
+        out = os.path.join(dst, "color", f"{i}.jpg")
+        if os.path.exists(out):
+            continue
+        img = cv2.imread(os.path.join(src, "color", f"{i}.jpg"), cv2.IMREAD_COLOR)
+        if img is None:
+            raise FileNotFoundError(os.path.join(src, "color", f"{i}.jpg"))
+        if img.shape[:2] != (H, W):
+            raise ValueError(f"{src}/color/{i}.jpg: {img.shape[:2]} != {(H, W)} of frame 0")
+        ok, buf = cv2.imencode(".jpg", cv2.resize(img, (w, h), interpolation=cv2.INTER_AREA),
+                               [cv2.IMWRITE_JPEG_QUALITY, int(quality)])
+        if not ok:
+            raise OSError(f"JPEG encoding failed for frame {i}")
+        with open(out + ".part", "wb") as fh:           # atomic: never a truncated frame
+            fh.write(buf.tobytes())
+        os.replace(out + ".part", out)
+    np.savetxt(os.path.join(dst, "intrinsic", "intrinsic_color.txt"), Ks, fmt="%.6f")
+    for p in glob.glob(os.path.join(src, "intrinsic", "*.txt")):
+        if os.path.basename(p) != "intrinsic_color.txt":
+            shutil.copy2(p, os.path.join(dst, "intrinsic", os.path.basename(p)))
+    for name, target in (("depth", os.path.join(src, "depth")),
+                         ("pose", os.path.join(src, "pose")),
+                         ("label-filt", os.path.join(src, "label-filt")),
+                         (SCANNET_LABEL_MAP, lm)):
+        if target and os.path.exists(target) and not os.path.lexists(os.path.join(dst, name)):
+            os.symlink(os.path.abspath(target), os.path.join(dst, name))
+    rec["status"] = "ok"
+    with open(rp, "w") as fh:
+        json.dump(rec, fh, indent=1)
+    return rec
 
 
 class SevenScenesDataset(_PosedRGBD):
@@ -183,9 +373,16 @@ DATASETS = {
 }
 
 
-def make_dataset(name, root, stride=1):
+def make_dataset(name, root, stride=1, offset=0):
+    """offset: index of the first frame (then every stride-th), for the loaders that take one
+    (ScanNet: held-out evaluation frames between the mapping frames of the same scan)."""
     if name not in DATASETS:
         raise KeyError(f"unknown dataset '{name}'; options: {sorted(DATASETS)}")
+    if offset:
+        import inspect
+        if "offset" not in inspect.signature(DATASETS[name]).parameters:
+            raise ValueError(f"dataset '{name}' takes no frame offset")
+        return DATASETS[name](root, stride=stride, offset=offset)
     return DATASETS[name](root, stride=stride)
 
 

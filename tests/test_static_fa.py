@@ -30,11 +30,15 @@ from usplat.change_baselines import ChangeBaselines, ResidualNull
 REPO = Path(__file__).resolve().parents[1]
 
 
-def _load(name, rel):
-    spec = importlib.util.spec_from_file_location(name, REPO / rel)
+def _load_path(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def _load(name, rel):
+    return _load_path(name, REPO / rel)
 
 
 RM = _load("run_mapping_cli", "scripts/run_mapping.py")
@@ -217,18 +221,25 @@ def test_feature_transform_loader(tmp_path, monkeypatch):
 
 def test_fixed_threshold_and_default_mock(tmp_path, capsys):
     """--fixed-change-thr skips the calibration (rule "fixed", no history thresholds); the
-    default mock run prints what it printed before (no summary, same random numbers)."""
+    default mock run prints exactly what run_mapping.py at git 3eb0e86 prints (no summary,
+    same random numbers)."""
     out = tmp_path / "fixed.json"
     RM.main(["--backend", "mock", "--mock-static", "--mock-frames", "20", "--fixed-change-thr",
              "0.05", "--summary-json", str(out)])
     m = json.loads(out.read_text())["metrics"]
     assert m["calibration"]["rule"] == "fixed" and m["calibration"]["thr_by_hist"] is None
     assert m["calibration"]["change_thr"] == 0.05 and m["config"]["fixed_change_thr"] == 0.05
+    r = subprocess.run(["git", "-C", str(REPO), "show", "3eb0e86:scripts/run_mapping.py"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        pytest.skip("git history with 3eb0e86 not available")
+    (tmp_path / "run_mapping_v1.py").write_text(r.stdout)
+    v1 = _load_path("run_mapping_v1", tmp_path / "run_mapping_v1.py")
     capsys.readouterr()
+    v1.run_mock()
+    before = capsys.readouterr().out
     RM.main(["--backend", "mock"])
-    text = capsys.readouterr().out
-    assert "calibrated change threshold (q=0.999): 0.040" in text
-    assert "flagged 100% of changed, 0% of unchanged (n=33/47)" in text
+    assert capsys.readouterr().out == before and "calibrated change threshold" in before
 
 
 # ---------------------------------------------------------------- validation / test rules

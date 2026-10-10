@@ -201,9 +201,10 @@ def run_mock(num_gaussians=200, feat_dim=32, num_frames=16, num_protos=6, seed=0
              summary=False):
     """CPU pipeline: the first half of the frames maps, the second half updates (20% of the
     Gaussians change content unless static). Returns the --summary-json metrics when summary
-    (else None). The mock frame dict of the feature transform is {labels: (H, W) prototype
-    ids, index}; the change baselines see palette colours and the rendered depth plus noise
-    (both from their own generator: the default run draws the same random numbers)."""
+    (else None). The feature-transform factory gets pca=None and device "cpu", and the mock
+    frame dict is {labels: (H, W) prototype ids, index}; the change baselines see palette
+    colours and the rendered depth plus noise (both from their own generator: the default
+    run draws the same random numbers)."""
     torch.manual_seed(seed)
     from usplat.mock_rasterizer import MockFeatureRasterizer
     from usplat.clip_dense import MockDenseCLIP

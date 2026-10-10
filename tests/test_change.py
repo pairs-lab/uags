@@ -442,6 +442,7 @@ def test_test_counters_and_state():
     print(f"PASS counters = brute force: {int(f.n_tests.sum())} tests, "
           f"{int(f.n_fires.sum())} fires; round trip and old states")
 
+
 def test_defaults_match_base_commit(tmp_path):
     """FieldConfig() is unchanged by the test record and the opt-in change weight: the field at
     git 3eb0e86 (Table I v1) and the current one, fed the same mock sequence with a content
@@ -507,8 +508,11 @@ def test_defaults_match_base_commit(tmp_path):
 
 
 if __name__ == "__main__":
+    import pathlib
+    import tempfile
     test_slow_decay_uses_stream_view_weight()
     test_test_counters_and_state()
+    test_defaults_match_base_commit(pathlib.Path(tempfile.mkdtemp()))    # needs a tmp dir
     test_change_reset_readmit()
     test_readmit_without_depth_uses_views()
     test_buckets_partition_and_decay()

@@ -20,7 +20,7 @@
 # GPU memory: the v1 evaluation peaked at 2.5 GB allocated (6.6 GB reserved) for 1M
 # Gaussians; the v2 rows add ~2.2 GB of frozen buffers (10 P4 rows (N, K) and 4 new P1 rows
 # (N, 64) in float32), hence EVAL_NEED 10000 MiB. The P4 Monte Carlo runs on the CPU while the
-# rows are frozen (eval_seg keeps the field there): ~15 s per lambda and scene load for 1M
+# rows are frozen (eval_seg keeps the field there): ~17 s per lambda and scene load for 1M
 # Gaussians on 4 threads (3 lambdas; validation loads each scene twice: fit, then evaluate).
 # Overrides (another dataset later, same rules): SCENES (scene file of this STAGE), VOCAB,
 # DATASET, STRIDE, EXTRACTOR, ROW_FACTORY, TEXT_CACHE, WITH_2D=0, PRIOR_LOOK (the earlier test

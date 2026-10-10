@@ -120,7 +120,7 @@ def vote_fractions(mu, kappa, text, lam=1.0, n_samples=256, seed=0, chunk=4096):
     scores N S K = 7.7e9 FMAs (+ argmax); memory per chunk of 4096: scores (B, S, K) 126 MB,
     e and the argmax index 12 MB, the output (N, K) 120 MB. The run is memory bound (the scores
     are written and read once: ~61 GB of traffic), so on a 16 GB GPU it is estimated well
-    under 1 s; on the CPU this kernel measured 14 s on 4 threads. It runs once per lam
+    under 1 s; on the CPU it measured 17 s (N = 2e5 scaled) on 4 threads. It runs once per lam
     (usplat.rows.VoteCache shares it across the alpha0 grid)."""
     if not lam > 0:
         raise ValueError(f"lam must be > 0 (got {lam}); lam = 0 is argmax_votes")

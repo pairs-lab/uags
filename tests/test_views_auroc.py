@@ -383,6 +383,18 @@ def test_eval_views_cli_added_keys_and_verdict(tmp_path):
     with pytest.raises(SystemExit, match="in both"):
         EV.main(["verdict", paths[0], paths[0]])
     assert EV.main(["verdict", paths[0]])["status"] == "undecided"
+    und = tmp_path / "undecided.json"                         # an undecided verdict is not
+    with pytest.raises(SystemExit, match="undecided"):         # written: it would lock the
+        EV.main(["verdict", paths[0], "--out", str(und)])     # path that is written once
+    assert not und.exists()
+    nored = json.loads(pathlib.Path(paths[0]).read_text())    # files of pre-T4b code
+    for kv in nored["scenes"]["office_0"]["k"].values():
+        for r in kv["rows"].values():
+            r.pop("reducibility", None)
+    (tmp_path / "nored.json").write_text(json.dumps(nored))
+    with pytest.raises(SystemExit, match="undecided"):
+        EV.main(["verdict", str(tmp_path / "nored.json"), paths[1], "--out", str(und)])
+    assert not und.exists()
     print(f"PASS eval_views CLI: added keys, AUROC u_epi {a['u_epi']:.3f} / msp {a['msp']:.3f}, "
           f"verdict {v['status']}")
 
@@ -397,3 +409,108 @@ if __name__ == "__main__":
     test_reducibility_criterion_is_preregistered()
     with tempfile.TemporaryDirectory() as tmp:
         test_eval_views_cli_added_keys_and_verdict(pathlib.Path(tmp))
+
+
+# ------------------------------------------------------------------ scripts/replica_views.sh
+V1_VIEWS = REPO / "docs" / "reports" / "2026-09-29-replica-tab1" / "logs" / "views" / \
+    "views_val_206c0b7.json"
+
+
+def _views_repo(tmp_path):
+    """A copy of replica_views.sh and eval_views.py (usplat, eval_seg linked) with a
+    gpu_gate.sh stub that logs each call, fakes run_mapping (writes --out) and eval_views
+    (a per-scene file from the v1 record, with or without the reducibility analysis)."""
+    import os
+    import shutil
+    root = tmp_path / "repo"
+    (root / "scripts").mkdir(parents=True)
+    for rel in ("replica_views.sh", "eval_views.py", "eval_seg.py"):
+        shutil.copy2(REPO / "scripts" / rel, root / "scripts" / rel)
+    os.symlink(REPO / "usplat", root / "usplat")
+    gate = root / "scripts" / "gpu_gate.sh"
+    gate.write_text("""#!/usr/bin/env bash
+need=$1; shift
+echo "GPU $*" >> "$STUB_LOG"
+args=("$@"); out=""; scenes=""; cache=""
+for ((i=0;i<${#args[@]};i++)); do
+  case "${args[$i]}" in --out) out=${args[$((i+1))]};; --scenes) scenes=${args[$((i+1))]};;
+                        --text-cache) cache=${args[$((i+1))]};; esac
+done
+case "$*" in
+  *run_mapping.py*) echo new > "$out"; echo "saved $out";;
+  *eval_views.py*) echo prompts >> "$cache"; python3 - "$scenes" "$out" <<'PY'
+import json, os, sys
+sc = json.load(open(sys.argv[1]))[0]
+for k, f in sc["fields"].items():
+    assert open(f).read().strip() == "new", f        # the field this run mapped
+v1 = json.load(open(os.environ["V1_VIEWS"]))
+d = dict(ks=v1["ks"], scenes={sc["name"]: v1["scenes"][sc["name"]]})
+for kv in d["scenes"][sc["name"]]["k"].values():
+    for r in kv["rows"].values():
+        r["reducibility"] = dict(auroc=dict(u_epi=0.7, msp=0.6))
+json.dump(d, open(sys.argv[2], "w"))
+PY
+  ;;
+esac
+""")
+    gate.chmod(0o755)
+    return root
+
+
+@pytest.mark.skipif(not V1_VIEWS.exists(), reason="v1 views record not in the checkout")
+def test_replica_views_sh_never_touches_v1(tmp_path):
+    """replica_views.sh: the k-view fields go to KFIELDS (default OUT/kfields), never into the
+    v1 fields directory (a v1 k-view field there is neither reused nor deleted); the text
+    cache is a copy in OUT; OUT = the v1 views directory and KFIELDS = FIELDS are refused; a
+    per-scene file without the reducibility analysis is refused, not skipped."""
+    import hashlib
+    import os
+    import subprocess
+    root = _views_repo(tmp_path)
+    fields, maps, tab1, out = (tmp_path / n for n in ("fields", "maps", "tab1", "views_v2"))
+    for d in (fields, maps, tab1):
+        d.mkdir()
+    (tab1 / "eval_val.json").write_text("{}")
+    v1_files = {"office_0_lseg.pt": "v1 full", "room_2_lseg.pt": "v1 full",
+                "office_0_lseg_k10.pt": "v1 k10", "text_cache_lseg.pt": "v1 cache"}
+    for n, c in v1_files.items():
+        (fields / n).write_text(c)
+    digest = lambda: {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                      for p in sorted(fields.iterdir())}
+    before = digest()
+    log = tmp_path / "gpu.log"
+    env = dict(os.environ, STAGE="val", ROOT=str(tmp_path / "Replica"), MAPS=str(maps),
+               FIELDS=str(fields), TAB1=str(tab1), OUT=str(out), STUB_LOG=str(log),
+               V1_VIEWS=str(V1_VIEWS))
+    env.pop("PYTHONPATH", None)
+    sh = lambda **kw: subprocess.run(["bash", str(root / "scripts" / "replica_views.sh")],
+                                     env=dict(env, **kw), capture_output=True, text=True,
+                                     timeout=300)
+    r = sh(OUT="/home/thanhnc/gauss_ws/data/uags_results/views")
+    assert r.returncode == 1 and "v1 views directory" in r.stdout, r.stdout + r.stderr
+    r = sh(KFIELDS=str(fields))
+    assert r.returncode == 1 and "KFIELDS is the fields directory" in r.stdout, r.stdout
+    assert not out.exists()
+    r = sh()
+    assert r.returncode == 0, r.stdout + r.stderr
+    calls = log.read_text().splitlines()
+    maps_ = [c for c in calls if "run_mapping.py" in c]
+    assert len(maps_) == 6                                      # every k of both scenes
+    assert all(f"--out {out}/kfields/" in c for c in maps_)
+    assert all(f"--pca-from {fields}/" in c for c in maps_)
+    evals = [c for c in calls if "eval_views.py" in c]
+    assert len(evals) == 2 and all(f"--text-cache {out}/text_cache_lseg.pt" in c for c in evals)
+    assert digest() == before                                  # v1 fields and cache untouched
+    assert list((out / "kfields").iterdir()) == []             # KEEP=0 deletes its own fields
+    assert (out / "text_cache_lseg.pt").read_text().startswith("v1 cache")
+    assert json.loads((out / "views_val.json").read_text())["ks"]
+    log.unlink()
+    r = sh()                                                    # done scenes are skipped
+    assert r.returncode == 0 and r.stdout.count(": done") == 2 and not log.exists()
+    d = json.loads((out / "views_val_room_2.json").read_text())
+    for kv in d["scenes"]["room_2"]["k"].values():
+        for row in kv["rows"].values():
+            row.pop("reducibility")
+    (out / "views_val_room_2.json").write_text(json.dumps(d))
+    r = sh()
+    assert r.returncode == 1 and "no reducibility analysis" in r.stdout, r.stdout

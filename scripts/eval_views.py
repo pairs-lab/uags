@@ -382,7 +382,8 @@ def verdict_main(argv):
                                  description="pre-registered reducibility criterion "
                                              "(REDUCIBILITY_CRITERION) from eval_views.py outputs")
     ap.add_argument("inputs", nargs="+", help="eval_views.py output JSON files")
-    ap.add_argument("--out", default="", help="write the verdict here (never overwritten)")
+    ap.add_argument("--out", default="", help="write the verdict here (never overwritten; "
+                                              "an undecided verdict is not written)")
     a = ap.parse_args(argv)
     if a.out and os.path.exists(a.out):
         raise SystemExit(f"refused: {a.out} exists (the verdict is written once)")
@@ -409,6 +410,9 @@ def verdict_main(argv):
               f"{'pass' if p['passed'] else 'FAIL'}")
     if out["missing"]:
         print(f"  missing: {out['missing']}")
+    if a.out and out["status"] == "undecided":   # the file is final: only a decided verdict
+        raise SystemExit(f"refused: the verdict is undecided (missing {out['missing']}); "
+                         f"nothing written to {a.out}")
     if a.out:
         os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
         with open(a.out, "w") as f:

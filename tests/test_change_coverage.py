@@ -130,7 +130,9 @@ def test_posterior_bit_identical_across_change_weight():
     """change_weight touches only the change-test stream and views_since_reset: in the
     record-only mapping pass the posterior statistics are bit-identical for "view",
     "visibility" and "relmax" while the change streams differ; after a calibrated update with
-    a content change, the Gaussians that no setting reset keep bit-identical statistics."""
+    a content change, the Gaussians that no setting reset keep bit-identical statistics.
+    Every setting uses fast_min = slow_min = 0.5 (the opt-in modes refuse fast_min = 1 with
+    fast_memory = 0), so the configs differ in change_weight only."""
     ras, proto, H = _scene(seed=1)
     clip = MockDenseCLIP(feat_dim=16, num_protos=5, noise=0.2, seed=1)
     dom = ras.weights().argmax(1)
@@ -141,7 +143,8 @@ def test_posterior_bit_identical_across_change_weight():
     fields = {}
     for mode in ("view", "visibility", "relmax"):
         f = DirectionalSemanticField(ras.N, 16, FieldConfig(
-            view_mass_frac=2e-3, change_weight=mode, readmit_depth=None))
+            view_mass_frac=2e-3, change_weight=mode, fast_min=0.5, slow_min=0.5,
+            readmit_depth=None))
         for v, z in enumerate(zs):
             if v == 8:
                 snap = {n: getattr(f.raw, n).clone() for n in ("R", "W1", "W2", "Q", "Wr")}
@@ -210,10 +213,12 @@ def test_visibility_weight_makes_small_gaussians_testable():
     """A Gaussian of 2 px (a quarter of a full view at a0 H W = 7.68 px) that is fully
     visible counts as one view per view with change_weight="visibility" (w = m / m_unocc), so
     its change score is defined after the persistence window; with view weights it never is
-    in 8 views. A half-occluded one (w = 0.5) stays untested while fast_min = 1 (fast_memory
-    = 0: the recent bucket is the current view alone) and is tested with fast_min = 0.5.
-    views_since_reset and the stream mass follow the visibility weights. The option needs the
-    unoccluded mass (ValueError otherwise); relmax keeps m_max in its state."""
+    in 8 views. A half-occluded one (w = 0.5) stays untested while fast_min = 0.75
+    (fast_memory = 0: the recent bucket is the current view alone) and is tested with
+    fast_min = 0.5. views_since_reset and the stream mass follow the visibility weights. The
+    option needs the unoccluded mass (ValueError otherwise); relmax keeps m_max in its state.
+    Both opt-in modes refuse fast_min >= 1 with fast_memory = 0 (relmax: w = 1 only at a view
+    that sets a new running max, so the test would run only at those views)."""
     import pytest
     torch.manual_seed(0)
     N, d, P = 4, 8, 76800                                   # 320 x 240: a0 H W = 7.68 px
@@ -222,28 +227,33 @@ def test_visibility_weight_makes_small_gaussians_testable():
     mu = Fn.normalize(torch.randn(N, d), dim=-1)
     zs = [Fn.normalize(mu + 0.2 * torch.randn(N, d), dim=-1) for _ in range(8)]
     out = {}
-    for mode, fast_min in (("view", 1.0), ("visibility", 1.0), ("visibility", 0.5)):
+    for mode, fast_min in (("view", 1.0), ("visibility", 0.75), ("visibility", 0.5)):
         f = DirectionalSemanticField(N, d, FieldConfig(change_weight=mode, fast_min=fast_min,
                                                        slow_min=fast_min, readmit_depth=None))
         for z in zs:
             f.update_sparse(torch.arange(N), m, z, num_pixels=P, m_unocc=m_un)
         out[mode, fast_min] = f
-    v, s, s5 = out["view", 1.0], out["visibility", 1.0], out["visibility", 0.5]
+    v, s, s5 = out["view", 1.0], out["visibility", 0.75], out["visibility", 0.5]
     tested = torch.isfinite(s.c_last)
-    assert tested.tolist() == [True, False, True, True]     # w = 0.5 < fast_min = 1
+    assert tested.tolist() == [True, False, True, True]     # w = 0.5 < fast_min = 0.75
     assert torch.isfinite(s5.c_last).all()
     assert torch.isnan(v.c_last[:3]).all() and torch.isfinite(v.c_last[3])
     assert torch.allclose(s.views_since_reset, 8 * (m / m_un).clamp(max=1))
     assert torch.allclose(s.ns + s.nf, 8 * (m / m_un).clamp(max=1))
     assert torch.allclose(v.views_since_reset, 8 * (m / 7.68).clamp(max=1))
     assert torch.equal(v.raw.W1, s.raw.W1) and torch.equal(v.raw.R, s.raw.R)
-    f = DirectionalSemanticField(N, d, FieldConfig(change_weight="visibility"))
+    for mode in ("visibility", "relmax"):
+        with pytest.raises(ValueError, match="fast_min < 1"):
+            DirectionalSemanticField(N, d, FieldConfig(change_weight=mode))
+        FieldConfig(change_weight=mode, fast_memory=0.5).validate()     # nf accumulates
+    f = DirectionalSemanticField(N, d, FieldConfig(change_weight="visibility", fast_min=0.5))
     with pytest.raises(ValueError, match="unoccluded"):
         f.update_sparse(torch.arange(N), m, mu, num_pixels=P)
     W = torch.rand(P, N)
     with pytest.raises(ValueError, match="unoccluded"):
         f.update_view(lambda buf: W @ buf, Fn.normalize(torch.randn(P, d), dim=-1))
-    r = DirectionalSemanticField(N, d, FieldConfig(change_weight="relmax", readmit_depth=None))
+    r = DirectionalSemanticField(N, d, FieldConfig(change_weight="relmax", fast_min=0.5,
+                                                   slow_min=0.5, readmit_depth=None))
     for scale in (0.5, 1.0, 0.25):
         r.update_sparse(torch.arange(N), m * scale, mu, num_pixels=P)
     assert torch.allclose(r.views_since_reset, torch.full((N,), 1.0 + 1.0 + 0.25))

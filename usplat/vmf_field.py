@@ -78,9 +78,13 @@ count a view by how much of the Gaussian it shows, not by its pixel size:
 They enter ONLY the change-test stream and views_since_reset (re-admission): the posterior
 statistics R, W1, W2, Q, Wr are bit-identical across change_weight settings as long as the
 same Gaussians are reset (tests/test_change_coverage.py). With fast_memory = 0 the recent
-bucket is the current view alone, so fast_min = 1 asks for a view of weight 1; under
-"visibility" even a fully visible Gaussian gets slightly less (gsplat clamps alpha at 0.999
-and cuts it below 1/255), so pair it with fast_min and slow_min < 1 (e.g. 0.5).
+bucket is the current view alone (nf = w <= 1), so fast_min = 1 asks for a view of weight 1:
+under "relmax" only a view that sets a new running max of m has w = 1, and under "visibility"
+even a fully visible Gaussian gets slightly less (gsplat clamps alpha at 0.999 and cuts it
+below 1/255, the mock rasterizer's pixel grid discretises the footprint). Either mode with
+fast_memory = 0 and fast_min >= 1 would test almost nothing, so validate() refuses it: pair
+them with fast_min < 1 (e.g. fast_min = slow_min = 0.5). The slow bucket accumulates every
+older view, so slow_min = 1 does not degenerate.
 
 Every fix has a switch in FieldConfig so the ablations can turn it off one at a time;
 FieldConfig.legacy() reproduces the field at git ab28fb4 (tests/test_legacy.py).
@@ -144,7 +148,8 @@ class FieldConfig:
                                      # views_since_reset (never in the posterior): "view"
                                      # min(1, m/(a0 H W)); "visibility" min(1, m/m_unocc)
                                      # (rasterizer's unoccluded splat mass); "relmax"
-                                     # m / running max_v m. Opt-in, see the module docstring
+                                     # m / running max_v m. Opt-in, needs fast_min < 1 with
+                                     # fast_memory = 0 (see the module docstring)
     readmit_views: float = 3.0       # views after a reset before re-admission
     readmit_depth: Optional[float] = 0.05  # |depth residual| [m]; None = views only
     r_stable: float = 0.6            # agreement needed for the robust set
@@ -174,6 +179,12 @@ class FieldConfig:
                       ("change_weight", ("view", "visibility", "relmax"))):
             if getattr(self, k) not in ok:
                 raise ValueError(f"{k}={getattr(self, k)!r} not in {ok}")
+        if self.change_weight != "view" and self.fast_memory == 0 and self.fast_min >= 1:
+            # recent bucket = this view, w = 1 only at a record ("relmax") or a fully
+            # unclamped ("visibility") view: the test would almost never be defined
+            raise ValueError(f"change_weight={self.change_weight!r} with fast_memory = 0 needs "
+                             f"fast_min < 1 (got {self.fast_min:g}), e.g. fast_min = slow_min "
+                             "= 0.5")
 
 
 class ViewStats(NamedTuple):

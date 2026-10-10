@@ -77,8 +77,10 @@ def test_tally_matches_brute_force():
     assert s["tests"] == T and s["fires"] == F > 0 and math.isclose(s["rate"], F / T)
     assert sum(b["tests"] for b in s["by_hist"]) == T and sum(s["score_hist"]) == T
     fired = sorted({n for r in ref for n in r[1]})
+    tested = {n for r in ref for n in r[0]}
     pm = f.pixel_mass.double()
-    assert s["gaussians_reset"] == len(fired)
+    assert s["gaussians_reset"] == len(fired) and s["gaussians_tested"] == len(tested)
+    assert math.isclose(s["gaussian_fa"], len(fired) / len(tested))
     assert math.isclose(s["reset_pixel_mass_share"], float(pm[fired].sum() / pm[pm > 0].sum()))
     print(f"PASS tally = brute force: {T} tests, {F} fires, rate {F / T:.4f}")
 

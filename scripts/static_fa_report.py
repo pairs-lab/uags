@@ -129,6 +129,7 @@ def _rates(runs):
     for s, m in runs.items():
         u = m["update"]
         rows[s] = dict(rate=u["rate"], tests=u["tests"], fires=u["fires"],
+                       gaussian_fa=u.get("gaussian_fa"),
                        reset_pixel_mass_share=u["reset_pixel_mass_share"],
                        threshold=m["calibration"]["change_thr"],
                        by_hist=[b["rate"] for b in u["by_hist"]],

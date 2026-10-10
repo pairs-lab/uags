@@ -104,13 +104,16 @@ class ChangeTally:
     count the views at which a Gaussian was actually tested. The per-view scores of the tested
     Gaussians are kept in a histogram on the field's bins (4000 on [0, 2]): the validation
     null of the fixed-threshold ablation. reset_pixel_mass_share = pixel mass of the Gaussians
-    reset during the sequence / pixel mass of the observed Gaussians (all views so far)."""
+    reset during the sequence / pixel mass of the observed Gaussians (all views so far);
+    gaussian_fa = Gaussians reset / Gaussians tested at least once (the paper's per-Gaussian FA:
+    it grows with the number of views that test a Gaussian)."""
 
     def __init__(self, field):
         self.field = field
         self._nt, self._nf = field.n_tests.clone(), field.n_fires.clone()
         self.resets0 = field.n_resets.clone()
         self.mass0 = field.pixel_mass.clone()
+        self.ever_tested = torch.zeros_like(field.last_tested)
         self.score_hist = torch.zeros(4000, dtype=torch.float64)
         self.views = []
 
@@ -120,6 +123,7 @@ class ChangeTally:
         f = self.field
         dt, df = f.n_tests - self._nt, f.n_fires - self._nf
         self._nt, self._nf = f.n_tests.clone(), f.n_fires.clone()
+        self.ever_tested |= f.last_tested
         v = f.c_last[f.last_tested].double().clamp(0.0, 2.0 - 1e-9)
         self.score_hist += torch.bincount((v * 2000).long().clamp(max=3999),
                                           minlength=4000).double().cpu()
@@ -148,6 +152,8 @@ class ChangeTally:
                                  rate=rate(fb[b], tb[b])) for b in range(len(tb))],
                    gaussians_observed=int(obs.sum()), gaussians_reset=int(reset.sum()),
                    gaussians_observed_update=int((upd > 0).sum()),
+                   gaussians_tested=int(self.ever_tested.sum()),
+                   gaussian_fa=rate(int(reset.sum()), int(self.ever_tested.sum())),
                    reset_pixel_mass_share=(float(pm[reset].sum() / pm[obs].sum())
                                            if bool(obs.any()) else None),
                    reset_update_mass_share=(float(upd[reset].sum() / upd.sum())

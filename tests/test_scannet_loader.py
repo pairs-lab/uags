@@ -19,10 +19,16 @@ scannetv2-labels.combined.tsv two levels up, as in the download):
  * the frozen vocabulary and scene lists (OpenGaussian's 19 classes and 10 scenes, 2 val /
    8 test, disjoint; paths those of the script);
  * scripts/scannet_tab1.sh on a throw-away git copy of the repo: dry runs print the protocol
-   (mapping stride 10, CSS stride 5, eval stride 20 offset 5, --v2-rows iff eval_seg has it);
-   the selection records the make_tables choices and the sha256 of eval_val.json; the test
-   stage refuses a dirty tree, a missing / stale selection, another protocol and a finished
-   test record, and val / select are refused once the test ran.
+   (mapping stride 10, CSS on the evaluation-frame view, eval stride 20 offset 5, --v2-rows
+   iff eval_seg has it); the selection takes the settings of the validation run (another
+   environment is refused) and records the make_tables choices and the sha256 of
+   eval_val.json; the test stage refuses a dirty tree, a missing / stale selection, another
+   protocol, code changed since the validation commit, a finished test record and another
+   selection than an earlier attempt; val / select are refused once the test started;
+ * the v2 selection (make_tables.selection under configs/scannet_v2_prereg.json, a stand-in
+   with the same rule when T4a's make_tables.py is not in the tree): made by default with
+   --v2-rows; the test stage refuses without it, with another choice or an edited prereg;
+   the prereg's rules equal configs/tab1_v2_prereg.json's when that file exists.
 """
 import importlib.util
 import json
@@ -412,9 +418,58 @@ def _run(repo, out, **env):
                           timeout=600)                        # stdout: both streams
 
 
-def _fake_eval_val(path, v2=False):
-    """A finished eval_seg record with betas and a summary (every summary metric of
-    eval_seg.py) for the make_tables choices."""
+# the Table I v2 selection API of scripts/make_tables.py (wip/t4a-predict): appended to the
+# throw-away copy only when its make_tables.py has none (the T6 branch alone); with T4a
+# merged the script runs against the real one
+MAKE_TABLES_V2_STANDIN = '''
+
+if "selection" not in globals():         # test stand-in (tests/test_scannet_loader.py)
+    import hashlib as _hashlib
+    import os as _os
+    V2_KEYS = ("@p1", "@p4", "@ours_v2")
+
+    def load_prereg(path):
+        with open(path) as f:
+            return json.load(f)
+
+    def choose_v2(b, key, p):
+        tol, vals = float(p["tie"]["tol"]), {}
+        for c in p["choices"][key]["rows"]:
+            r = choose_v2(b, c, p)[0] if c.startswith("@") else c
+            ms = [sc["rows"][r]["all"] for sc in b["scenes"].values()]
+            vals[c] = [r, sum(m["nll"] * m["n_pixels"] for m in ms)
+                       / sum(m["n_pixels"] for m in ms)]
+        best = min(v for _, v in vals.values())
+        first = next(c for c, (_, v) in vals.items() if v <= best + tol)
+        return vals[first][0], vals
+
+    def selection(val_path, prereg_path=None):
+        p, b = load_prereg(prereg_path), body(val_path)
+        sha = lambda q: _hashlib.sha256(open(q, "rb").read()).hexdigest()
+        return dict(prereg=dict(path=_os.path.abspath(prereg_path), sha256=sha(prereg_path)),
+                    validation=dict(path=_os.path.abspath(val_path), sha256=sha(val_path)),
+                    chosen={k: choose_v2(b, k, p)[0] for k in V2_KEYS})
+'''
+PREREG = REPO / "configs" / "scannet_v2_prereg.json"
+
+
+def _v2_rows():
+    p = json.loads(PREREG.read_text())
+    rows = {r for c in p["choices"].values() for r in c["rows"] if not r.startswith("@")}
+    return sorted(rows | set(p["ablations"]))
+
+
+# validation NLL of the v2 candidates (pooled over the two scenes): @p1 = P1 c0 0.1,
+# @p4 = P4 alpha0 0.1 lambda 1, @ours_v2 = @p1 (P2 0.80, P2p1 0.79); the rest 0.9 and above
+V2_NLL = {"ours_P2": 0.80, "ours_P2p1": 0.79, "ours_P1_c0.1": 0.70, "ours_P1_c0.03": 0.72,
+          "ours_P4_a0.1_s1": 0.76, "ours_P4_inf": 1.5}
+V2_CHOSEN = {"@p1": "ours_P1_c0.1", "@p4": "ours_P4_a0.1_s1", "@ours_v2": "ours_P1_c0.1"}
+
+
+def _fake_eval_val(path, repo, v2=False, tau_cov=0.5, drop_beta=None, git=None):
+    """A finished eval_seg record of STAGE=val: its config, git state (a commit of `repo`),
+    betas, summary (every summary metric of eval_seg.py) for the make_tables choices and,
+    per validation scene, the v2 candidates' NLL and labelled pixels."""
     keys = ("miou", "acc", "ece", "brier", "aurc", "coverage", "n_tied", "n_uncovered")
 
     def row(nll, ause=None):
@@ -423,15 +478,51 @@ def _fake_eval_val(path, v2=False):
         m["ause"] = {} if ause is None else {"legs_u": {"mean": ause, "std": 0.0, "n": 2}}
         return {"all": m, "covered": m}
     summ = {"css": row(0.9), "css_a0.5": row(0.7), "legs_l1": row(1.0, 0.30),
-            "legs_l2": row(1.0, 0.20), "legs_l4": row(1.0, 0.25), "ours_P0": row(0.8)}
+            "legs_l2": row(1.0, 0.20), "legs_l4": row(1.0, 0.25), "ours_P0": row(0.8),
+            "ours_P2": row(0.8)}
+    betas = {"ours_P0": 10.0, "ours_P2": 10.0, "css_a0.5": 1.0}
+    v2rows = _v2_rows() if v2 else []
+    nll = {r: V2_NLL.get(r, 0.9 + 0.01 * i) for i, r in enumerate(v2rows)}
+    nll["ours_P2"] = V2_NLL["ours_P2"]
+    scenes = {s: {"rows": {r: {"all": {"nll": v + d, "n_pixels": n}} for r, v in nll.items()}}
+              for s, d, n in (("scene0000_00", 0.0, 1000), ("scene0062_00", 0.02, 3000))}
+    betas.update({r: 5.0 for r in v2rows if r != drop_beta})
+    cfg = dict(dataset="scannet", vocab="configs/vocab_scannet.json", stride=20, downscale=2,
+               tau_cov=tau_cov, val_scenes="configs/scannet_val.json",
+               scenes="configs/scannet_val.json")
+    head = _git(repo, "rev-parse", "HEAD").strip()
     rec = dict(status="ok", argv=["scripts/eval_seg.py"] + (["--v2-rows"] if v2 else []),
-               metrics=dict(betas={"ours_P0": 10.0, "css_a0.5": 1.0},
-                            beta_fit_settings={"field_identities": ["abc"]}, summary=summ))
+               config=cfg, git=git or dict(commit=head, dirty=False, dirty_tracked=False),
+               metrics=dict(betas=betas, scenes=scenes, summary=summ,
+                            beta_fit_settings={"tau_cov": tau_cov, "field_identities": ["abc"]}))
     path.write_text(json.dumps(rec))
+
+
+def _settings(repo, out, **env):
+    """The protocol JSON the script prints (a dry STAGE=prep: no other check runs)."""
+    r = _run(repo, out, STAGE="prep", **env)
+    assert r.returncode == 0, r.stdout
+    return json.loads(next(ln for ln in r.stdout.splitlines()
+                           if ln.startswith("protocol: "))[len("protocol: "):])
+
+
+def _val_run(repo, out, **kw):
+    """What a finished STAGE=val leaves before its selection: eval_val.json and the settings
+    record protocol_val.json (the script's record_protocol)."""
+    import hashlib
+    _fake_eval_val(out / "eval_val.json", repo, **kw)
+    sha = hashlib.sha256((out / "eval_val.json").read_bytes()).hexdigest()
+    (out / "protocol_val.json").write_text(json.dumps(dict(
+        status="ok", eval_val_sha256=sha, protocol=_settings(repo, out))))
 
 
 def _eval_seg_has_v2():
     return "--v2-rows" in _load_cli().build_parser().format_help()
+
+
+def _has_v2_selection(repo):
+    src = (repo / "scripts" / "make_tables.py").read_text()
+    return "def choose_v2" in src and "def selection" in src
 
 
 def test_script_dry_run_val(script_repo, tmp_path):
@@ -442,49 +533,71 @@ def test_script_dry_run_val(script_repo, tmp_path):
     assert r.returncode == 0, r.stdout
     o = r.stdout
     assert o.count("prepare_scannet") == 2 and "scenes: scene0000_00 scene0062_00" in o
+    assert o.count("scannet_frame_view") == 2 and "eval_s20o5 (stride 20, offset 5)" in o
     fit = next(ln for ln in o.splitlines() if "fit_gs.py" in ln)
     assert "--dataset scannet" in fit and "--stride 10" in fit and "--max-res 0" in fit
     mp = next(ln for ln in o.splitlines() if "run_mapping.py" in ln)
-    assert "--stride 10" in mp and "--css-eval-stride 5" in mp and "vocab_scannet.json" in mp
+    assert "--stride 10" in mp and "vocab_scannet.json" in mp
+    assert "--css-eval-data /home/thanhnc/gauss_ws/data/scannet/uags_f2/scene0000_00/eval_s20o5 " \
+           "--css-eval-stride 1 " in mp
     ev = next(ln for ln in o.splitlines() if "eval_seg.py" in ln)
     assert "--val-scenes configs/scannet_val.json" in ev and "--with-2d" in ev
-    assert ("--v2-rows" in ev) == _eval_seg_has_v2()
+    v2 = _eval_seg_has_v2()
+    assert ("--v2-rows" in ev) == v2 and f"gpu_gate.sh {10000 if v2 else 7000} " in ev
     assert o.count("distill_features.py") == 2 * 4                 # f3dgs + 3 lambda_u per scene
     r0 = _run(script_repo, tmp_path / "o", STAGE="val", V2_ROWS=0)
-    assert r0.returncode == 0 and "--v2-rows" not in r0.stdout
+    assert r0.returncode == 0 and "--v2-rows" not in r0.stdout and "gpu_gate.sh 7000 " in r0.stdout
     r1 = _run(script_repo, tmp_path / "o", STAGE="val", V2_ROWS=1)
-    if _eval_seg_has_v2():
+    if v2:
         assert r1.returncode == 0 and "--v2-rows" in r1.stdout
     else:
         assert r1.returncode == 1 and "refused" in r1.stdout
     assert _run(script_repo, tmp_path / "o", STAGE="val", V2_ROWS="x").returncode == 2
     assert not any((tmp_path / "o").iterdir())                    # a dry run writes nothing
-    print("PASS scannet_tab1.sh STAGE=val dry run: protocol strides, CSS superset, V2_ROWS")
+    # the validation evaluation must name a commit (the test stage compares the code with it)
+    with open(script_repo / "usplat" / "datasets.py", "a") as f:
+        f.write("\n")
+    try:
+        r = _run(script_repo, tmp_path / "o", STAGE="val")
+        assert r.returncode == 1 and "uncommitted changes" in r.stdout, r.stdout
+        assert _run(script_repo, tmp_path / "o", STAGE="val", EVAL=0).returncode == 0
+    finally:
+        _git(script_repo, "checkout", "--", "usplat/datasets.py")
+    print("PASS scannet_tab1.sh STAGE=val dry run: protocol strides, CSS = evaluation frames, "
+          "V2_ROWS, clean tree")
 
 
 def test_script_selection_and_test_refusals(script_repo, tmp_path):
+    import hashlib
     out = tmp_path / "o"
     out.mkdir()
+    head = _git(script_repo, "rev-parse", "HEAD").strip()
     r = _run(script_repo, out, STAGE="test")
     assert r.returncode == 1 and "refused: no finished validation selection" in r.stdout, r.stdout
-    _fake_eval_val(out / "eval_val.json")
-    r = _run(script_repo, out, STAGE="test")
-    assert r.returncode == 1 and "no finished validation selection" in r.stdout
-    v2cmd = "python3 -c \"import json,sys; print(json.dumps({'chosen': 'vote', 'n': len(sys.argv)}))\""
-    r = _run(script_repo, out, STAGE="select", V2_SELECT=v2cmd)
+    # select needs the settings record of the validation run, and those settings now
+    _fake_eval_val(out / "eval_val.json", script_repo)
+    r = _run(script_repo, out, STAGE="select", DRY_RUN=0)
+    assert r.returncode == 1 and "no settings record" in r.stdout, r.stdout
+    _val_run(script_repo, out)
+    for env, what in ((dict(TAU_COV=0.3), "tau_cov"), (dict(MAP_EXTRA="--some-flag"), "map_extra")):
+        r = _run(script_repo, out, STAGE="select", DRY_RUN=0, **env)
+        assert r.returncode == 1 and "differ from the validation run" in r.stdout and what in r.stdout
+    assert not (out / "selection_val.json").exists()
+    r = _run(script_repo, out, STAGE="select")                     # dry: printed, not written
+    assert r.returncode == 0 and "not written" in r.stdout and not (out / "selection_val.json").exists()
+    r = _run(script_repo, out, STAGE="select", DRY_RUN=0)
     assert r.returncode == 0, r.stdout
     sel = json.loads((out / "selection_val.json").read_text())
-    import hashlib
-    assert sel["status"] == "ok" and sel["v2_rows"] is False and sel["v2"] == {"chosen": "vote", "n": 2}
+    assert sel["status"] == "ok" and sel["v2_rows"] is False and "v2" not in sel
     assert sel["eval_val_sha256"] == hashlib.sha256((out / "eval_val.json").read_bytes()).hexdigest()
     assert sel["choices"]["legs"] == "legs_l2" and sel["choices"]["css"] == "css_a0.5"
     assert sel["choices"]["p3"] == "ours_P3_b20"                   # default: no P3 rows
     p = sel["protocol"]
-    assert (p["map_stride"], p["eval_stride"], p["eval_offset"], p["css_eval_stride"],
-            p["downscale"], p["prep_factor"]) == (10, 20, 5, 5, 2, 2)
-    assert set(sel["protocol"]["configs"]) == {"configs/vocab_scannet.json",
-                                               "configs/scannet_val.json",
-                                               "configs/scannet_test.json"}
+    assert (p["map_stride"], p["eval_stride"], p["eval_offset"], p["css_frames"],
+            p["downscale"], p["prep_factor"], p["tau_cov"]) == (10, 20, 5, "eval_s20o5", 2, 2, 0.5)
+    assert set(p["configs"]) == {"configs/vocab_scannet.json", "configs/scannet_val.json",
+                                 "configs/scannet_test.json", "configs/scannet_v2_prereg.json"}
+    assert sel["eval_val_git"]["commit"] == head
     # the test stage passes every check on the clean copy and runs once
     r = _run(script_repo, out, STAGE="test")
     assert r.returncode == 0, r.stdout
@@ -492,29 +605,74 @@ def test_script_selection_and_test_refusals(script_repo, tmp_path):
     assert "--betas" in ev and "configs/scannet_test.json" in ev and "--v2-rows" not in ev
     assert "--method legs --lam-u 2" in r.stdout and "--lam-u 1" not in r.stdout.replace(
         "--method f3dgs --lam-u 1", "")
-    assert r.stdout.count("prepare_scannet") == 8
+    assert r.stdout.count("prepare_scannet") == 8 and "look record" in r.stdout
+    assert not (out / "look_test.json").exists()                   # dry: nothing written
     # another protocol setting than the selection's
     r = _run(script_repo, out, STAGE="test", DOWNSCALE=4)
     assert r.returncode == 1 and "protocol differs" in r.stdout
     r = _run(script_repo, out, STAGE="test", MAP_EXTRA="--css-vocab full")
     assert r.returncode == 1 and "map_extra" in r.stdout
-    # eval_val.json changed after the selection
+    # eval_val.json changed after the selection; one not made with the recorded settings
     orig = (out / "eval_val.json").read_text()
-    _fake_eval_val(out / "eval_val.json", v2=True)
+    _fake_eval_val(out / "eval_val.json", script_repo, tau_cov=0.3)
     r = _run(script_repo, out, STAGE="test")
     assert r.returncode == 1 and "changed after the selection" in r.stdout
+    proto_orig = (out / "protocol_val.json").read_text()
+    proto = json.loads(proto_orig)
+    proto["eval_val_sha256"] = hashlib.sha256((out / "eval_val.json").read_bytes()).hexdigest()
+    (out / "protocol_val.json").write_text(json.dumps(proto))
+    r = _run(script_repo, out, STAGE="select")
+    assert r.returncode == 1 and "was not made with these settings" in r.stdout and "tau_cov" in r.stdout
     (out / "eval_val.json").write_text(orig)
-    # a crashed test run may be rerun; a finished one never; val / select are frozen then
-    (out / "eval_test.json").write_text(json.dumps({"status": "running"}))
+    (out / "protocol_val.json").write_text(proto_orig)
+    # the code: the validation record named a clean commit, scripts/ usplat/ configs/ unchanged
+    with open(script_repo / "usplat" / "rows.py", "a") as f:
+        f.write("\n# changed after the validation run\n")
+    _git(script_repo, "commit", "-qam", "change the evaluation code")
+    try:
+        r = _run(script_repo, out, STAGE="test")
+        assert r.returncode == 1 and "differ from the commit" in r.stdout, r.stdout
+    finally:
+        _git(script_repo, "reset", "-q", "--hard", head)
+    _fake_eval_val(out / "eval_val.json", script_repo,
+                   git=dict(commit=head, dirty=True, dirty_tracked=True))
+    sel_orig = (out / "selection_val.json").read_text()
+    s = json.loads(sel_orig)
+    s["eval_val_sha256"] = hashlib.sha256((out / "eval_val.json").read_bytes()).hexdigest()
+    (out / "selection_val.json").write_text(json.dumps(s))
+    r = _run(script_repo, out, STAGE="test")
+    assert r.returncode == 1 and "was made with uncommitted changes" in r.stdout, r.stdout
+    (out / "eval_val.json").write_text(orig)
+    # the rules must still give the recorded choices
+    s = json.loads(sel_orig)
+    s["choices"]["legs"] = "legs_l4"
+    (out / "selection_val.json").write_text(json.dumps(s))
+    r = _run(script_repo, out, STAGE="test")
+    assert r.returncode == 1 and "the rules give" in r.stdout
+    (out / "selection_val.json").write_text(sel_orig)
     assert _run(script_repo, out, STAGE="test").returncode == 0
+    # once the test evaluation started (look record, a record in any status, partial
+    # results), val and select are frozen; a crashed test may be rerun with the same selection
+    for name, content in (("eval_test.json.partial.json", {"scenes": {"scene0070_00": {}}}),
+                          ("eval_test.json", {"status": "failed"}),
+                          ("look_test.json", {"selection_sha256": hashlib.sha256(
+                              sel_orig.encode()).hexdigest(), "attempts": [{}]})):
+        (out / name).write_text(json.dumps(content))
+        for st in ("val", "select"):
+            r = _run(script_repo, out, STAGE=st)
+            assert r.returncode == 1 and "frozen" in r.stdout, (name, st, r.stdout)
+        r = _run(script_repo, out, STAGE="test")
+        assert r.returncode == 0, (name, r.stdout)
+        os.remove(out / name)
+    (out / "look_test.json").write_text(json.dumps({"selection_sha256": "0" * 64, "attempts": [{}]}))
+    r = _run(script_repo, out, STAGE="test")
+    assert r.returncode == 1 and "started before with another selection" in r.stdout
+    os.remove(out / "look_test.json")
     (out / "eval_test.json").write_text(json.dumps({"status": "ok"}))
     r = _run(script_repo, out, STAGE="test")
     assert r.returncode == 1 and "finished test run" in r.stdout
-    for st in ("val", "select"):
-        r = _run(script_repo, out, STAGE=st)
-        assert r.returncode == 1 and "frozen" in r.stdout, (st, r.stdout)
-    # a dirty tree is refused (tracked file under scripts/ usplat/ configs/ modified)
     os.remove(out / "eval_test.json")
+    # a dirty tree is refused (tracked file under scripts/ usplat/ configs/ modified)
     with open(script_repo / "configs" / "scannet_val.json", "a") as f:
         f.write("\n")
     try:
@@ -522,8 +680,140 @@ def test_script_selection_and_test_refusals(script_repo, tmp_path):
         assert r.returncode == 1 and "uncommitted changes" in r.stdout
     finally:
         _git(script_repo, "checkout", "--", "configs/scannet_val.json")
-    print("PASS scannet_tab1.sh: selection record; test refuses no/stale selection, other "
-          "protocol, finished test record, dirty tree; val/select frozen after test")
+    # Table I from the finished test record of these betas
+    r = _run(script_repo, out, STAGE="table")
+    assert r.returncode == 1 and "no finished test run" in r.stdout
+    test_rec = dict(status="ok", metrics=dict(betas_path=str(out / "elsewhere.json"),
+                                              summary=json.loads(orig)["metrics"]["summary"]))
+    (out / "eval_test.json").write_text(json.dumps(test_rec))
+    r = _run(script_repo, out, STAGE="table")
+    assert r.returncode == 1 and "evaluated with the betas of" in r.stdout
+    test_rec["metrics"]["betas_path"] = str(out / "eval_val.json")
+    (out / "eval_test.json").write_text(json.dumps(test_rec))
+    r = _run(script_repo, out, STAGE="table", DRY_RUN=0)
+    assert r.returncode == 0, r.stdout
+    tex = (out / "table1_scannet.tex").read_text()
+    assert tex.startswith("% generated by scripts/make_tables.py tab1") and "--v2" not in tex
+    print("PASS scannet_tab1.sh: selection from the validation run's settings (forged settings "
+          "and dry runs refused / not written); test refuses no/stale selection, other "
+          "protocol, changed or dirty code, other choices, another selection than an earlier "
+          "attempt, a finished record, a dirty tree; val/select frozen once the test started")
+
+
+@pytest.fixture(scope="module")
+def v2_repo(tmp_path_factory):
+    """script_repo with the v2 selection API in make_tables.py (the real one when T4a is
+    merged, else MAKE_TABLES_V2_STANDIN)."""
+    repo = tmp_path_factory.mktemp("repo_v2")
+    ign = shutil.ignore_patterns("__pycache__", "*.pyc")
+    for d in ("scripts", "usplat", "configs"):
+        shutil.copytree(REPO / d, repo / d, ignore=ign)
+    if not _has_v2_selection(repo):
+        with open(repo / "scripts" / "make_tables.py", "a") as f:
+            f.write(MAKE_TABLES_V2_STANDIN)
+    _git(repo, "init", "-q")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "copy")
+    return repo
+
+
+def test_script_v2_selection(v2_repo, script_repo, tmp_path):
+    out = tmp_path / "o"
+    out.mkdir()
+    # a v2 validation needs a beta for every v2 row of the prereg
+    _val_run(v2_repo, out, v2=True, drop_beta="ours_P4_inf")
+    r = _run(v2_repo, out, STAGE="select", DRY_RUN=0)
+    assert r.returncode == 1 and "no fitted beta for the v2 rows ['ours_P4_inf']" in r.stdout, r.stdout
+    _val_run(v2_repo, out, v2=True)
+    r = _run(v2_repo, out, STAGE="select", DRY_RUN=0)
+    assert r.returncode == 0, r.stdout
+    sel = json.loads((out / "selection_val.json").read_text())
+    import hashlib
+    assert sel["v2_rows"] is True and sel["v2"]["chosen"] == V2_CHOSEN
+    assert sel["v2"]["prereg"]["sha256"] == hashlib.sha256(PREREG.read_bytes()).hexdigest()
+    assert sel["v2"]["validation"]["sha256"] == sel["eval_val_sha256"]
+    sel_orig = (out / "selection_val.json").read_text()
+    # the test stage: --v2-rows with the GPU cap of the v2 rows (when eval_seg has the flag)
+    r = _run(v2_repo, out, STAGE="test")
+    if _eval_seg_has_v2():
+        assert r.returncode == 0, r.stdout
+        ev = next(ln for ln in r.stdout.splitlines() if "eval_seg.py" in ln)
+        assert "--v2-rows" in ev and "gpu_gate.sh 10000 " in ev
+    else:
+        assert r.returncode == 1 and "does not have" in r.stdout, r.stdout
+    # refused: no v2 selection, another v2 choice, the prereg edited (and committed) after it
+    s = json.loads(sel_orig)
+    del s["v2"]
+    (out / "selection_val.json").write_text(json.dumps(s))
+    r = _run(v2_repo, out, STAGE="test")
+    assert r.returncode == 1 and "holds no v2 selection" in r.stdout, r.stdout
+    s = json.loads(sel_orig)
+    s["v2"]["chosen"]["@ours_v2"] = "ours_P2"
+    (out / "selection_val.json").write_text(json.dumps(s))
+    r = _run(v2_repo, out, STAGE="test")
+    assert r.returncode == 1 and "the v2 rules give" in r.stdout, r.stdout
+    (out / "selection_val.json").write_text(sel_orig)
+    head = _git(v2_repo, "rev-parse", "HEAD").strip()
+    pre = v2_repo / "configs" / "scannet_v2_prereg.json"
+    p = json.loads(pre.read_text())
+    p["tie"]["tol"] = 0.5
+    pre.write_text(json.dumps(p))
+    _git(v2_repo, "commit", "-qam", "edit the prereg after the selection")
+    summ = json.loads((out / "eval_val.json").read_text())["metrics"]["summary"]
+    (out / "eval_test.json").write_text(json.dumps(dict(status="ok", metrics=dict(
+        betas_path=str(out / "eval_val.json"), summary=summ))))
+    try:
+        r = _run(v2_repo, out, STAGE="test")                       # (finished record aside)
+        assert r.returncode == 1 and "finished test run" in r.stdout, r.stdout
+        os.rename(out / "eval_test.json", out / "eval_test.done")
+        r = _run(v2_repo, out, STAGE="test")
+        assert r.returncode == 1 and "protocol differs" in r.stdout, r.stdout
+        assert "scannet_v2_prereg.json" in r.stdout
+        os.rename(out / "eval_test.done", out / "eval_test.json")
+        r = _run(v2_repo, out, STAGE="table")                      # no protocol check there
+        assert r.returncode == 1 and "changed after the selection" in r.stdout, r.stdout
+    finally:
+        _git(v2_repo, "reset", "-q", "--hard", head)
+    if _has_v2_selection(script_repo):    # the real make_tables.py (T4a merged): v2 rows
+        r = _run(v2_repo, out, STAGE="table")
+        assert r.returncode == 0 and "--v2" in r.stdout, r.stdout
+    os.remove(out / "eval_test.json")
+    # make_tables.py without the v2 selection: a v2 validation cannot be selected
+    if not _has_v2_selection(script_repo):
+        out2 = tmp_path / "o2"
+        out2.mkdir()
+        _val_run(script_repo, out2, v2=True)
+        r = _run(script_repo, out2, STAGE="select", DRY_RUN=0)
+        assert r.returncode == 1 and "no Table I v2 selection" in r.stdout, r.stdout
+    # with T4a merged: STAGE=val refuses an untracked prereg before any GPU step (a modified
+    # one is refused as a dirty tree)
+    if _eval_seg_has_v2():
+        _git(v2_repo, "rm", "-q", "--cached", "configs/scannet_v2_prereg.json")
+        _git(v2_repo, "commit", "-qm", "untrack the prereg")
+        try:
+            r = _run(v2_repo, tmp_path / "o3", STAGE="val")
+            assert r.returncode == 1 and "is not committed" in r.stdout, r.stdout
+        finally:
+            _git(v2_repo, "reset", "-q", "--hard", head)
+    print(f"PASS scannet_tab1.sh v2: selection {sel['v2']['chosen']} under the ScanNet prereg; "
+          f"test refuses a missing / other v2 choice and an edited prereg")
+
+
+def test_scannet_prereg_copies_the_v2_rules():
+    """configs/scannet_v2_prereg.json: the ScanNet scene files, and the rules of
+    configs/tab1_v2_prereg.json (when that file is in the tree, i.e. T4a merged)."""
+    p = json.loads(PREREG.read_text())
+    assert p["scenes"] == {"validation": "configs/scannet_val.json",
+                           "test": "configs/scannet_test.json"}
+    assert set(p["choices"]) == {"@p1", "@p4", "@ours_v2"} and p["metric"]["pooling"] == "pixels"
+    assert p["choices"]["@ours_v2"]["rows"][0] == "ours_P2" and "v1" not in p  # first look
+    rep = REPO / "configs" / "tab1_v2_prereg.json"
+    if rep.exists():
+        r = json.loads(rep.read_text())
+        for k in ("grids", "metric", "tie", "choices", "ablations"):
+            assert p[k] == r[k], k
+    print(f"PASS ScanNet v2 prereg: {len(_v2_rows())} rows; rules "
+          f"{'equal to configs/tab1_v2_prereg.json' if rep.exists() else '(Replica prereg not in this tree)'}")
 
 
 def test_script_refuses_config_paths_not_its_own(script_repo, tmp_path):

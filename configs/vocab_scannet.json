@@ -1,6 +1,6 @@
 {
  "source": "ScanNet v2 (Dai et al., CVPR 2017): label-filt/<frame>.png raw ScanNet ids mapped to NYU40 ids through scannetv2-labels.combined.tsv (id -> nyu40id) by usplat.datasets.ScanNetDataset; the class ids below are NYU40 ids",
- "class_set": "the 19 classes of OpenGaussian's ScanNet evaluation (Wu et al., NeurIPS 2024; github.com/yanmin-wu/OpenGaussian scripts/eval_scannet.py, target_id '# 19', read 2026-10-10): the 20 ScanNet benchmark classes without 'otherfurniture'. The concurrent NormLift reports ScanNet on the same 19 classes (OpenGaussian protocol). 'other furniture' is a residual category, not a nameable concept for a text query. FIXED 2026-10-10 before any ScanNet run.",
+ "class_set": "the 19 classes of OpenGaussian's ScanNet evaluation (Wu et al., NeurIPS 2024; github.com/yanmin-wu/OpenGaussian scripts/eval_scannet.py, target_id '# 19', read 2026-10-10): the 20 ScanNet benchmark classes without 'otherfurniture'. The concurrent NormLift reports ScanNet on the same 19 classes (OpenGaussian protocol). 'other furniture' is a residual category, not a nameable concept for a text query. Same scenes and classes as OpenGaussian, but scored per pixel on held-out 2D frames (scripts/scannet_tab1.sh), while OpenGaussian and NormLift score the 3D points of *_vh_clean_2.labels.ply with all 19 classes queried: their published numbers cannot be put in the same table. FIXED 2026-10-10 before any ScanNet run.",
  "ignore_ids": [
   0,
   13,

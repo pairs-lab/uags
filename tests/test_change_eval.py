@@ -395,7 +395,7 @@ def _save_case(tmp_path, with_cb=True):
     label[:20] = 1
     label[56:] = -1                                       # a few unjudged
     olab = {k: int(k < 20) for k in range(N)}
-    gt = CE.make_gt("swap", "toy", label, torch.arange(N), olab, mass=torch.ones(N) * 2,
+    gt = CE.make_gt("toy", "toy", label, torch.arange(N), olab, mass=torch.ones(N) * 2,
                     target=new, classes=dict(ids=[11, 12, 13, 14], names=list("abcd")),
                     text_raw=protos)
     torch.save(gt, tmp_path / "gt.pt")

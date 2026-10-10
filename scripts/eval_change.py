@@ -36,7 +36,9 @@ Protocol rules, enforced here so that they hold for a direct call as for the pip
               thresholds record of the same config over exactly its validation scenes; a
               --compare-field must have seen the same features (mapping code, run arguments,
               feature-transform argument but the log, PCA basis and centre, frames log); a
-              RIO10 field must have ingested the update frames the ground truth judges.
+              RIO10 field must have ingested the update frames the ground truth judges; a
+              swap field's frames log must hold exactly the frames (number, dataset index,
+              swapped pixels) and transform code the ground truth was rendered over.
   --split test (eval, criterion), checked before any record is written: refused with
               uncommitted changes in scripts/ usplat/ configs/, over a finished record
               (--force-test overrides this one only), and without a finished validation
@@ -165,6 +167,37 @@ def _log_frames(run_cfg):
             for e in json.load(open(log))["frames"]]
 
 
+def _plain_frames(frames):
+    """Frames-log entries as nested lists (a tuple and a list of equal content compare equal)."""
+    return None if frames is None else json.loads(json.dumps(frames))
+
+
+def _check_swap_frames(gt, ckpt):
+    """Swap: the field's transform logged exactly the frames (i, dataset index, swapped
+    pixels per source class) that the ground truth was rendered over, with the same transform
+    code; a ground truth left from other update frames or another usplat/swap.py is refused."""
+    if gt.get("kind") != "swap":
+        return
+    want = gt.get("logged_frames")
+    if want is None:
+        raise ValueError("the swap ground truth records no logged frames (made by an older "
+                         "eval_change.py): render it again with gt-swap")
+    run = ckpt.get("config") or {}
+    got = _log_frames(run)
+    if got is None:
+        raise ValueError("the field's run logged no frames (feature-transform log=): cannot "
+                         "check that it saw the frames the ground truth was rendered over")
+    if _plain_frames(got) != _plain_frames(want):
+        raise ValueError(f"the field's transform logged other frames than the ground truth was "
+                         f"rendered over ({len(got)} vs {len(want)} frames): render the ground "
+                         f"truth again from this field's frames log")
+    log = _arg_items(run.get("feature_transform_arg")).get("log")
+    code = json.load(open(log)).get("code_sha256")
+    if code != gt.get("transform_code_sha256"):
+        raise ValueError(f"the field's transform code {str(code)[:12]} != the ground truth's "
+                         f"{str(gt.get('transform_code_sha256'))[:12]}")
+
+
 def _same(a, b):
     if a is None or b is None:
         return a is None and b is None
@@ -279,6 +312,7 @@ def run_eval(args, rec=None):
         raise ValueError(f"scene {scene!r} is not a {args.split} scene of {args.config} "
                          f"({split})")
     _check_update_frames(gt, ckpt)
+    _check_swap_frames(gt, ckpt)
     compare = {}
     for spec in args.compare_field or []:
         name, path = spec.split("=", 1)
@@ -414,7 +448,10 @@ def run_gt_swap(args, rec=None):
         ras = _rasterizer(args.backend, splats, fr["c2w"], frd["K"], w, h, args.channel_chunk)
         acc.add_view(ras, lab)
     gt = SW.swap_gt(acc, spec, args.scene, bank,
-                    extra=dict(frames=[e["i"] for e in frames], ply=os.path.abspath(args.ply),
+                    extra=dict(frames=[e["i"] for e in frames], logged_frames=_plain_frames(
+                        [(int(e["i"]), int(e["index"]),
+                          sorted((str(k), int(v)) for k, v in e["n_px"].items()))
+                         for e in frames]), ply=os.path.abspath(args.ply),
                                data=os.path.abspath(args.data), downscale=int(args.downscale),
                                transform_code_sha256=log.get("code_sha256")))
     _save(gt, args.out)

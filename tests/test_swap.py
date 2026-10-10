@@ -563,6 +563,20 @@ def test_run_mapping_checkpoint_to_eval_change(tmp_path, monkeypatch):
     sc, why = CE._cb_scores(ck)
     assert why is None and set(sc) == set(ck["change_scores"])
     assert any(bool(torch.isfinite(v).any()) for v in sc.values())
+    # a ground truth rendered over other frames or another transform code is refused
+    g = torch.load(gt, weights_only=False)
+    assert len(g["logged_frames"]) == 6 and g["logged_frames"][0][:2] == [0, 0]
+    ev = lambda path: cli.main(["eval", "--field", F, "--gt", str(path), "--config", spec_path,
+                                "--split", "val", "--plain-json", "--out", str(tmp_path / "x.json")])
+    for name, bad, msg in (("fewer", dict(logged_frames=g["logged_frames"][::2]), "other frames"),
+                           ("px", dict(logged_frames=[[i, j, [[c, n + 1] for c, n in px]]
+                                                      for i, j, px in g["logged_frames"]]),
+                            "other frames"),
+                           ("code", dict(transform_code_sha256="0" * 64), "transform code"),
+                           ("old", dict(logged_frames=None), "no logged frames")):
+        torch.save(dict(g, **bad), tmp_path / f"gt_{name}.pt")
+        with pytest.raises(ValueError, match=msg):
+            ev(tmp_path / f"gt_{name}.pt")
 
 
 # ------------------------------------------------------------------ the shell script

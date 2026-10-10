@@ -713,9 +713,10 @@ full-map geometry, and the targets use the pixels that both maps cover. The
 epistemic channel should rank $e_{\mathrm{red}}$~\cite{kendall2017uncertainties},
 and the aleatoric channel should rank $e_{\mathrm{irr}}$.
 
-%% Operating point of the baselines: per-view FA 1e-3 on static val. Gaussians,
-%% the same nominal rate as ours (decision closed in the fix pass; revisit if
-%% the lead prefers another point).
+%% Operating point of the baselines: Gaussian-level FA 1e-3 on the static val.
+%% Gaussians (configs/rio10_change.json operating_point, scripts/eval_change.py
+%% thresholds): the checkpoint stores no per-view residuals. Stricter than ours,
+%% whose Gaussian-level FA grows with the views.
 \textbf{Change.} We report average precision (AP) and AUROC for stale content
 at the Gaussian and at the object level. An object's score is the mean score
 of its Gaussians. A residual row scores a Gaussian by the largest value of its
@@ -726,9 +727,9 @@ Gaussians flagged at least once during the update, and recall (Rec.) is the
 same share for stale Gaussians. Our threshold targets a nominal per-view
 false-alarm rate of $10^{-3}$ (\secref{sec:change}), so FA grows with the
 number of update views that see a Gaussian. Every other row gets one
-threshold, set on the validation scenes with labels so that its per-view
-false-alarm rate on static Gaussians is $10^{-3}$. The baselines thus use
-labels that our row does not use.
+threshold, set on the validation scenes with labels so that at most 0.1\% of
+the static Gaussians exceed it (a Gaussian-level rate, stricter than ours).
+The baselines thus use labels that our row does not use.
 
 %% ----------------------------------------------------------------------------
 \subsection{Static Scenes: Accuracy, Calibration and Ranking}
@@ -774,9 +775,11 @@ Ours P2 (adaptive $\beta$) & \checkmark & \multicolumn{2}{c}{as P0} & 8.7{\scrip
 %% random order is .ranking.legs_u.random_gap. P2 lower than averaging /
 %% CSS on ECE 3/2, NLL 5/3, Brier 6/1, AURC 6/2 of 6; P2 < P0 on AURC 6/6,
 %% ECE 3/6; P1 < P0 on NLL 1/6, ECE 2/6, AURC 2/6 (mean 12.9 vs 13.8), Brier
-%% 0/6. Means of the omitted numbers: Table I. LEGaussians u collapse at
-%% lambda_u = 4 (the reason the rule chose it): replica-tab1 README,
-%% "Validation Table I (final code bfcab98)".
+%% 0/6. Means of the omitted numbers: Table I. LEGaussians lambda_u: lowest
+%% mean validation AUSE of its own u, eval_val_224fe1e.json
+%% scenes[s].rows[legs_l*].all.ranking.legs_u.{ause,random_gap} (office_0 /
+%% room_2): l1 17.22 / 21.70, l2 16.98 / 22.79, l4 18.15 / 16.49; random
+%% 19.80 / 16.14, 20.11 / 16.54, 19.71 / 16.63; means 19.46, 19.88, 17.32.
 In Table~\ref{tab:replica}, P0 renders the view-weighted mean of the pixel
 features that averaging uses and matches averaging (28.0 vs 27.9 mIoU), a
 parity check. Every map row except LEGaussians beats the 2D features in mean
@@ -788,12 +791,13 @@ and AURC; against CSS on 2, 3, 1 and 2. CSS has the lowest ECE, Brier and
 AURC, P2 the lowest among open-vocabulary rows; their NLL ties (1.00 vs
 1.01). CSS differs from all other rows in its input (the scene's classes at
 mapping time) and its read-out (per-pixel class votes). \todo{control for the
-input: CSS with the full vocabulary, pending.} Our $u^{\mathrm{ale}}$ ranks
+input: CSS with the full vocabulary, validation scenes only ($N=2$), pending.} Our $u^{\mathrm{ale}}$ ranks
 the errors on par with NormLift's $1-C_{\mathrm{inter}}$ (lower AUSE on three
-of six scenes) and better than the CSS variance (on four). On validation, the
-learned $u$ of LEGaussians collapsed to zero at $\lambda_u=4$, which is why
-the rule chose that value; its test AUSE is near that of a random order (19.7
-vs 20.6).
+of six scenes) and better than the CSS variance (on four). LEGaussians'
+$\lambda_u=4$ has the lowest validation AUSE of its own $u$ (17.3 vs 19.5 and
+19.9 at $\lambda_u=1,2$, whose $u$ ranked one validation scene's errors worse
+than a random order); its test AUSE is near that of a random order (19.7 vs
+20.6).
 
 \begin{figure}[t]
   \centering
@@ -1032,6 +1036,6 @@ and test the field with other feature extractors.
 %% the IEEEtran.bst control entry (written by the preamble on the first pass).
 %% ============================================================================
 \bibliographystyle{IEEEtran}
-\bibliography{ref}
+\bibliography{ieeectl,ref}
 
 \end{document}

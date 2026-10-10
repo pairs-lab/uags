@@ -63,12 +63,21 @@ must be checked on val scene 01 the day the data arrives):
   V7  labels.ply is a vertex cloud/mesh whose vertices carry an integer instance property
       (first of ID_PROPERTIES; 3RScan names it "objectId") in the SAME world frame as the
       poses of its sequence (checked: property present; frame: alignment_check in
-      usplat.change_eval on static structure)
+      usplat.change_eval on static structure). "label" / "id" are NOT searched: in
+      ScanNet-style plys "label" holds semantic class ids, which would merge every chair
+      into one object; name it explicitly (id_property, configs/rio10_change.json
+      labels_id_property) once checked. The property used is recorded in the ground truth
+      and must be the same for seqXX_01 and seqXX_02 (checked by scripts/eval_change.py)
   V8  the instance ids of seqXX_01 and seqXX_02 name the same physical object (plan §3: NOT
       checked; compare label names and the centroids of static ids on val 01)
   V9  3RScan.json transforms are 16 numbers of a 4x4 homogeneous matrix; the storage order is
       detected from where the (0, 0, 0, 1) row sits, else `order` decides (column-major "F"
       by default, as Eigen reads them)
+  V10 3RScan route: the instance ids of the RIO10 labels.ply of seqXX_01 ARE the 3RScan
+      objectIds of the mapped reference scan, so the removed / nonrigid / rigid lists index
+      them (checked in part: usplat.change_eval.rscan_id_check refuses lists naming ids that
+      labels.ply lacks; a full check compares with 3RScan's own
+      labels.instances.annotated.v2.ply of the reference scan on val 01)
 """
 from __future__ import annotations
 import glob
@@ -81,7 +90,7 @@ import torch
 
 DEPTH_SCALE = 1000.0                        # V4: rendered depth in mm
 ID_PROPERTIES = ("objectId", "objectid", "object_id", "instance", "instance_id",
-                 "instanceId", "label", "id")
+                 "instanceId")              # V7: never "label" / "id" (class ids) by default
 SEQ_RE = re.compile(r"^seq(\d{2})_(\d{2})$")
 PARTS = ("all", "first_half", "second_half")
 # where seqXX.zip / semanticsXX.zip / modelsXX.zip may have been unzipped, relative to the
@@ -188,9 +197,13 @@ def read_labels_ply(path, id_property=None):
             raise RIO10FormatError(f"{path}: vertex property {k!r} missing (has {names})")
     prop = id_property or next((p for p in ID_PROPERTIES if p in names), None)
     if prop is None or prop not in names:
+        hint = [p for p in ("label", "id") if p in names and not id_property]
         raise RIO10FormatError(f"{path}: no instance-id vertex property; tried "
                                f"{[id_property] if id_property else list(ID_PROPERTIES)}, "
-                               f"the file has {names}")
+                               f"the file has {names}"
+                               + (f" ({hint} may hold semantic class ids: pass "
+                                  f"id_property={hint[0]!r} only after checking V7)" if hint
+                                  else ""))
     pts = np.stack([np.asarray(v[k], dtype=np.float64) for k in ("x", "y", "z")], -1)
     raw = np.asarray(v[prop])
     if not np.issubdtype(raw.dtype, np.integer):
@@ -327,6 +340,15 @@ class RIO10Dataset:
 
     def __getitem__(self, i):
         return self.frame(self.numbers[i])
+
+    def pose(self, i):
+        """c2w of item i without reading its images (NaN when absent, require_poses off)."""
+        p = self._path(self.numbers[i], "pose.txt")
+        if os.path.exists(p):
+            return torch.from_numpy(read_pose(p).astype(np.float32))
+        if self.require_poses:
+            raise FileNotFoundError(p)
+        return torch.full((4, 4), float("nan"))
 
     def frame(self, n):
         img = read_color(self._path(n, "color.jpg"))

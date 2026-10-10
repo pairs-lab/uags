@@ -9,7 +9,8 @@ semanticsXX.zip, modelsXX.zip unzipped side by side, or merged) and checks
   checks     every format assumption fails loudly with the offending path (non-rigid pose,
              missing pose, wrong folder name, RGB instance image, 8-bit depth, missing
              semantics frame, unresolvable layout lists the tried paths)
-  models     labels.ply instance property (objectId, fallback names, error), instances.txt
+  models     labels.ply instance property (objectId; "label" only when named: it may hold
+             class ids; error), instances.txt
   3RScan     removed / nonrigid / rigid lists, transform storage order detection
 """
 import json
@@ -179,8 +180,11 @@ def test_format_checks_fail_loudly(tmp_path):
 def test_non_finite_pose_and_external_depth(tmp_path):
     inf = np.full((4, 4), np.inf)
     fd = write_rio(str(tmp_path), seqs=(2,), poses={(2, 0): inf})[2]
-    fr = R.RIO10Dataset(fd)[0]
+    ds = R.RIO10Dataset(fd)
+    fr = ds[0]
     assert not torch.isfinite(fr["c2w"]).all()           # passed through, skipped downstream
+    assert not torch.isfinite(ds.pose(0)).all()          # pose only: the frame's own c2w
+    assert torch.equal(ds.pose(2), ds[2]["c2w"])
     ext = tmp_path / "mast3r"
     ext.mkdir()
     for i in range(4):
@@ -207,9 +211,14 @@ def test_layouts_resolve(tmp_path):
 def test_labels_ply_and_instances_txt(tmp_path):
     pts = np.arange(12, dtype=np.float64).reshape(4, 3)
     write_ply(str(tmp_path / "a.ply"), pts, np.array([0, 5, 5, 7]), prop="label")
-    d = R.read_labels_ply(str(tmp_path / "a.ply"))
+    # "label" may hold semantic class ids (ScanNet-style): never taken silently (V7)
+    with pytest.raises(R.RIO10FormatError, match="semantic class ids.*id_property='label'"):
+        R.read_labels_ply(str(tmp_path / "a.ply"))
+    d = R.read_labels_ply(str(tmp_path / "a.ply"), id_property="label")
     assert d["property"] == "label" and d["ids"].tolist() == [0, 5, 5, 7]
     assert np.allclose(d["points"], pts)
+    write_ply(str(tmp_path / "c.ply"), pts, np.array([0, 5, 5, 7]), prop="instance")
+    assert R.read_labels_ply(str(tmp_path / "c.ply"))["property"] == "instance"
     from plyfile import PlyData, PlyElement
     v = np.zeros(2, dtype=[("x", "f4"), ("y", "f4"), ("z", "f4"), ("red", "u1")])
     PlyData([PlyElement.describe(v, "vertex")]).write(str(tmp_path / "b.ply"))

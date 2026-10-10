@@ -632,9 +632,9 @@ freeze every choice before the test scenes run, and we run them once. We report
 the mean and the population standard deviation over the test scenes ($N=6$ for
 Replica, $N=7$ for RIO10).
 
+%% Temperatures of the baselines: stated in sec:predictive (fit by NLL on val).
 \textbf{Segmentation baselines.} All baselines share our geometry, features and
-splat weights, and each gets its own temperature, fit by NLL on the validation
-scenes. \emph{2D features} apply the extractor to the
+splat weights. \emph{2D features} apply the extractor to the
 evaluation frame itself, with no map, and covers every pixel. \emph{Averaging} is the pixel-weighted
 mean feature of Gradient-Weighted Feature
 Back-Projection~\cite{joseph2025gradbp}, with no uncertainty of its own
@@ -885,8 +885,7 @@ Ours fused with depth residual                       & F+D & \phs & \phs & \phs 
 Table~\ref{tab:rio10} reports stale-content detection. Our score differs
 from the feature-residual row only in where it takes the cosine: per Gaussian
 against all of its earlier evidence, not per pixel against the rendered map.
-Ours also sets its threshold from the mapping pass, resets the Gaussians it
-flags, and re-admits them after the depth check. The fused row asks whether
+The fused row asks whether
 our score adds to non-oracle depth. In the test scenes, \ph\% of the
 Gaussians are unobserved and \ph\% are hidden, and they are not in the
 table. \todo{interpret once
@@ -964,8 +963,8 @@ Pixel-level variant            & \ph & \ph & \ph & \ph & \ph\\
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:ablation} changes one part at a time and keeps the rest. The
-top block uses Replica. \emph{Pixels instead of views} uses the pixel masses
+In the Replica block of Table~\ref{tab:ablation}, \emph{Pixels instead of
+views} uses the pixel masses
 $m_{v,n}$ in place of $\omega_{v,n}$ in the posterior and the support, with
 $u^{\mathrm{epi}}=1/(1+\sum_v m_{v,n})$. Its $\hat\rho$ still combines view
 means, now with pixel-mass weights, since a pixel-level $Q$ would need an
@@ -976,8 +975,8 @@ $\tilde r=\bar r-(1-\bar r)/(W_1+1)$. Note that $\tilde r=1$ whenever
 $\bar r=1$, so $\tilde r$ does not correct the one-view case. \emph{Centered
 features} subtract the scene-mean feature before the dispersion and the
 change test. The full method uses \todo{the predictive chosen on validation
-(P0, P1 or P2, compared in Table~\ref{tab:replica})}. The bottom block uses
-RIO10. The persistence and bucket rows vary $k$ and the retention $\lambda$ of
+(P0, P1 or P2, compared in Table~\ref{tab:replica})}. In the RIO10 block, the
+persistence and bucket rows vary $k$ and the retention $\lambda$ of
 the change test. The threshold rows replace the history-conditioned null by
 one pooled null per scene, by a null of per-Gaussian maxima over the mapping
 pass, or by one fixed threshold from the validation scenes.

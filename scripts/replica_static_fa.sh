@@ -22,7 +22,10 @@
 #                 $OUT/test_criterion.json holds a finished test run (FORCE_TEST=1 overrides that
 #                 check only). A finished per-scene record is never overwritten (a crashed run,
 #                 status "running"/"failed", is rerun). Then scripts/static_fa_report.py
-#                 criterion -> $OUT/test_criterion.json.
+#                 criterion -> $OUT/test_criterion.json; it applies the same refusals itself
+#                 (and refuses configs changed since the validation selection), so a direct call
+#                 cannot replace a finished test record either. select refuses once validation
+#                 is closed.
 #   STAGE=audit : CPU only: scripts/audit_change_coverage.py on the 2 VALIDATION Table I fields
 #                 -> $OUT/audit_val_fields.json (coverage of the change test, its pre-registered
 #                 decision). Any configuration choice it informs (e.g. the opt-in change weight)
@@ -118,7 +121,9 @@ if [ "$STAGE" = val ]; then
   python3 scripts/static_fa_report.py select --config "$FROZEN" --results "$OUT" \
     2>&1 | tee "$OUT/logs/select.$TS.log"
 else
+  CRIT_FORCE=()
+  [ "${FORCE_TEST:-0}" = 1 ] && CRIT_FORCE=(--force)
   python3 scripts/static_fa_report.py criterion --config "$FROZEN" --results "$OUT" \
-    2>&1 | tee "$OUT/logs/criterion.$TS.log"
+    ${CRIT_FORCE[@]+"${CRIT_FORCE[@]}"} 2>&1 | tee "$OUT/logs/criterion.$TS.log"
 fi
 echo "done: $STAGE -> $OUT"

@@ -20,6 +20,14 @@ false-alarm rate is fires / tests, and the calibrated threshold targets 1 - q.
 Runs live at OUT/runs/<config name>/<scene>.json (usplat.runlog records; only status "ok"
 counts). select and criterion refuse missing or unfinished runs of the frozen config, and any
 run whose recorded argv does not contain the config's run_mapping arguments (`args`, in order).
+Both record the config files they read (sha256). Refusals, checked before any record is
+written, so they hold for a direct call as for scripts/replica_static_fa.sh:
+  select     once a test run record or OUT/test_criterion.json exists (validation is closed)
+  criterion  over a finished OUT/test_criterion.json (--force overrides this check only),
+             without a finished OUT/val_selection.json, with uncommitted changes in scripts/
+             usplat/ configs/, or when a config file differs from the one the validation
+             selection read (sha256): the criterion and the configs cannot move after
+             validation
 
 Fixed-threshold rule (written 2026-10-10, before any run; configs/static_fa_fixed.json): the
 q-quantile (q = 0.999, upper edge of the q bin of the field's 4000-bin histogram on [0, 2]) of
@@ -29,9 +37,11 @@ the static validation scenes is 1 - q (the rule the paper uses for the baselines
 """
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 import math
 import os
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -144,6 +154,76 @@ def _configs(config_dir, names):
     return {n: load_config(os.path.join(config_dir, f"{n}.json")) for n in names}
 
 
+def config_paths(config):
+    """The frozen config and its ablation configs (the files select / criterion read)."""
+    d = os.path.dirname(os.path.abspath(config))
+    return [config] + [os.path.join(d, f"{n}.json") for n in load_config(config)["ablations"]]
+
+
+def _sha256(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def _dirty(paths=("scripts", "usplat", "configs")):
+    """Uncommitted changes to tracked files under `paths` of this repo (the check of
+    scripts/replica_static_fa.sh), or None when git cannot tell."""
+    try:
+        r = subprocess.run(["git", "-C", os.path.dirname(HERE), "status", "--porcelain",
+                            "--untracked-files=no", "--", *paths],
+                           capture_output=True, text=True)
+    except OSError:
+        return None
+    return [ln for ln in r.stdout.splitlines() if ln.strip()] if r.returncode == 0 else None
+
+
+def _finished(path):
+    if not os.path.exists(path):
+        return False
+    try:
+        return json.load(open(path)).get("status") == "ok"
+    except (OSError, ValueError):
+        return False
+
+
+def check_select(args):
+    """Validation is closed once any test run record or the test criterion exists."""
+    frozen = load_config(args.config)
+    names = [frozen["name"]] + list(frozen["ablations"])
+    for s in frozen["data"]["test_scenes"]:
+        for n in names:
+            p = os.path.join(args.results, "runs", n, f"{s}.json")
+            if os.path.exists(p):
+                raise SystemExit(f"refused: test record {p} exists: validation is closed")
+    p = os.path.join(args.results, "test_criterion.json")
+    if os.path.exists(p):
+        raise SystemExit(f"refused: {p} exists: validation is closed")
+
+
+def check_criterion(args, out):
+    """The refusals of the test record (module docstring), before it is written."""
+    if _finished(out) and not args.force:
+        raise SystemExit(f"refused: {out} holds a finished test run (the test split runs once; "
+                         "--force to override)")
+    sel = _load_finished(os.path.join(args.results, "val_selection.json"),
+                         "validation selection (run STAGE=val first)")
+    dirty = _dirty()
+    if dirty is None:
+        raise SystemExit("refused: git cannot tell whether scripts/ usplat/ configs/ are "
+                         "committed (the test record must name a commit)")
+    if dirty:
+        raise SystemExit("refused: uncommitted changes in scripts/ usplat/ configs/ (the test "
+                         f"record must name a commit): {'; '.join(dirty[:5])}")
+    read = {os.path.basename(e["path"]): e.get("sha256") for e in sel.get("inputs", [])}
+    for p in config_paths(args.config):
+        name = os.path.basename(p)
+        if name not in read:
+            raise SystemExit(f"refused: the validation selection did not read {name}")
+        if read[name] != _sha256(p):
+            raise SystemExit(f"refused: {p} changed after the validation selection (sha256 "
+                             f"{_sha256(p)[:12]} != {str(read[name])[:12]})")
+
+
 def select(args, rec=None):
     """Validation: the fixed threshold of the fixed-threshold ablation and the val rates."""
     frozen = load_config(args.config)
@@ -226,6 +306,9 @@ def build_parser():
         p.add_argument("--results", required=True, help="OUT of replica_static_fa.sh")
         p.add_argument("--out", default="", help="record (default OUT/val_selection.json or "
                                                  "OUT/test_criterion.json)")
+        if name == "criterion":
+            p.add_argument("--force", action="store_true",
+                           help="overwrite a finished test record (every other check stays)")
     return ap
 
 
@@ -237,11 +320,16 @@ def main(argv=None):
         return None
     out = args.out or os.path.join(args.results, "val_selection.json" if args.cmd == "select"
                                    else "test_criterion.json")
+    if args.cmd == "select":                         # refusals before the record is written
+        check_select(args)
+    else:
+        check_criterion(args, out)
     from usplat.runlog import RunRecord
     cli = list(argv if argv is not None else sys.argv[1:])
     with RunRecord(out, config=vars(args), name=f"static_fa_{args.cmd}",
                    argv=[sys.argv[0]] + cli) as rec:
-        rec.add_input(args.config)
+        for p in config_paths(args.config):
+            rec.add_input(p)
         res = (select if args.cmd == "select" else criterion)(args, rec)
     print(f"wrote {out}")
     return res

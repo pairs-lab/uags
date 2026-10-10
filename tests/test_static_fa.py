@@ -7,7 +7,9 @@ baselines' label-free null, scripts/static_fa_report.py, scripts/replica_static_
    realised per-view rate is finite and the summary record is complete; the transform is
    called on the update sequence only, with the documented arguments.
  * The validation selection (fixed threshold) and the test criterion follow their written
-   rules on mock runs and refuse unfinished or mismatched runs.
+   rules on mock runs and refuse unfinished or mismatched runs. The criterion step refuses on
+   its own a second test record (unless --force), a missing selection, a dirty tree and a
+   config changed after validation; select refuses once validation is closed.
  * replica_static_fa.sh refuses a test run without a finished validation selection, with a
    dirty tree or over a finished test record, and closes validation once test records exist.
 """
@@ -17,6 +19,7 @@ import math
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -268,7 +271,8 @@ def _mock_run(results, cfg, scene, seed, selection=None, frames="24"):
     return p
 
 
-def test_select_and_criterion(tmp_path):
+def test_select_and_criterion(tmp_path, monkeypatch):
+    monkeypatch.setattr(SR, "_dirty", lambda *a, **k: [])     # the dev tree may be dirty
     res = tmp_path / "out"
     frozen = SR.load_config(REPO / "configs" / "static_fa.json")
     val, test = frozen["data"]["val_scenes"], frozen["data"]["test_scenes"]
@@ -305,6 +309,17 @@ def test_select_and_criterion(tmp_path):
     assert crit["rate_per_scene"] == rates
     assert list(crit["rates"]["static_fa_fixed"]) == [test[0]]
     assert json.loads((res / "test_criterion.json").read_text())["status"] == "ok"
+    # the Python step itself: no second test record, no re-selection after test
+    crit_cli = ["criterion", "--config", str(REPO / "configs" / "static_fa.json"),
+                "--results", str(res)]
+    before = (res / "test_criterion.json").read_bytes()
+    with pytest.raises(SystemExit, match="holds a finished test run"):
+        SR.main(crit_cli)
+    assert (res / "test_criterion.json").read_bytes() == before
+    with pytest.raises(SystemExit, match="validation is closed"):
+        SR.main(["select", "--config", str(REPO / "configs" / "static_fa.json"),
+                 "--results", str(res)])
+    assert SR.main(crit_cli + ["--force"])["passed"] == crit["passed"]
     # unfinished or mismatched frozen runs are refused
     p = res / "runs" / "static_fa" / f"{test[1]}.json"
     d = json.loads(p.read_text())
@@ -322,6 +337,44 @@ def test_select_and_criterion(tmp_path):
              "--results", str(res)]))
     print(f"PASS select (fixed thr {sel['fixed_change_thr']:.4f}) and criterion "
           f"({inside}/6 inside -> {'PASS' if crit['passed'] else 'FAIL'}) on mock runs")
+
+
+def test_criterion_refusals(tmp_path, monkeypatch):
+    """static_fa_report.py criterion refuses on its own, before writing anything: without a
+    finished validation selection, with uncommitted code, and when a config file (the
+    criterion bounds included) differs from the one the selection read."""
+    monkeypatch.setattr(SR, "_dirty", lambda *a, **k: [])
+    cfg_dir = tmp_path / "configs"
+    cfg_dir.mkdir()
+    for p in (REPO / "configs").glob("static_fa*.json"):
+        shutil.copy2(p, cfg_dir / p.name)
+    res = tmp_path / "out"
+    cli = ["criterion", "--config", str(cfg_dir / "static_fa.json"), "--results", str(res)]
+    out = res / "test_criterion.json"
+    with pytest.raises(SystemExit, match="validation selection"):
+        SR.main(cli)
+    assert not out.exists()
+    for s in SR.load_config(cfg_dir / "static_fa.json")["data"]["val_scenes"]:
+        _mock_run(res, "static_fa", s, seed=0)
+    SR.main(["select", "--config", str(cfg_dir / "static_fa.json"), "--results", str(res)])
+    sel = json.loads((res / "val_selection.json").read_text())
+    assert {Path(e["path"]).name for e in sel["inputs"]} == {
+        p.name for p in cfg_dir.glob("static_fa*.json")}
+    monkeypatch.setattr(SR, "_dirty", lambda *a, **k: [" M scripts/run_mapping.py"])
+    with pytest.raises(SystemExit, match="uncommitted changes"):
+        SR.main(cli)
+    monkeypatch.setattr(SR, "_dirty", lambda *a, **k: None)
+    with pytest.raises(SystemExit, match="git cannot tell"):
+        SR.main(cli)
+    monkeypatch.setattr(SR, "_dirty", lambda *a, **k: [])
+    c = json.loads((cfg_dir / "static_fa.json").read_text())
+    c["criterion"]["high"] = 20.0                            # a looser criterion after val
+    (cfg_dir / "static_fa.json").write_text(json.dumps(c, indent=1))
+    with pytest.raises(SystemExit, match="changed after the validation selection"):
+        SR.main(cli)
+    assert not out.exists()
+    print("PASS criterion refusals: no selection, dirty tree, unknown git state, config "
+          "changed after validation")
 
 
 def test_config_and_script_agree():
@@ -402,10 +455,19 @@ def test_shell_refusals(tmp_path):
     r = _sh(root, out, "test")                               # checks pass: maps or the gate
     assert r.returncode != 0
     assert "missing map" in r.stdout or (out / "gate.log").exists(), r.stdout + r.stderr
+    crit = lambda: subprocess.run(
+        [sys.executable, str(root / "scripts" / "static_fa_report.py"), "criterion",
+         "--config", str(root / "configs" / "static_fa.json"), "--results", str(out)],
+        cwd=root, capture_output=True, text=True, timeout=60)
+    r = crit()                                               # clean tree: the config check
+    assert r.returncode == 1 and "did not read static_fa.json" in r.stderr, r.stderr
     with open(root / "scripts" / "static_fa_report.py", "a") as f:
         f.write("# local edit\n")
     r = _sh(root, out, "test")                               # dirty tree
     assert r.returncode == 1 and "uncommitted changes" in r.stdout, r.stdout
+    r = crit()                                               # the Python step refuses too
+    assert r.returncode == 1 and "uncommitted changes" in r.stderr, r.stderr
+    assert not (out / "test_criterion.json").exists()
     (out / "runs" / "static_fa").mkdir(parents=True)
     (out / "runs" / "static_fa" / "room_0.json").write_text("{}")
     r = _sh(root, out, "val")                                # validation closed
@@ -413,4 +475,4 @@ def test_shell_refusals(tmp_path):
     r = _sh(root, out, "nope")
     assert r.returncode == 2
     print("PASS replica_static_fa.sh refusals: no selection, unfinished selection, finished "
-          "test record, dirty tree, closed validation")
+          "test record, dirty tree (shell and criterion step), closed validation")

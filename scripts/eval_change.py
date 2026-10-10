@@ -24,7 +24,12 @@ plain JSON) whose metrics hold the results:
   thresholds  one threshold per baseline row at a Gaussian-level false-alarm rate on the
               static VALIDATION Gaussians (from eval --dump-scores files).
   criterion   the pre-registered criterion of a config over the per-scene eval records of one
-              split (the records must use the same frozen config).
+              split (the records must use the same frozen config and one code version: field
+              mapping code + feature-transform code). A test criterion needs --reference, the
+              finished validation criterion record, whose code version must match.
+eval and criterion with --split test refuse to overwrite a finished record (--force-test);
+the dirty-tree and validation-first rules of the test stage live in the pipeline script
+(scripts/replica_swap.sh), as for scripts/replica_tab1.sh.
 
     python3 scripts/eval_change.py eval --field F.pt --gt gt.pt --config configs/swap_replica.json \
         --scene room_0 --split test --compare-field ours_noreset=F_noreset.pt --out eval.json
@@ -152,6 +157,7 @@ def run_eval(args, rec=None):
                config_path=os.path.abspath(args.config), config_sha256=cfg_sha,
                gt=dict(path=os.path.abspath(args.gt), kind=gt.get("kind"), shares=gt["shares"],
                        config_sha256=gt.get("config_sha256"), n=gt["N"],
+                       transform_code_sha256=gt.get("transform_code_sha256"),
                        n_judged=int(judged.sum()), n_stale=int((lab == 1).sum()),
                        n_static=int((lab == 0).sum())),
                field=dict(path=os.path.abspath(args.field),
@@ -238,7 +244,8 @@ def run_gt_swap(args, rec=None):
         acc.add_view(ras, lab)
     gt = SW.swap_gt(acc, spec, args.scene, bank,
                     extra=dict(frames=[e["i"] for e in frames], ply=os.path.abspath(args.ply),
-                               data=os.path.abspath(args.data), downscale=int(args.downscale)))
+                               data=os.path.abspath(args.data), downscale=int(args.downscale),
+                               transform_code_sha256=log.get("code_sha256")))
     _save(gt, args.out)
     print(f"{args.scene}: {acc.n_views} update views | swapped {gt['shares']['n_swapped']} | "
           f"static {gt['shares']['n_static']} | unjudged {gt['N'] - gt['shares']['n_swapped'] - gt['shares']['n_static']}")
@@ -433,15 +440,23 @@ def run_criterion(args, rec=None):
         if m["scene"] in records:
             raise ValueError(f"two records of scene {m['scene']!r}")
         records[m["scene"]] = m
-    codes = sorted({str((m.get("field") or {}).get("mapping_code")) for m in records.values()})
+    # code versions: mapping code of the field + the feature transform's code (swap)
+    codes = sorted({f"{(m.get('field') or {}).get('mapping_code')}|"
+                    f"{(m.get('gt') or {}).get('transform_code_sha256')}" for m in records.values()})
     if len(codes) > 1:
-        raise ValueError(f"the {args.split} fields were built with {len(codes)} mapping code "
-                         f"versions {[c[:12] for c in codes]}: rebuild them with one")
+        raise ValueError(f"the {args.split} fields were built with {len(codes)} code versions "
+                         f"{[c[:12] for c in codes]}: rebuild them with one")
+    if args.split == "test" and (cfg.get("scenes") or cfg.get("splits")).get("val") \
+            and not args.reference:
+        raise ValueError("a test criterion needs --reference: the finished validation "
+                         "criterion record of this config")
     if args.reference:
         d = json.load(open(args.reference))
         ref = d["metrics"] if isinstance(d.get("metrics"), dict) else d
         if d.get("status", "ok") != "ok" or ref.get("config_sha256") != cfg_sha:
             raise ValueError(f"{args.reference}: not a finished criterion record of this config")
+        if args.split == "test" and ref.get("split") != "val":
+            raise ValueError(f"{args.reference}: split {ref.get('split')!r}, not validation")
         if ref.get("mapping_codes") != codes:
             raise ValueError(f"{args.split} fields use mapping code {[c[:12] for c in codes]}, "
                              f"the reference ({ref.get('split')}) "
@@ -476,6 +491,8 @@ def build_parser():
     def common(p):
         p.add_argument("--plain-json", action="store_true",
                        help="write plain JSON instead of a usplat.runlog record")
+        p.add_argument("--force-test", action="store_true",
+                       help="overwrite a finished test record (the test split runs once)")
         p.add_argument("--seed", type=int, default=0)
         p.add_argument("--out", required=True)
     e = sub.add_parser("eval", help="score one field checkpoint against one GT file")
@@ -554,12 +571,22 @@ RUNNERS = {"eval": run_eval, "gt-swap": run_gt_swap, "gt-rio10": run_gt_rio10,
            "thresholds": run_thresholds, "criterion": run_criterion}
 
 
+def _finished(path):
+    try:
+        return json.load(open(path)).get("status", "ok") == "ok"
+    except (OSError, ValueError):
+        return False
+
+
 def main(argv=None):
     args = build_parser().parse_args(argv)
     fn = RUNNERS[args.cmd]
     path = getattr(args, "record", "") or (args.out if args.cmd in ("eval", "thresholds",
                                                                     "criterion")
                                            else f"{args.out}.json")
+    if getattr(args, "split", None) == "test" and _finished(path) and not args.force_test:
+        # the test split runs once: a crashed run leaves "running"/"failed" and may be rerun
+        raise SystemExit(f"refused: {path} holds a finished test record (--force-test overrides)")
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     if not args.plain_json:
         from usplat.runlog import RunRecord

@@ -416,7 +416,8 @@ def test_end_to_end_cpu(tmp_path):
     cli.main(["criterion", "--config", spec_path, "--split", "val", "--records", str(out),
               "--out", str(cr)])
     c = json.load(open(cr))["metrics"]
-    assert c["criteria"]["swap_reset_v1"]["binding"] and c["mapping_codes"] == ["None"]
+    assert c["criteria"]["swap_reset_v1"]["binding"]
+    assert c["mapping_codes"] == [f"None|{SW.code_sha256()}"]          # field + transform code
     conds = c["criteria"]["swap_reset_v1"]["scenes"]["toy"]["conditions"]
     assert conds[0]["ok"] and conds[1]["ok"]
     # 5. a frames log of another spec is refused
@@ -532,7 +533,11 @@ def test_replica_swap_sh_dry_run(tmp_path):
     (out / "criterion_test.json").write_text(json.dumps(dict(status="ok")))
     r = _run_sh(tmp_path, "test")
     assert r.returncode == 1 and "finished test run" in r.stdout
-    assert _run_sh(tmp_path, "test", FORCE_TEST="1").returncode == 0
+    r = _run_sh(tmp_path, "test", FORCE_TEST="1")
+    assert r.returncode == 0
+    ft = [cmd for cmd in _commands(r.stdout) if cmd[:3] in (
+        ["python3", "scripts/eval_change.py", "eval"], ["python3", "scripts/eval_change.py", "criterion"])]
+    assert len(ft) == 6 + 1 and all("--force-test" in cmd for cmd in ft)
     # a finished per-scene test record of another commit is refused
     (out / "criterion_test.json").unlink()
     (out / "eval_test_room_0.json").write_text(json.dumps(dict(status="ok", git=dict(commit="0" * 40))))

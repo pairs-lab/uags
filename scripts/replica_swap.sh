@@ -98,6 +98,8 @@ for s in $SCENES; do
   [ -f "$MAPS/${s}_seq1.pt" ] || { echo "refused: no map $MAPS/${s}_seq1.pt (build it with scripts/replica_tab1.sh EVAL=0)"; exit 1; }
 done
 mkdir -p "$SWAP/banks" "$SWAP/fields" "$SWAP/gt" "$SWAP/scores" "$OUT"
+FT=()                                   # eval_change.py refuses to overwrite a finished test record
+[ "$STAGE" = test ] && [ "${FORCE_TEST:-0}" = 1 ] && FT=(--force-test)
 
 RECORDS=()
 for s in $SCENES; do
@@ -107,9 +109,8 @@ for s in $SCENES; do
   GT="$SWAP/gt/$s.pt"
   REC="$OUT/eval_${STAGE}_${s}.json"
   RECORDS+=("$REC")
-  if [ "$STAGE" = test ] && finished "$REC"; then
+  if [ "$STAGE" = test ] && finished "$REC" && [ "${FORCE_TEST:-0}" != 1 ]; then
     python3 -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d['git']['commit'] == sys.argv[2] else 1)" "$REC" "$HEAD" \
-      || [ "${FORCE_TEST:-0}" = 1 ] \
       || { echo "refused: $REC is a finished test record of another commit (FORCE_TEST=1 to override)"; exit 1; }
     echo "$s: finished test record of this commit, kept"; continue
   fi
@@ -136,11 +137,11 @@ for s in $SCENES; do
     --downscale "$DOWNSCALE" --backend gsplat --device cuda --out "$GT" --record "$OUT/gt_${s}.json"
   step "$OUT/eval_${STAGE}_${s}.$TS.log" python3 scripts/eval_change.py eval --field "$F" --gt "$GT" \
     --config "$SPEC" --scene "$s" --split "$STAGE" --compare-field "ours_noreset=$F0" \
-    --dump-scores "$SWAP/scores/${STAGE}_${s}.pt" --out "$REC"
+    --dump-scores "$SWAP/scores/${STAGE}_${s}.pt" "${FT[@]}" --out "$REC"
 done
 REF=()
 [ "$STAGE" = test ] && REF=(--reference "$OUT/criterion_val.json")
 step "$OUT/criterion_${STAGE}.$TS.log" python3 scripts/eval_change.py criterion --config "$SPEC" \
-  --split "$STAGE" --records "${RECORDS[@]}" "${REF[@]}" --out "$OUT/criterion_${STAGE}.json"
+  --split "$STAGE" --records "${RECORDS[@]}" "${REF[@]}" "${FT[@]}" --out "$OUT/criterion_${STAGE}.json"
 [ "$DRY_RUN" = 1 ] || cat "$OUT/criterion_${STAGE}.$TS.log"
 echo "done: swap $STAGE -> $OUT"

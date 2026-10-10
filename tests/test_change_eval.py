@@ -419,15 +419,31 @@ def test_eval_cli_rows_and_record(tmp_path):
     with pytest.raises(ValueError, match="validation only"):
         cli.main(["thresholds", "--config", str(tmp_path / "cfg.json"), "--dumps",
                   str(tmp_path / "dump_test.pt"), "--out", str(tmp_path / "t2.json")])
-    # criterion over the per-scene records of one split, same config
+    # a finished test record is never overwritten (the test split runs once)
+    with pytest.raises(SystemExit, match="finished test record"):
+        cli.main(["eval", "--field", str(tmp_path / "field.pt"), "--gt", str(tmp_path / "gt.pt"),
+                  "--config", str(tmp_path / "cfg.json"), "--split", "test", "--out", str(out2)])
+    # criterion over the per-scene records of one split, same config: validation first
+    crv = tmp_path / "crit_val.json"
+    cli.main(["criterion", "--config", str(tmp_path / "cfg.json"), "--split", "val",
+              "--records", str(out), "--out", str(crv)])
+    cv = json.loads(crv.read_text())["metrics"]
+    assert not cv["criteria"]["c"]["binding"] and cv["mapping_codes"] == ["None|None"]
     cr = tmp_path / "crit.json"
+    with pytest.raises(ValueError, match="needs --reference"):
+        cli.main(["criterion", "--config", str(tmp_path / "cfg.json"), "--split", "test",
+                  "--records", str(out2), "--out", str(cr)])
+    with pytest.raises(ValueError, match="not validation"):        # a test record as reference
+        cli.main(["criterion", "--config", str(tmp_path / "cfg.json"), "--split", "test",
+                  "--records", str(out2), "--reference", str(out2), "--out", str(cr)])
     cli.main(["criterion", "--config", str(tmp_path / "cfg.json"), "--split", "test",
-              "--records", str(out2), "--out", str(cr)])
+              "--records", str(out2), "--reference", str(crv), "--out", str(cr)])
     cm = json.loads(cr.read_text())["metrics"]
-    assert cm["passed"] and cm["criteria"]["c"]["binding"]
+    assert cm["passed"] and cm["criteria"]["c"]["binding"] and cm["reference"] == str(crv)
     with pytest.raises(ValueError, match="split"):
         cli.main(["criterion", "--config", str(tmp_path / "cfg.json"), "--split", "test",
-                  "--records", str(out), "--out", str(tmp_path / "c2.json")])
+                  "--records", str(out), "--reference", str(crv), "--force-test",
+                  "--out", str(tmp_path / "c2.json")])
 
 
 def test_eval_cli_refusals(tmp_path):

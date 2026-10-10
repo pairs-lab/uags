@@ -311,6 +311,14 @@ def load_bank(path):
 
 
 # ------------------------------------------------------------------------------ transform
+def code_sha256():
+    """sha256 of this file: the transform is not in run_mapping.py's MAPPING_CODE, so its
+    version travels with the frames log -> ground truth -> eval record (criterion checks)."""
+    import hashlib
+    with open(os.path.abspath(__file__), "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
 def _stable_seed(seed, i, k):
     return (int(seed) * 1_000_003 + int(i) * 7_919 + int(k) * 104_729) % (2 ** 63 - 1)
 
@@ -377,7 +385,7 @@ class SwapTransform:
     def _write_log(self):
         d = dict(schema="uags.swaplog/1", scene=self.bank["scene"],
                  spec_sha256=self.bank["spec_sha256"], pairs=self.bank["pairs"],
-                 frames=self.log)
+                 code_sha256=code_sha256(), frames=self.log)
         os.makedirs(os.path.dirname(os.path.abspath(self.log_path)), exist_ok=True)
         tmp = f"{self.log_path}.tmp{os.getpid()}"
         with open(tmp, "w") as f:

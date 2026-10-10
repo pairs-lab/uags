@@ -330,7 +330,189 @@ def test_persistence_and_residual_special_case():
           f"feature residual ({scores[10][0]:.4f})")
 
 
+def _stats(U, m, centre):
+    """ViewStats of one view: every Gaussian n sees the unit feature U[n] with pixel mass m[n]
+    (ref = 100: view weight min(1, m/100))."""
+    from usplat.vmf_field import ViewStats
+    R = U * m[:, None]
+    return ViewStats(R, m, R if centre else None, m if centre else None, None, None, 100.0)
+
+
+def test_slow_decay_uses_stream_view_weight():
+    """slow_decay < 1 decays the older bucket by lambda^w per view, w = the view weight of the
+    change stream. Regression: the decay read `wc`, the centred channel's EVIDENCE weight, so
+    centre=False raised NameError and evidence="pixels" decayed by lambda^(pixel mass).
+    Brute force with fast_memory = 0 (view i leaks fully into S at view i + 1, then decays):
+        S_t = sum_{i<t} w_i u_i prod_{j=i+2..t} lambda^{w_j},  F_t = w_t u_t."""
+    torch.manual_seed(0)
+    N, d, V, lam = 6, 8, 7, 0.6
+    Wt = 0.2 + 0.8 * torch.rand(V, N)                      # partial view weights
+    U = Fn.normalize(torch.randn(V, N, d), dim=-1)
+    for kw in (dict(centre=False), dict(centre=True, evidence="pixels")):
+        f = DirectionalSemanticField(N, d, FieldConfig(slow_decay=lam, fast_memory=0.0,
+                                                       readmit_depth=None, **kw))
+        if f.cfg.centre:
+            f.set_centre(torch.zeros(d))
+        for t in range(V):
+            f._ingest(_stats(U[t], 100.0 * Wt[t], f.cfg.centre), None)
+            Rs, ns = torch.zeros(N, d), torch.zeros(N)
+            for i in range(t):
+                c = torch.prod(lam ** Wt[i + 2:t + 1], dim=0)  # empty product = 1
+                Rs += (c * Wt[i])[:, None] * U[i]
+                ns += c * Wt[i]
+            assert torch.allclose(f.ns, ns, atol=1e-5), (kw, t)
+            assert torch.allclose(f.Rs, Rs, atol=1e-5), (kw, t)
+            assert torch.allclose(f.nf, Wt[t], atol=1e-6), (kw, t)
+        if kw.get("evidence") == "pixels":                 # the posterior still counts pixels
+            assert torch.allclose(f.raw.W1, 100.0 * Wt.sum(0), rtol=1e-5)
+    print("PASS slow_decay: S decays by lambda^w (stream view weight), centre on or off")
+
+
+def _brute_tests(views, thr, k=2, tau=3, edges=(4.0, 6.0, 10.0, 20.0, 40.0)):
+    """Brute-force change test for full-weight views and fast_memory = 0. views: list of
+    (ids, U (n, d)); thr(v, bucket) -> threshold at view v. Per Gaussian: the views since its
+    last reset; c = 1 - cos(sum of the earlier ones, current) is defined from the tau-th view
+    on; the test uses the min of the last k defined c, in the history bucket of ns = views - 1;
+    a fire restarts the history at the current view and clears the ring.
+    returns per view (tested ids, fired ids, tested buckets, fired buckets)."""
+    hist, ring, out = {}, {}, []
+    for v, (ids, U) in enumerate(views):
+        tested, fired, tb, fb = [], [], [], []
+        for n, u in zip(ids.tolist(), U.double()):
+            h = hist.setdefault(n, [])
+            h.append(u)
+            if len(h) < tau:
+                continue
+            c = 1 - Fn.cosine_similarity(torch.stack(h[:-1]).sum(0), u, dim=0, eps=1e-8)
+            r = ring.setdefault(n, [])
+            r.append(float(c))
+            del r[:-k]
+            if len(r) < k:
+                continue
+            b = int(torch.bucketize(torch.tensor(float(len(h) - 1)), torch.tensor(edges)))
+            tested.append(n); tb.append(b)
+            if min(r) > thr(v, b):
+                fired.append(n); fb.append(b)
+                hist[n], ring[n] = [u], []
+        out.append((tested, fired, tb, fb))
+    return out
+
+
+def test_test_counters_and_state():
+    """last_tested / last_fired per view and n_tests / n_fires per history bucket equal a
+    brute-force change test (mapping pass with threshold inf, then a calibrated per-history
+    threshold loose enough to fire); the mapping-pass test count equals the null histogram;
+    the counters survive state_dict / from_state, and a state saved before them loads with
+    zeros."""
+    torch.manual_seed(0)
+    N, d, V, half = 300, 8, 30, 15
+    mu = Fn.normalize(torch.randn(N, d), dim=-1)
+    views = []
+    for v in range(V):
+        ids = torch.nonzero(torch.rand(N) < 0.7).squeeze(1)       # partial coverage per view
+        views.append((ids, Fn.normalize(mu[ids] + 0.4 * torch.randn(len(ids), d), dim=-1)))
+    f = DirectionalSemanticField(N, d, FieldConfig(view_mass_frac=0.01, readmit_depth=None))
+    got = []
+    for v, (ids, U) in enumerate(views):
+        if v == half:
+            assert torch.equal(f.n_tests.double(), f.c_hist.sum(1))   # mapping: tests = null
+            assert int(f.n_fires.sum()) == 0
+            f.calibrate_change_threshold(0.9)              # a loose threshold: fires happen
+        _view(f, ids, U)
+        got.append((f.last_tested.clone(), f.last_fired.clone()))
+    thr = f.thr_by_hist.tolist()
+    ref = _brute_tests(views, lambda v, b: float("inf") if v < half else thr[b])
+    nt, nf = torch.zeros(6, dtype=torch.long), torch.zeros(6, dtype=torch.long)
+    for v, ((tested, fired), (t_ids, f_ids, tb, fb)) in enumerate(zip(got, ref)):
+        assert torch.nonzero(tested).squeeze(1).tolist() == sorted(t_ids), v
+        assert torch.nonzero(fired).squeeze(1).tolist() == sorted(f_ids), v
+        nt += torch.bincount(torch.tensor(tb, dtype=torch.long), minlength=6)
+        nf += torch.bincount(torch.tensor(fb, dtype=torch.long), minlength=6)
+    assert torch.equal(f.n_tests, nt) and torch.equal(f.n_fires, nf)
+    assert int(f.n_fires.sum()) == int(f.n_resets.sum()) > 0
+    s = f.state_dict()
+    g = DirectionalSemanticField.from_state(s)
+    for name in ("last_tested", "last_fired", "n_tests", "n_fires"):
+        assert torch.equal(getattr(f, name), getattr(g, name)), name
+    old = {k: v for k, v in s.items() if k not in ("last_tested", "last_fired", "n_tests",
+                                                    "n_fires", "m_max")}
+    h = DirectionalSemanticField.from_state(old)
+    assert int(h.n_tests.sum()) == 0 and not h.last_tested.any()
+    assert torch.equal(h.raw.R, f.raw.R)
+    print(f"PASS counters = brute force: {int(f.n_tests.sum())} tests, "
+          f"{int(f.n_fires.sum())} fires; round trip and old states")
+
+
+def test_defaults_match_base_commit(tmp_path):
+    """FieldConfig() is unchanged by the test record and the opt-in change weight: the field at
+    git 3eb0e86 (Table I v1) and the current one, fed the same mock sequence with a content
+    change, observed depth and a calibrated threshold (resets and re-admissions happen), agree
+    bit for bit in every state tensor they share."""
+    import importlib
+    import os
+    import subprocess
+    import sys
+    import pytest
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pkg = tmp_path / "usplat_v1"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    for name in ("vmf_field.py", "bki_accumulate.py", "vmf_math.py"):
+        r = subprocess.run(["git", "-C", repo, "show", f"3eb0e86:usplat/{name}"],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            pytest.skip("git history with 3eb0e86 not available")
+        (pkg / name).write_text(r.stdout)
+    sys.path.insert(0, str(tmp_path))
+    try:
+        old_mod = importlib.import_module("usplat_v1.vmf_field")
+    finally:
+        sys.path.remove(str(tmp_path))
+    from usplat.mock_rasterizer import MockFeatureRasterizer
+    from usplat.clip_dense import MockDenseCLIP
+    torch.manual_seed(5)
+    N, d, H = 120, 16, 32
+    grid = torch.stack(torch.meshgrid(torch.arange(H), torch.arange(H), indexing="xy"),
+                       -1).reshape(-1, 2).float()
+    means2d = torch.rand(N, 2) * H
+    ras = MockFeatureRasterizer(means2d, 0.5 + 2.5 * torch.rand(N), 0.3 + 0.6 * torch.rand(N),
+                                torch.rand(N), grid)
+    clip = MockDenseCLIP(feat_dim=d, num_protos=5, noise=0.2, seed=5)
+    proto = (means2d[:, 0] / H * 5).long().clamp(0, 4)
+    moved = torch.where(torch.arange(N) % 3 == 0, (proto + 1) % 5, proto)
+    dom = ras.weights().argmax(1)
+    W = ras.weights()
+    gdepth = 1.0 + torch.rand(N)
+    ren = W @ gdepth / W.sum(1).clamp_min(1e-12)
+    views = [(clip.extract_from_labels((proto if v < 10 else moved)[dom].reshape(H, H))
+              .reshape(-1, d), ren + 0.01 * torch.randn(H * H)) for v in range(20)]
+    old = old_mod.DirectionalSemanticField(N, d, old_mod.FieldConfig(view_mass_frac=1e-3))
+    new = DirectionalSemanticField(N, d, FieldConfig(view_mass_frac=1e-3))
+    for f in (old, new):
+        for v, (z, dep) in enumerate(views):
+            if v == 10:
+                f.calibrate_change_threshold(0.99)
+            f.update_view(ras, z, depth_obs=dep, gauss_depth=gdepth)
+    assert int(new.n_resets.sum()) > 0 and int(new.n_fires.sum()) == int(new.n_resets.sum())
+    so, sn = old.state_dict(), new.state_dict()
+    shared = [k for k in so if isinstance(so[k], torch.Tensor)]
+    assert len(shared) > 20
+    for k in shared:
+        assert sn[k] is not None and torch.equal(so[k].nan_to_num(-7), sn[k].nan_to_num(-7)), k
+    for k in so:
+        if so[k] is None:
+            assert sn[k] is None, k
+    assert so["config"] == {k: v for k, v in sn["config"].items() if k != "change_weight"}
+    print(f"PASS defaults = git 3eb0e86 bit for bit ({len(shared)} tensors, "
+          f"{int(new.n_resets.sum())} resets)")
+
+
 if __name__ == "__main__":
+    import pathlib
+    import tempfile
+    test_slow_decay_uses_stream_view_weight()
+    test_test_counters_and_state()
+    test_defaults_match_base_commit(pathlib.Path(tempfile.mkdtemp()))    # needs a tmp dir
     test_change_reset_readmit()
     test_readmit_without_depth_uses_views()
     test_buckets_partition_and_decay()

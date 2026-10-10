@@ -1,0 +1,17 @@
+{
+ "name": "static_fa_max",
+ "description": "Ablation of static_fa: the q-quantile of the per-Gaussian max score over the mapping pass.",
+ "frozen": "2026-10-10, before any static false-alarm run",
+ "base": "static_fa",
+ "field_config": {
+  "calib_mode": "max",
+  "change_persist": 2,
+  "change_quantile": 0.999,
+  "readmit_depth": 0.05
+ },
+ "change_quantile": 0.999,
+ "update_stride": 5,
+ "use_depth": true,
+ "change_baselines": false,
+ "fixed_change_thr": null
+}

@@ -418,7 +418,9 @@ def test_script_selection_and_test_refusals(script_repo, tmp_path):
     assert sel["eval_val_sha256"] == hashlib.sha256((out / "eval_val.json").read_bytes()).hexdigest()
     assert sel["choices"]["legs"] == "legs_l2" and sel["choices"]["css"] == "css_a0.5"
     assert sel["choices"]["p3"] == "ours_P3_b20"                   # default: no P3 rows
-    assert sel["protocol"]["map_stride"] == 10 and sel["protocol"]["downscale"] == 2
+    p = sel["protocol"]
+    assert (p["map_stride"], p["eval_stride"], p["eval_offset"], p["css_eval_stride"],
+            p["downscale"], p["prep_factor"]) == (10, 20, 5, 5, 2, 2)
     assert set(sel["protocol"]["configs"]) == {"configs/vocab_scannet.json",
                                                "configs/scannet_val.json",
                                                "configs/scannet_test.json"}
@@ -466,14 +468,16 @@ def test_script_selection_and_test_refusals(script_repo, tmp_path):
 def test_script_refuses_config_paths_not_its_own(script_repo, tmp_path):
     cfg = script_repo / "configs" / "scannet_test.json"
     orig = cfg.read_text()
-    sc = json.loads(orig)
-    sc[0]["data"] = "/somewhere/else"
-    cfg.write_text(json.dumps(sc))
-    try:
-        r = _run(script_repo, tmp_path / "o", STAGE="prep")
-        assert r.returncode == 1 and "does not match" in r.stdout, r.stdout
-    finally:
-        cfg.write_text(orig)
+    for key, bad in (("data", "/somewhere/else"), ("offset", 0)):  # offset 0: mapping frames
+        sc = json.loads(orig)
+        sc[0][key] = bad
+        cfg.write_text(json.dumps(sc))
+        try:
+            r = _run(script_repo, tmp_path / "o", STAGE="prep")
+            assert r.returncode == 1 and "does not match" in r.stdout and key in r.stdout, r.stdout
+        finally:
+            cfg.write_text(orig)
     r = _run(script_repo, tmp_path / "o", STAGE="prep")
     assert r.returncode == 0 and r.stdout.count("prepare_scannet") == 10, r.stdout
-    print("PASS scannet_tab1.sh: scene configs must name the script's paths; prep = 10 scans")
+    print("PASS scannet_tab1.sh: scene configs must name the script's paths and evaluation "
+          "frames; prep = 10 scans")

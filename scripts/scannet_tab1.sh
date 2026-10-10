@@ -24,7 +24,8 @@
 #                      takes no offset, and frames 0, 5, 10, ... contain every evaluation
 #                      frame, so each queried class has a CSS column (on Replica the CSS
 #                      vocabulary is exactly the evaluation frames' classes)
-# Data root /home/thanhnc/gauss_ws/data/scannet, expected layout:
+# Data root /home/thanhnc/gauss_ws/data/scannet (ScanNet's download-scannet.py -o <root>
+# --id <scene> with --type .sens and --type _2d-label-filt.zip, and --label_map), layout:
 #   scannetv2-labels.combined.tsv                 (top level of the ScanNet download)
 #   scans/<scene>/color/<i>.jpg depth/<i>.png pose/<i>.txt intrinsic/intrinsic_color.txt
 #                 intrinsic/intrinsic_depth.txt   (ScanNet SensReader/python, every frame:
@@ -86,7 +87,8 @@ V2_ROWS=${V2_ROWS:-auto}
 V2_SELECT=${V2_SELECT:-}
 MAP_EXTRA=${MAP_EXTRA:-}
 FACTOR=2                         # prepared colour = native / FACTOR
-MAP_STRIDE=10                    # mapping frames (evaluation frames: configs/scannet_*.json)
+MAP_STRIDE=10                    # mapping frames 0, 10, 20, ...
+EVAL_STRIDE=20 EVAL_OFFSET=5     # evaluation frames 5, 25, 45, ... (configs/scannet_*.json)
 CSS_STRIDE=5                     # CSS vocabulary frames, a superset of the evaluation frames
 # GPU memory caps (MiB), as replica_tab1.sh
 MAP_NEED=${MAP_NEED:-9000}
@@ -102,14 +104,16 @@ esac
 mkdir -p "$OUT"
 [ "$DRY_RUN" = 1 ] || mkdir -p "$PREP" "$MAPS" "$FIELDS"
 
-scenes() {    # names in configs/scannet_<split>.json; refused if its paths are not this script's
-  python3 - "configs/scannet_$1.json" "$PREP" "$MAPS" "$FIELDS" <<'PY'
+scenes() {    # names in configs/scannet_<split>.json; refused unless its paths and evaluation
+              # frames are this script's
+  python3 - "configs/scannet_$1.json" "$PREP" "$MAPS" "$FIELDS" "$EVAL_STRIDE" "$EVAL_OFFSET" <<'PY'
 import json, sys
-path, prep, maps, fields = sys.argv[1:]
+path, prep, maps, fields, stride, offset = sys.argv[1:]
 sc = json.load(open(path))
 bad = [f"{s['name']}.{k}: {s.get(k)!r} != {v!r}" for s in sc
        for k, v in dict(data=f"{prep}/{s['name']}", ply=f"{maps}/{s['name']}.pt",
-                        field=f"{fields}/{s['name']}_lseg.pt", dataset="scannet").items()
+                        field=f"{fields}/{s['name']}_lseg.pt", dataset="scannet",
+                        stride=int(stride), offset=int(offset)).items()
        if s.get(k) != v]
 if bad:
     sys.exit(f"refused: {path} does not match scripts/scannet_tab1.sh: {bad}")
@@ -117,13 +121,14 @@ print(" ".join(s["name"] for s in sc))
 PY
 }
 protocol() {  # the settings the test stage must share with the validation selection (JSON)
-  python3 - "$DOWNSCALE" "$TAU_COV" "$ITERS" "$FACTOR" "$MAP_STRIDE" "$CSS_STRIDE" "$MAP_EXTRA" <<'PY'
+  python3 - "$DOWNSCALE" "$TAU_COV" "$ITERS" "$FACTOR" "$MAP_STRIDE" "$EVAL_STRIDE" \
+    "$EVAL_OFFSET" "$CSS_STRIDE" "$MAP_EXTRA" <<'PY'
 import hashlib, json, sys
-ds, tau, iters, factor, ms, cs, extra = sys.argv[1:]
+ds, tau, iters, factor, ms, es, eo, cs, extra = sys.argv[1:]
 sha = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()
 print(json.dumps(dict(downscale=int(ds), tau_cov=float(tau), iters=int(iters),
-                      prep_factor=int(factor), map_stride=int(ms), css_eval_stride=int(cs),
-                      map_extra=extra,
+                      prep_factor=int(factor), map_stride=int(ms), eval_stride=int(es),
+                      eval_offset=int(eo), css_eval_stride=int(cs), map_extra=extra,
                       configs={p: sha(p) for p in ("configs/vocab_scannet.json",
                                                    "configs/scannet_val.json",
                                                    "configs/scannet_test.json")}),
@@ -301,7 +306,7 @@ done
 [ "$STAGE" = prep ] && { echo "done: prepared$SCENES"; exit 0; }
 [ "$EVAL" = 1 ] || { echo "done: $STAGE maps and fields only (EVAL=0)"; exit 0; }
 COMMON=(--vocab "$VOCAB" --row-factory usplat.baselines:row_factory,usplat.distill:row_factory
-        --extractor lseg --dataset scannet --stride 20 --downscale "$DOWNSCALE"
+        --extractor lseg --dataset scannet --stride "$EVAL_STRIDE" --downscale "$DOWNSCALE"
         --tau-cov "$TAU_COV" --text-cache "$FIELDS/text_cache_lseg.pt" --with-2d)
 [ "$V2" = 1 ] && COMMON+=(--v2-rows)
 L="$OUT/eval_${STAGE}.$TS.log"

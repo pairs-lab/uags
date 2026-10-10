@@ -355,6 +355,51 @@ def test_select_and_criterion(tmp_path, monkeypatch):
           f"({inside}/6 inside -> {'PASS' if crit['passed'] else 'FAIL'}) on mock runs")
 
 
+def test_one_code_version(tmp_path, monkeypatch):
+    """select refuses validation runs of two mapping codes and records the code; criterion
+    refuses test runs of two mapping codes or commits, or of another code than validation's."""
+    monkeypatch.setattr(SR, "_dirty", lambda *a, **k: [])
+    res = tmp_path / "out"
+    cfg = str(REPO / "configs" / "static_fa.json")
+    frozen = SR.load_config(cfg)
+    val, test = frozen["data"]["val_scenes"], frozen["data"]["test_scenes"]
+
+    def stamp(p, code, commit=None):
+        d = json.loads(p.read_text())
+        d["metrics"]["code"] = dict(mapping_code_sha256=code)
+        if commit:
+            d["git"] = dict(d.get("git") or {}, commit=commit)
+        p.write_text(json.dumps(d))
+    vals = [_mock_run(res, "static_fa", s, seed=i) for i, s in enumerate(val)]
+    stamp(vals[0], "a" * 64)
+    stamp(vals[1], "f" * 64)
+    with pytest.raises(SystemExit, match="2 mapping codes"):
+        SR.main(["select", "--config", cfg, "--results", str(res)])
+    assert not SR._finished(res / "val_selection.json")
+    stamp(vals[1], "a" * 64)
+    sel = SR.main(["select", "--config", cfg, "--results", str(res)])
+    assert sel["mapping_code_sha256"] == "a" * 64
+    tests = [_mock_run(res, "static_fa", s, seed=10 + i) for i, s in enumerate(test)]
+    crit = ["criterion", "--config", cfg, "--results", str(res)]
+    for k, p in enumerate(tests):
+        stamp(p, "a" * 64, "1" * 40 if k < 3 else "2" * 40)
+    with pytest.raises(SystemExit, match="2 git commits"):
+        SR.main(crit)
+    for k, p in enumerate(tests):
+        stamp(p, "a" * 64 if k < 3 else "f" * 64, "1" * 40)
+    with pytest.raises(SystemExit, match="2 mapping codes"):
+        SR.main(crit)
+    for p in tests:
+        stamp(p, "f" * 64, "1" * 40)
+    with pytest.raises(SystemExit, match="validation selection"):
+        SR.main(crit)
+    assert not SR._finished(res / "test_criterion.json")
+    for p in tests:
+        stamp(p, "a" * 64, "1" * 40)
+    out = SR.main(crit)
+    assert out["mapping_code_sha256"] == "a" * 64 and out["git_commit"] == "1" * 40
+
+
 def test_criterion_refusals(tmp_path, monkeypatch):
     """static_fa_report.py criterion refuses on its own, before writing anything: without a
     finished validation selection, with uncommitted code, and when a config file (the
@@ -490,5 +535,24 @@ def test_shell_refusals(tmp_path):
     assert r.returncode == 1 and "validation is closed" in r.stdout, r.stdout
     r = _sh(root, out, "nope")
     assert r.returncode == 2
+    # a finished per-scene test record of another commit is refused, not kept
+    subprocess.run(["git", "-C", str(root), "checkout", "-q", "--", "."], check=True)
+    import shutil as sh
+    sh.rmtree(out / "runs")
+    maps = tmp_path / "maps"
+    maps.mkdir()
+    frozen = SR.load_config(REPO / "configs" / "static_fa.json")
+    for s in frozen["data"]["test_scenes"]:
+        (maps / f"{s}_seq1.pt").write_bytes(b"")
+    room = out / "runs" / "static_fa" / f"{frozen['data']['test_scenes'][0]}.json"
+    room.parent.mkdir(parents=True)
+    room.write_text(json.dumps(dict(status="ok", git=dict(commit="0" * 40))))
+    r = _sh(root, out, "test", MAPS=str(maps))
+    assert r.returncode == 1 and "finished test record of another commit" in r.stdout, r.stdout
+    head = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True,
+                          text=True).stdout.strip()
+    room.write_text(json.dumps(dict(status="ok", git=dict(commit=head))))
+    r = _sh(root, out, "test", MAPS=str(maps))              # kept; the next run hits the gate
+    assert "finished, kept" in r.stdout and (out / "gate.log").exists(), r.stdout + r.stderr
     print("PASS replica_static_fa.sh refusals: no selection, unfinished selection, finished "
           "test record, dirty tree (shell and criterion step), closed validation")

@@ -21,7 +21,8 @@
 #                 scripts/ usplat/ configs/, without a finished $OUT/val_selection.json, or when
 #                 $OUT/test_criterion.json holds a finished test run (FORCE_TEST=1 overrides that
 #                 check only). A finished per-scene record is never overwritten (a crashed run,
-#                 status "running"/"failed", is rerun). Then scripts/static_fa_report.py
+#                 status "running"/"failed", is rerun); one of another commit is refused (the
+#                 test records name one commit). Then scripts/static_fa_report.py
 #                 criterion -> $OUT/test_criterion.json; it applies the same refusals itself
 #                 (and refuses configs changed since the validation selection), so a direct call
 #                 cannot replace a finished test record either. select refuses once validation
@@ -39,8 +40,8 @@ cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
 export UAGS_GPU_USGLOC_EXTRA_MIB=${UAGS_GPU_USGLOC_EXTRA_MIB:-99999}   # never beside USGLoc
 export UAGS_GPU_POLL_S=${UAGS_GPU_POLL_S:-5}
-ROOT=/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset
-MAPS=/home/thanhnc/gauss_ws/data/uags_maps
+ROOT=${ROOT:-/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset}
+MAPS=${MAPS:-/home/thanhnc/gauss_ws/data/uags_maps}
 FIELDS=/home/thanhnc/gauss_ws/data/uags_fields
 OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/static_fa}
 STAGE=${STAGE:-val}
@@ -100,6 +101,10 @@ for s in $SCENES; do
     fi
     rec="$OUT/runs/$c/$s.json"
     if finished "$rec"; then
+      if [ "$STAGE" = test ]; then
+        python3 -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if (d.get('git') or {}).get('commit') == sys.argv[2] else 1)" "$rec" "$(git rev-parse HEAD)" \
+          || { echo "refused: $rec is a finished test record of another commit (the test records name one commit; move it aside to rerun)"; exit 1; }
+      fi
       echo "$c $s: finished, kept ($rec)"; continue
     fi
     mkdir -p "$OUT/runs/$c"

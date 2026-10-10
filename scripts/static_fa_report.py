@@ -28,6 +28,10 @@ written, so they hold for a direct call as for scripts/replica_static_fa.sh:
              usplat/ configs/, or when a config file differs from the one the validation
              selection read (sha256): the criterion and the configs cannot move after
              validation
+One code version (as scripts/replica_swap.sh and eval_change.py criterion): select refuses
+validation runs of more than one mapping code (metrics.code.mapping_code_sha256 of
+run_mapping.py) and records it in val_selection.json; criterion refuses test runs of more than
+one mapping code or git commit, or of another mapping code than the selection's.
 
 Fixed-threshold rule (written 2026-10-10, before any run; configs/static_fa_fixed.json): the
 q-quantile (q = 0.999, upper edge of the q bin of the field's 4000-bin histogram on [0, 2]) of
@@ -119,8 +123,9 @@ def _run_matches(rec, cfg, selection=None):
     return True
 
 
-def load_runs(results, cfg, scenes, selection=None, allow_missing=False):
-    """{scene: record metrics} of OUT/runs/<cfg name>/<scene>.json, finished runs only."""
+def load_runs(results, cfg, scenes, selection=None, allow_missing=False, ident=None):
+    """{scene: record metrics} of OUT/runs/<cfg name>/<scene>.json, finished runs only.
+    ident (a list): gets (path, mapping code, git commit) of every loaded run."""
     out = {}
     for s in scenes:
         p = os.path.join(results, "runs", cfg["name"], f"{s}.json")
@@ -131,7 +136,23 @@ def load_runs(results, cfg, scenes, selection=None, allow_missing=False):
             raise SystemExit(f"refused: {p} was not run with the arguments of {cfg['name']} "
                              f"({' '.join(run_args(cfg, selection))})")
         out[s] = rec["metrics"]
+        if ident is not None:
+            ident.append((p, (rec["metrics"].get("code") or {}).get("mapping_code_sha256"),
+                          (rec.get("git") or {}).get("commit")))
     return out
+
+
+def one_code(ident, what, commit=False):
+    """The single mapping code of the runs in ident (load_runs); refuses runs of several
+    mapping codes (and, with commit, of several git commits)."""
+    for k, name in ((1, "mapping code"),) + (((2, "git commit"),) if commit else ()):
+        vals = sorted({str(e[k]) for e in ident})
+        if len(vals) > 1:
+            by = {v: [os.path.relpath(e[0]) for e in ident if str(e[k]) == v][:3] for v in vals}
+            raise SystemExit(f"refused: the {what} runs come from {len(vals)} {name}s "
+                             f"({'; '.join(f'{v[:12]}: {by[v]}' for v in vals)}): one code "
+                             f"version per stage (rerun the stale runs)")
+    return ident[0][1] if ident else None
 
 
 def _rates(runs):
@@ -228,7 +249,8 @@ def select(args, rec=None):
     """Validation: the fixed threshold of the fixed-threshold ablation and the val rates."""
     frozen = load_config(args.config)
     scenes = frozen["data"]["val_scenes"]
-    runs = load_runs(args.results, frozen, scenes)
+    ident = []
+    runs = load_runs(args.results, frozen, scenes, ident=ident)
     q = float(frozen["change_quantile"])
     pooled = [0] * 4000
     for m in runs.values():
@@ -239,9 +261,11 @@ def select(args, rec=None):
                             frozen["ablations"]).items():
         if c["fixed_change_thr"] == "from_validation":
             continue                                 # defined by this selection
-        others[name] = _rates(load_runs(args.results, c, scenes, allow_missing=True))
+        others[name] = _rates(load_runs(args.results, c, scenes, allow_missing=True,
+                                        ident=ident))
     out = dict(fixed_change_thr=thr, quantile=q, val_scenes=scenes,
                rule=frozen["fixed_rule"], null_samples=int(sum(pooled)),
+               mapping_code_sha256=one_code(ident, "validation"),
                rates={frozen["name"]: _rates(runs), **others})
     print(f"fixed threshold from validation ({', '.join(scenes)}; q={q:g}, "
           f"{int(sum(pooled))} update-pass scores): {thr:.4f}")
@@ -256,7 +280,8 @@ def criterion(args, rec=None):
     frozen = load_config(args.config)
     crit = frozen["criterion"]
     scenes = frozen["data"]["test_scenes"]
-    runs = load_runs(args.results, frozen, scenes)
+    ident = []
+    runs = load_runs(args.results, frozen, scenes, ident=ident)
     lo, hi = crit["low"] * crit["nominal"], crit["high"] * crit["nominal"]
     per = {s: _rates({s: m})[s]["rate"] for s, m in runs.items()}
     inside = {s: (r is not None and lo <= r <= hi) for s, r in per.items()}
@@ -267,8 +292,18 @@ def criterion(args, rec=None):
     for name, c in _configs(os.path.dirname(os.path.abspath(args.config)),
                             frozen["ablations"]).items():
         others[name] = _rates(load_runs(args.results, c, scenes, selection=sel,
-                                        allow_missing=True))
+                                        allow_missing=True, ident=ident))
+    code = one_code(ident, "test", commit=True)
+    sm = _load_finished(sel, "validation selection")["metrics"]
+    if "mapping_code_sha256" not in sm:
+        raise SystemExit(f"refused: {sel} records no mapping code (an older "
+                         f"static_fa_report.py): run STAGE=val again")
+    if sm["mapping_code_sha256"] != code:
+        raise SystemExit(f"refused: the test runs use mapping code {str(code)[:12]}, the "
+                         f"validation selection {str(sm['mapping_code_sha256'])[:12]}: the test "
+                         f"stage runs the validated code (run STAGE=val again)")
     out = dict(criterion=crit, test_scenes=scenes, rate_per_scene=per, inside=inside,
+               mapping_code_sha256=code, git_commit=ident[0][2] if ident else None,
                scenes_inside=n_in, passed=passed,
                rates={frozen["name"]: _rates(runs), **others})
     _print_rates(out["rates"], float(frozen["change_quantile"]))

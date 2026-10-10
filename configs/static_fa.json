@@ -1,0 +1,42 @@
+{
+ "name": "static_fa",
+ "description": "Frozen config of the static false-alarm measurement (paper: 'we measure the actual rate'): label-free history-conditioned threshold at q = 0.999, persistence k = 2, re-admission with a 5 cm observed-depth tolerance; the residual baselines (NCC, feature, depth) run on the same views with the same label-free rule (pooled q-quantile of their own mapping-pass scores).",
+ "frozen": "2026-10-10, before any static false-alarm run",
+ "field_config": {
+  "calib_mode": "history",
+  "change_persist": 2,
+  "change_quantile": 0.999,
+  "readmit_depth": 0.05
+ },
+ "change_quantile": 0.999,
+ "update_stride": 5,
+ "use_depth": true,
+ "change_baselines": true,
+ "fixed_change_thr": null,
+ "data": {
+  "dataset": "replica_semnerf",
+  "map_sequence": "Sequence_1",
+  "map_stride": 5,
+  "update_sequence": "Sequence_2",
+  "downscale": 2,
+  "pca_frames": 20,
+  "feat_dim": 64,
+  "seed": 0,
+  "extractor": "lseg",
+  "val_scenes": ["office_0", "room_2"],
+  "test_scenes": ["room_0", "room_1", "office_1", "office_2", "office_3", "office_4"],
+  "note": "mapping arguments as scripts/replica_tab1.sh (the Table I fields); Sequence_2 shows the same static scene from another trajectory, so every fire of the update pass is a false alarm"
+ },
+ "ablations": ["static_fa_pooled", "static_fa_max", "static_fa_fixed", "static_fa_k1"],
+ "fixed_rule": "the q-quantile (q = 0.999; upper edge of the q bin of 4000 bins on [0, 2]) of the per-view scores of the tested Gaussians in the update passes of static_fa on the validation scenes, pooled (scripts/static_fa_report.py select): the threshold whose per-view false-alarm rate on the static validation scenes is 1 - q",
+ "criterion": {
+  "text": "PRE-REGISTERED (2026-10-10, before any static false-alarm run): the realised per-view false-alarm rate (update-pass fires / defined tests) of this frozen config at q = 0.999 lies within [0.5x, 2x] of the nominal 1e-3, i.e. in [5e-4, 2e-3], on >= 5 of the 6 Replica test scenes. Otherwise the label-free threshold does not deliver its nominal rate, and the paper reports the measured rate instead of the nominal one.",
+  "metric": "update.rate",
+  "nominal": 0.001,
+  "low": 0.5,
+  "high": 2.0,
+  "min_scenes": 5,
+  "num_scenes": 6,
+  "split": "test"
+ }
+}

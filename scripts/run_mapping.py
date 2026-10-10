@@ -20,12 +20,31 @@ test recording scores only (change_thr = inf); the field then calibrates its own
 
 The PCA basis and the centre zbar are fit on the first --pca-frames MAPPING frames only
 (no text, no labels). Text queries are projected without renormalisation (F7).
+
+Static false-alarm run (--summary-json PATH, a usplat.runlog record): on a static scene every
+fire of the update pass is a false alarm. The record holds, for the UPDATE pass, the defined
+tests and fires of every view and in total, the realised per-view false-alarm rate
+fires / tests overall and per history bucket (the threshold targets 1 - q), the share of the
+observed pixel mass that was reset, the calibrated thresholds and the config (ChangeTally).
+--change-baselines runs the residual baselines of usplat.change_baselines (NCC, feature
+residual, depth residuals where depth exists) on the same views, with the same label-free
+rule (ResidualNull: the q-quantile of their own mapping-pass scores, pooled), counted the same
+way. --fixed-change-thr replaces the calibration by one fixed threshold (ablation).
+--no-save-field writes no field file, so an existing field at --out is never overwritten.
+
+Feature transform (--feature-transform MODULE:FACTORY, --feature-transform-arg STRING): at
+startup xform = FACTORY(arg, pca, device); on the UPDATE sequence only, right after z (h*w, d)
+is in field space and before the field and CSS see it, z = xform(z, fr, i, (h, w)), with fr
+the downscaled frame dict (its 'labels', if any, keep the dataset resolution: downscale()
+resizes image, depth and K only) and i the frame index in the update dataset. Default: no
+transform. The saved field and the run record store both strings (config).
 """
 from __future__ import annotations
 import argparse
 import json
 import os
 import math
+import sys
 import torch
 
 from usplat.vmf_field import DirectionalSemanticField, FieldConfig
@@ -33,8 +52,152 @@ from usplat.efe_planner import EFEPlanner
 from usplat.evaluation import sparsification_curve, semantic_error_vs_text, auroc
 
 
+def _bucket_labels(edges):
+    """Names of the history buckets of torch.bucketize(ns, edges) (right-closed bins)."""
+    e = [float(x) for x in edges]
+    return ([f"h<={e[0]:g}"] + [f"{a:g}<h<={b:g}" for a, b in zip(e[:-1], e[1:])]
+            + [f"h>{e[-1]:g}"])
+
+
+def load_feature_transform(spec, arg, pca, device):
+    """--feature-transform MODULE:FACTORY -> FACTORY(arg, pca, device), a callable
+    xform(z, fr, i, (h, w)) -> z for the update sequence (see the module docstring); None
+    without a spec."""
+    if not spec:
+        return None
+    mod, sep, fac = spec.partition(":")
+    if not (sep and mod and fac):
+        raise SystemExit(f"--feature-transform must be MODULE:FACTORY, got {spec!r}")
+    from importlib import import_module
+    return getattr(import_module(mod), fac)(arg, pca, device)
+
+
+def calibrate_field(field, q, fixed=None):
+    """End of the mapping pass: the threshold from the field's own null (calib_mode), or one
+    fixed threshold (--fixed-change-thr); returns its description for the summary."""
+    counts = field.c_hist.sum(1)
+    labels = _bucket_labels(field.HIST_EDGES)
+    good = [b for b in range(len(counts)) if counts[b] >= field.MIN_NULL]
+    if fixed is None:
+        thr = field.calibrate_change_threshold(q)
+    else:
+        thr = field.set_change_threshold(fixed)
+    return dict(rule="fixed" if fixed is not None else field.cfg.calib_mode, quantile=q,
+                change_thr=thr, history_buckets=labels,
+                thr_by_hist=(None if field.thr_by_hist is None
+                             else [float(x) for x in field.thr_by_hist]),
+                null_samples=[int(c) for c in counts],
+                borrows_from=[None if b in good else
+                              (labels[min(good, key=lambda g: abs(g - b))] if good else "pooled")
+                              for b in range(len(counts))])
+
+
+class ChangeTally:
+    """Realised per-view false-alarm counts of one sequence (--summary-json: the UPDATE pass).
+
+    On a static sequence every fire is a false alarm, so
+        rate = sum_v fires_v / sum_v tests_v
+    is the realised per-view false-alarm rate that the threshold targets (1 - q), overall and
+    per history bucket. Field: tests_v = #last_tested, fires_v = #last_fired, per bucket the
+    increments of n_tests / n_fires. Residual baselines: ResidualNull.test() counts, pooled.
+    A fired Gaussian is reset and needs k new defined views before its next test, so tests
+    count the views at which a Gaussian was actually tested. The per-view scores of the tested
+    Gaussians are kept in a histogram on the field's bins (4000 on [0, 2]): the validation
+    null of the fixed-threshold ablation. reset_pixel_mass_share = pixel mass of the Gaussians
+    reset during the sequence / pixel mass of the observed Gaussians (all views so far)."""
+
+    def __init__(self, field):
+        self.field = field
+        self._nt, self._nf = field.n_tests.clone(), field.n_fires.clone()
+        self.resets0 = field.n_resets.clone()
+        self.mass0 = field.pixel_mass.clone()
+        self.score_hist = torch.zeros(4000, dtype=torch.float64)
+        self.views = []
+
+    @torch.no_grad()
+    def step(self, index, baselines=None):
+        """After the field ingested view `index`; baselines: {name: (tests, fires)}."""
+        f = self.field
+        dt, df = f.n_tests - self._nt, f.n_fires - self._nf
+        self._nt, self._nf = f.n_tests.clone(), f.n_fires.clone()
+        v = f.c_last[f.last_tested].double().clamp(0.0, 2.0 - 1e-9)
+        self.score_hist += torch.bincount((v * 2000).long().clamp(max=3999),
+                                          minlength=4000).double().cpu()
+        row = dict(index=int(index), tests=int(dt.sum()), fires=int(df.sum()),
+                   tests_by_hist=dt.tolist(), fires_by_hist=df.tolist())
+        if baselines:
+            row["baselines"] = {n: dict(tests=t, fires=k) for n, (t, k) in baselines.items()}
+        self.views.append(row)
+        return row
+
+    @torch.no_grad()
+    def summary(self):
+        f = self.field
+        rate = lambda k, t: k / t if t else None
+        T = sum(r["tests"] for r in self.views)
+        F = sum(r["fires"] for r in self.views)
+        tb = [sum(r["tests_by_hist"][b] for r in self.views) for b in range(len(f.n_tests))]
+        fb = [sum(r["fires_by_hist"][b] for r in self.views) for b in range(len(f.n_tests))]
+        labels = _bucket_labels(f.HIST_EDGES)
+        reset = (f.n_resets - self.resets0) > 0
+        pm = f.pixel_mass.double()
+        obs = pm > 0
+        upd = (f.pixel_mass - self.mass0).double()
+        out = dict(views=len(self.views), tests=T, fires=F, rate=rate(F, T),
+                   by_hist=[dict(bucket=labels[b], tests=tb[b], fires=fb[b],
+                                 rate=rate(fb[b], tb[b])) for b in range(len(tb))],
+                   gaussians_observed=int(obs.sum()), gaussians_reset=int(reset.sum()),
+                   gaussians_observed_update=int((upd > 0).sum()),
+                   reset_pixel_mass_share=(float(pm[reset].sum() / pm[obs].sum())
+                                           if bool(obs.any()) else None),
+                   reset_update_mass_share=(float(upd[reset].sum() / upd.sum())
+                                            if float(upd.sum()) > 0 else None),
+                   score_hist=[int(x) for x in self.score_hist.tolist()],
+                   per_view=self.views)
+        tot = {}
+        for r in self.views:
+            for n, c in r.get("baselines", {}).items():
+                t = tot.setdefault(n, [0, 0])
+                t[0] += c["tests"]; t[1] += c["fires"]
+        if tot:
+            out["baselines"] = {n: dict(tests=t, fires=k, rate=rate(k, t))
+                                for n, (t, k) in sorted(tot.items())}
+        return out
+
+
+def change_summary(field, tally, calib, nulls=None, args=None):
+    """--summary-json metrics: the update-pass tally, the calibration and the config."""
+    out = dict(update=tally.summary(), calibration=calib,
+               field_config=field.cfg.to_dict(),
+               config=dict(change_quantile=calib.get("quantile"),
+                           calib_mode=field.cfg.calib_mode, k=field.cfg.change_persist,
+                           fixed_change_thr=calib["change_thr"] if calib["rule"] == "fixed"
+                           else None,
+                           readmit_depth=field.cfg.readmit_depth,
+                           change_weight=getattr(field.cfg, "change_weight", "view")))
+    if nulls is not None:
+        out["baselines_null"] = nulls.summary()
+    if args is not None:
+        out["args"] = dict(args)
+    return out
+
+
+def _record(path, args, name, argv=None):
+    """usplat.runlog record of a --summary-json run (status, git state, config)."""
+    from usplat.runlog import RunRecord
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    return RunRecord(path, config=vars(args), seed=args.seed, name=name, argv=argv)
+
+
 def run_mock(num_gaussians=200, feat_dim=32, num_frames=16, num_protos=6, seed=0,
-             field_config="", change_quantile=0.999):
+             field_config="", change_quantile=0.999, static=False, feature_transform="",
+             feature_transform_arg="", change_baselines=False, fixed_change_thr=None,
+             summary=False):
+    """CPU pipeline: the first half of the frames maps, the second half updates (20% of the
+    Gaussians change content unless static). Returns the --summary-json metrics when summary
+    (else None). The mock frame dict of the feature transform is {labels: (H, W) prototype
+    ids, index}; the change baselines see palette colours and the rendered depth plus noise
+    (both from their own generator: the default run draws the same random numbers)."""
     torch.manual_seed(seed)
     from usplat.mock_rasterizer import MockFeatureRasterizer
     from usplat.clip_dense import MockDenseCLIP
@@ -51,6 +214,8 @@ def run_mock(num_gaussians=200, feat_dim=32, num_frames=16, num_protos=6, seed=0
     # hidden "true" prototype, spatially coherent; 20% change identity half-way through
     true_proto = (means2d[:, 0] / 64.0 * num_protos).long().clamp(0, num_protos - 1)
     dynamic = torch.rand(num_gaussians) < 0.2
+    if static:                                          # static scene: nothing changes
+        dynamic[:] = False
     new_proto = true_proto.clone()
     new_proto[dynamic] = (new_proto[dynamic] + 1) % num_protos
 
@@ -62,13 +227,53 @@ def run_mock(num_gaussians=200, feat_dim=32, num_frames=16, num_protos=6, seed=0
     half = num_frames // 2
     # centre = mean feature of the mapping frames (here: the pre-change content)
     field.set_centre(clip.extract_from_labels(true_proto[dom].reshape(H, W)).reshape(-1, feat_dim).mean(0))
+    xform = load_feature_transform(feature_transform, feature_transform_arg, None, "cpu")
+    cb = nulls = None
+    if change_baselines:
+        from usplat.change_baselines import ChangeBaselines, ResidualNull
+        cb = ChangeBaselines(num_gaussians, k=max(1, int(cfg.change_persist)),
+                             view_mass_frac=cfg.view_mass_frac)
+        nulls = ResidualNull()
+        gen = torch.Generator().manual_seed(seed + 1)
+        palette = torch.rand(num_protos, 3, generator=gen)
+        colors = palette[true_proto]                    # the map's colours: mapping content
+        gdepth = 1.0 + depths                           # Gaussian centre depths [m]
+        alpha = Wm.sum(1)
+        ren_depth = torch.where(alpha > 1e-6, Wm @ gdepth / alpha.clamp_min(1e-12),
+                                torch.zeros_like(alpha))
+    tally = calib = None
     for t in range(num_frames):
         if t == half:                                   # end of the mapping sequence
-            thr = field.calibrate_change_threshold(change_quantile)
-            print(f"calibrated change threshold (q={change_quantile}): {thr:.3f}")
+            calib = calibrate_field(field, change_quantile, fixed_change_thr)
+            thr = calib["change_thr"]
+            if fixed_change_thr is None:
+                print(f"calibrated change threshold (q={change_quantile}): {thr:.3f}")
+            else:
+                print(f"fixed change threshold {thr:.3f} (no calibration)")
+            if nulls is not None:
+                print(f"residual baselines (q={change_quantile}): "
+                      f"{nulls.calibrate(change_quantile)}")
+            if summary:
+                tally = ChangeTally(field)
         proto_t = new_proto if t >= half else true_proto
-        z_obs = clip.extract_from_labels(proto_t[dom].reshape(H, W)).reshape(-1, feat_dim)
+        lab = proto_t[dom].reshape(H, W)
+        z_obs = clip.extract_from_labels(lab).reshape(-1, feat_dim)
+        if xform is not None and t >= half:             # update sequence only
+            z_obs = xform(z_obs, dict(labels=lab, index=t - half), t - half, (H, W))
+        pv = None
+        if cb is not None:                              # before the field ingests the view
+            obs_rgb = palette[lab.reshape(-1)] + 0.02 * torch.randn(H * W, 3, generator=gen)
+            obs_dep = ren_depth + 0.002 * torch.randn(H * W, generator=gen)
+            pv = cb.update(ras, H * W, observed_rgb=obs_rgb.clamp(0, 1),
+                           rendered_rgb=Wm @ colors,
+                           observed_feat=z_obs, rendered_feat=Wm @ field.mu_post(),
+                           depth_obs=obs_dep, rendered_depth=ren_depth, gauss_depth=gdepth,
+                           image_hw=(H, W))
         field.update_view(ras, z_obs)
+        if pv is not None and t < half:
+            nulls.record(cb, pv)
+        if tally is not None:
+            tally.step(t - half, nulls.test(cb, pv) if pv is not None else None)
 
     # observable change: share of each Gaussian's splat weight on pixels that changed
     pix_changed = (true_proto[dom] != new_proto[dom]).float()
@@ -100,6 +305,12 @@ def run_mock(num_gaussians=200, feat_dim=32, num_frames=16, num_protos=6, seed=0
     print(f"AUSE(aleatoric -> semantic error): {out['ause']:.4f} "
           f"(random gap {out['random_gap']:.4f}; lower = better)")
     print("done.")
+    if summary:
+        s = change_summary(field, tally, calib, nulls)
+        u = s["update"]
+        print(f"update: {u['views']} views, {u['tests']} tests, {u['fires']} fires, "
+              f"per-view rate {u['rate']}")
+        return s
 
 
 def css_vocabulary(args):
@@ -153,8 +364,9 @@ def _pose_gap(c2w_a, c2w_b):
     return dt, math.degrees(math.acos(max(-1.0, min(1.0, cos))))
 
 
-def run_gsplat(args):
-    """Real pipeline: pre-trained 3DGS checkpoint + posed RGB(-D) stream + dense CLIP."""
+def run_gsplat(args, rec=None):
+    """Real pipeline: pre-trained 3DGS checkpoint + posed RGB(-D) stream + dense CLIP.
+    rec: the usplat.runlog record of --summary-json (gets the change summary)."""
     import os
     from tqdm import tqdm
     from usplat.gs_io import load_gaussians
@@ -218,6 +430,11 @@ def run_gsplat(args):
         zbar = centre.mean()
         print(f"PCA {clip.d} -> {args.feat_dim} dims (explained second moment {explained:.3f}); "
               f"||zbar|| = {zbar.norm():.3f}")
+    xform = load_feature_transform(args.feature_transform, args.feature_transform_arg, pca,
+                                   device)
+    if xform is not None:
+        print(f"feature transform on the update sequence: {args.feature_transform} "
+              f"({args.feature_transform_arg!r})")
 
     import time
     times, field_times, ext_times = [], [], []
@@ -297,6 +514,30 @@ def run_gsplat(args):
         bs = B.default_baselines(field, text=text, class_ids=css_ids)
     css = [b for b in bs if isinstance(b, B.CSS)]
 
+    # ---- residual change baselines on the same views (--change-baselines) --------------
+    cb = nulls = tally = None
+    cb_times = []
+    if args.change_baselines:
+        from usplat.change_baselines import ChangeBaselines, ResidualNull
+        cb = ChangeBaselines(N, k=max(1, int(cfg.change_persist)),
+                             view_mass_frac=cfg.view_mass_frac, device=device)
+        nulls = ResidualNull()
+
+    def baseline_view(ras, fr, z, kw):
+        """Residuals of one view against the map rendered at its pose, BEFORE the field
+        ingests the view (the feature render is the field's state from the earlier views):
+        NCC on the 3DGS colours, feature residual on mu*, depth residuals with --use-depth."""
+        h, w = fr["image"].shape[:2]
+        dkw = {}
+        if "depth_obs" in kw:
+            dkw = dict(depth_obs=kw["depth_obs"], gauss_depth=kw["gauss_depth"],
+                       rendered_depth=ras.render_depth()[0].reshape(-1))
+        ren_feat = ras.render_image(field.mu_post())[0].reshape(-1, args.feat_dim)
+        return cb.update(ras, h * w,
+                         observed_rgb=fr["image"].reshape(-1, 3).to(device).float() / 255.0,
+                         rendered_rgb=ras.render_image(splats["colors"])[0].reshape(-1, 3),
+                         observed_feat=z, rendered_feat=ren_feat, image_hw=(h, w), **dkw)
+
     def run_sequence(seq, idx, toks, desc):
         used = 0
         for i, tok in tqdm(list(zip(idx, toks)), desc=desc):
@@ -305,6 +546,8 @@ def run_gsplat(args):
             fr = downscale(fr_full, args.downscale)
             h, w = fr["image"].shape[:2]
             z = pca.project(upsample_tokens(tok.to(device), (h, w))).reshape(-1, args.feat_dim)
+            if xform is not None and desc == "update":         # --feature-transform
+                z = xform(z, fr, i, (h, w))
             viewmat = torch.linalg.inv(c2w.double()).float().to(device)
             ras = GSplatFeatureRasterizer.from_splats(splats, viewmat, fr["K"].to(device),
                                                       w, h, channel_chunk=args.channel_chunk)
@@ -312,6 +555,13 @@ def run_gsplat(args):
             if args.use_depth and fr.get("depth") is not None:
                 kw = dict(depth_obs=fr["depth"].reshape(-1).to(device),
                           gauss_depth=ras.gaussian_depths())
+            pv = None
+            if cb is not None:
+                sync()
+                t_b = time.perf_counter()
+                pv = baseline_view(ras, fr, z, kw)
+                sync()
+                cb_times.append(time.perf_counter() - t_b)
             sync()
             t0 = time.perf_counter()
             field.update_view(ras, z, num_pixels=h * w, **kw)   # + hooked baselines
@@ -322,15 +572,29 @@ def run_gsplat(args):
             sync()
             times.append(time.perf_counter() - t0)              # field + baselines update
             used += 1
+            if pv is not None and desc == "mapping":
+                nulls.record(cb, pv)                            # static by assumption: null
+            if tally is not None and desc == "update":
+                tally.step(i, nulls.test(cb, pv) if pv is not None else None)
         return used
 
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
     used = run_sequence(ds, map_idx, map_tok, "mapping")
     del map_tok
+    calib = None
     if args.update_data:
-        thr = field.calibrate_change_threshold(args.change_quantile)
-        print(f"calibrated change threshold (q={args.change_quantile}): {thr:.4f}")
+        calib = calibrate_field(field, args.change_quantile, args.fixed_change_thr)
+        thr = calib["change_thr"]
+        if args.fixed_change_thr is None:
+            print(f"calibrated change threshold (q={args.change_quantile}): {thr:.4f}")
+        else:
+            print(f"fixed change threshold {thr:.4f} (--fixed-change-thr, no calibration)")
+        if nulls is not None:
+            print(f"residual baselines (q={args.change_quantile}): "
+                  f"{nulls.calibrate(args.change_quantile)}")
+        if rec is not None:
+            tally = ChangeTally(field)
         used += run_sequence(upd, upd_idx, upd_tok, "update")
 
     # ---- readout ------------------------------------------------------------------
@@ -361,7 +625,23 @@ def run_gsplat(args):
                                   if torch.cuda.is_available() else None),
                   peak_reserved_mib=(torch.cuda.max_memory_reserved() / 2 ** 20
                                      if torch.cuda.is_available() else None))
+    if cb is not None:
+        timing["ms_per_keyframe_change_baselines"] = ms(cb_times)  # renders + residual pass
     print(f"timing: {timing}")
+    if rec is not None:
+        s = change_summary(field, tally, calib, nulls, args=vars(args))
+        s.update(timing=timing, code=mapping_code_state(), num_gaussians=N,
+                 keyframes_mapping=len(map_idx), keyframes_update=len(upd_idx))
+        rec.update(s)
+        rec.add_input(args.ply)
+        u = s["update"]
+        print(f"update pass: {u['views']} views, {u['tests']} tests, {u['fires']} fires, "
+              f"per-view false-alarm rate {u['rate']} (nominal {1 - args.change_quantile:.3g})")
+        for n, b in u.get("baselines", {}).items():
+            print(f"  {n}: {b['tests']} tests, {b['fires']} fires, rate {b['rate']}")
+    if args.no_save_field:
+        print(f"--no-save-field: no field written ({args.out} is not touched)")
+        return
     out = dict(field=field.state_dict(), pca=pca.state_dict(), config=vars(args), timing=timing,
                field_config=field.cfg.to_dict(), extractor=args.extractor,
                extractor_options=ext_opts, pca_explained=explained,
@@ -374,7 +654,7 @@ def run_gsplat(args):
     print(f"saved field -> {args.out} (mapping code {out['code']['mapping_code_sha256'][:12]})")
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--backend", choices=["mock", "gsplat"], default="mock")
     ap.add_argument("--ply", help="pre-trained 3DGS checkpoint (.ply or .pt)")
@@ -411,16 +691,55 @@ def main():
                     help="q of the mapping-pass null used to set the change threshold")
     ap.add_argument("--use-depth", action="store_true",
                     help="feed the dataset depth as the observed depth (re-admission check)")
+    ap.add_argument("--summary-json", default="",
+                    help="change-test record of the UPDATE pass (tests, fires, realised "
+                         "per-view false-alarm rate, thresholds; a usplat.runlog record)")
+    ap.add_argument("--change-baselines", action="store_true",
+                    help="also run the residual change baselines (NCC, feature, depth) with "
+                         "label-free thresholds from their own mapping-pass scores")
+    ap.add_argument("--fixed-change-thr", type=float, default=None,
+                    help="one fixed change threshold instead of the calibration (ablation)")
+    ap.add_argument("--no-save-field", action="store_true",
+                    help="write no field file (an existing --out is never touched)")
+    ap.add_argument("--feature-transform", default="",
+                    help="MODULE:FACTORY; FACTORY(arg, pca, device) -> xform(z, fr, i, (h, w)) "
+                         "applied to the update sequence's field-space features")
+    ap.add_argument("--feature-transform-arg", default="",
+                    help="string passed to the feature-transform factory")
+    ap.add_argument("--mock-frames", type=int, default=16,
+                    help="mock backend: frames (first half maps, second half updates)")
+    ap.add_argument("--mock-static", action="store_true",
+                    help="mock backend: no content change in the update half")
     ap.add_argument("--channel-chunk", type=int, default=32)
     ap.add_argument("--query", default="", help="comma-separated open-vocab text queries")
     ap.add_argument("--out", default="outputs/field.pt")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
+    cli = [sys.argv[0]] + list(argv if argv is not None else sys.argv[1:])
     if args.backend == "mock":
-        run_mock(field_config=args.field_config, change_quantile=args.change_quantile)
+        kw = dict(field_config=args.field_config, change_quantile=args.change_quantile)
+        if (args.summary_json or args.change_baselines or args.feature_transform
+                or args.mock_static or args.fixed_change_thr is not None
+                or args.mock_frames != 16):
+            kw.update(num_frames=args.mock_frames, seed=args.seed, static=args.mock_static,
+                      feature_transform=args.feature_transform,
+                      feature_transform_arg=args.feature_transform_arg,
+                      change_baselines=args.change_baselines,
+                      fixed_change_thr=args.fixed_change_thr)
+        if args.summary_json:
+            with _record(args.summary_json, args, "run_mapping_mock", cli) as rec:
+                rec.update(run_mock(summary=True, **kw))
+        else:
+            run_mock(**kw)
     else:
         if not (args.ply and args.data):
             raise SystemExit("--backend gsplat requires --ply and --data")
-        run_gsplat(args)
+        if args.summary_json and not args.update_data:
+            raise SystemExit("--summary-json counts the UPDATE pass: give --update-data")
+        if args.summary_json:
+            with _record(args.summary_json, args, "run_mapping_static_fa", cli) as rec:
+                run_gsplat(args, rec)
+        else:
+            run_gsplat(args)
 
 
 if __name__ == "__main__":

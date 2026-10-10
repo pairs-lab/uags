@@ -90,8 +90,8 @@ is undefined), then Ours-scalar, then every baseline's rows. Rows read their acc
 asked, so they can be built before the updates; seg_eval.freeze_rows snapshots them.
 
 Checkpoints: default_baselines(field, text, class_ids) builds and attaches the K11 set
-(NormLift with the averaging row, the view count on its feature, CSS; full_vocab_css adds the
-control); update_all runs one
+(NormLift with the averaging row, the view count on its feature, CSS; full_vocab_css builds
+the control css_full); update_all runs one
 keyframe for all of them; baselines_state(bs) is saved as ckpt["baselines"]; row_factory is
 scripts/eval_seg.py --row-factory usplat.baselines:row_factory and returns the baseline rows
 only (eval_seg builds the ours_* rows itself).

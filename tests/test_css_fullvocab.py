@@ -1,17 +1,25 @@
-"""CSS over the full vocabulary (the control "CSS was told the scene's classes", T4b).
+"""CSS over the full vocabulary (the control "CSS was told the scene's classes").
 
  * scripts/run_mapping.py css_vocabulary(full=True) gives every class of the vocabulary file
    (101 for configs/vocab_replica.json) without reading evaluation frames; full=False gives the
    present classes; with every class present the two are equal;
  * vocabulary == present classes: css_full is css exactly (counts, rows, uncertainties,
-   every alpha0 read-out, the evaluator's outputs), also through the checkpoint (row-sparse
-   state) and usplat.baselines.row_factory;
+   every alpha0 read-out, the evaluator's outputs), also through the checkpoint (compact
+   state) and usplat.baselines.row_factory, for a query of every class in any order; on a
+   query subset css_full's Dirichlet channels are those of Dirichlet(alpha_cols);
+ * css_full's Dirichlet channels describe the renormalised present-class predictive: a
+   Gaussian whose votes all went to an absent class is the most uncertain, and the channels
+   equal a Monte Carlo of the full Dirichlet restricted to the queried classes and
+   renormalised (aggregation + neutrality); a default CSS keeps its all-K channels;
  * extra absent classes: the evaluator's present-column renormalisation equals a float64
    brute force (W^T onehot(argmax over ALL classes) -> Dirichlet mean -> render the present
    columns -> divide by alpha -> renormalise -> temperature), and css_full's present counts
    are css's minus exactly the votes of pixels whose full-vocabulary argmax is absent;
- * row-sparse storage is exact (bit for bit, zeros / tiny / NaN values), needs
-   2N + 6 nnz bytes, loads into dense or sparse CSS, and rejects corrupt states;
+ * row-sparse storage is exact (bit for bit, -0.0 / tiny / NaN values), needs
+   2N + 6 nnz bytes, falls back to dense when that is not smaller, loads into dense or sparse
+   CSS, and rejects corrupt states;
+ * the validation-only rule CSS_FULL_RULE / choose_css_full (lowest mean validation NLL among
+   css_full and its alpha0 read-outs, ties to the first listed, css never chosen);
  * scripts/eval_seg.py --row-factory usplat.baselines:row_factory scores css_full and its
    alpha0 read-outs with no change to eval_seg (mock backend).
 """
@@ -142,7 +150,8 @@ def test_css_full_equals_css_when_vocab_is_present():
     assert names == (["averaging", "normlift", "viewcount", "css", "css_full"]
                      + [f"css_a{a:g}" for a in CSS_ALPHA0_GRID]
                      + [f"css_full_a{a:g}" for a in CSS_ALPHA0_GRID]), names
-    for q in (None, [7, 12, 9]):                              # all columns / a query subset
+    # all columns / a query subset / every class in another order (the evaluated case)
+    for q in (None, [7, 12, 9], [9, 4, 12, 30, 7]):
         rows = {r.name: r for r in row_factory(_roundtrip(bs), field, "cpu", class_ids=q)}
         for suffix in [""] + [f"_a{a:g}" for a in CSS_ALPHA0_GRID]:
             a, b = rows["css" + suffix], rows["css_full" + suffix]
@@ -150,7 +159,14 @@ def test_css_full_equals_css_when_vocab_is_present():
             assert torch.equal(a.buffer(), b.buffer()), suffix
             ua, ub = a.uncertainties(), b.uncertainties()
             assert set(ub) == set(DIRICHLET_KEYS) and set(ua) == set(DIRICHLET_KEYS) | {"yager_conflict"}
-            assert all(torch.equal(ua[k], ub[k]) for k in DIRICHLET_KEYS), suffix
+            if q is None or len(q) == len(ids):               # the same classes: bit for bit
+                assert all(torch.equal(ua[k], ub[k]) for k in DIRICHLET_KEYS), suffix
+            else:                                             # css_full: Dirichlet(alpha_cols)
+                a0 = 1.0 if not suffix else float(suffix[2:])
+                cols = sorted(ids.index(c) for c in q)
+                want = B.dirichlet_uncertainties(full.counts[:, cols] + a0)
+                assert all(torch.equal(ub[k], want[k]) for k in DIRICHLET_KEYS), suffix
+                assert not torch.equal(ua["css_var"], ub["css_var"])
     assert torch.equal(live["css_full"].buffer(), live["css"].buffer())
     # the evaluator's outputs are equal too (render, renormalise, temperature)
     gt = torch.randint(0, 3, (P,))
@@ -161,8 +177,9 @@ def test_css_full_equals_css_when_vocab_is_present():
         o1, o2 = out["css" + suffix], out["css_full" + suffix]
         for k in ("pred", "conf", "nll", "brier", "correct", "covered"):
             assert torch.equal(o1[k], o2[k]), (suffix, k)
+        assert all(torch.equal(o1["u"][k], o2["u"][k]) for k in DIRICHLET_KEYS), suffix
     print(f"PASS css_full == css with the vocabulary equal to the present classes: counts, "
-          f"{len(names)} rows through the row-sparse checkpoint, evaluator outputs")
+          f"{len(names)} rows through the checkpoint, evaluator outputs")
 
 
 # --------------------------------------------------- extra absent vocabulary classes
@@ -238,6 +255,51 @@ def test_css_full_present_column_renormalisation_exact():
           f"drop out; css - css_full[present] = those pixels' present votes")
 
 
+def test_css_full_uncertainty_on_queried_columns():
+    """Vocabulary ids [1..5], the scene holds [1, 2]. G0 voted only for the absent id 5, G1
+    split 5 px between 1 and 2: both have a flat present-class predictive, and G0 (no present
+    evidence) must be the more uncertain. Over all 5 columns its channels call it confident."""
+    text = torch.eye(5, 3)
+    counts = torch.tensor([[0, 0, 0, 0, 5.0], [2.5, 2.5, 0, 0, 0], [4.0, 1.0, 0, 2.0, 0.5]])
+    full = CSS(3, text, yager=False, class_ids=[1, 2, 3, 4, 5], name="css_full",
+               storage="sparse", query_uncertainty=True)
+    plain = CSS(3, text, yager=False, class_ids=[1, 2, 3, 4, 5])        # the default: all K
+    full.counts.copy_(counts)
+    plain.counts.copy_(counts)
+    (r,) = full.rows([2, 1])
+    (rp,) = plain.rows([2, 1])
+    assert torch.equal(r.buffer(), rp.buffer())
+    u, up = r.uncertainties(), rp.uncertainties()
+    assert torch.equal(up["css_var_top"], plain.uncertainties()["css_var_top"])  # unchanged
+    assert up["css_var_top"][0] < 1.1 * up["css_var_top"][1]  # all-K: G0 as sure as G1
+    # closed form on alpha_cols: G0 alpha (1, 1), G1 alpha (3.5, 3.5)
+    assert abs(float(u["css_var_top"][0]) - 0.25 / 3) < 1e-7
+    assert abs(float(u["css_var_top"][1]) - 0.25 / 8) < 1e-7
+    assert u["css_var_top"][0] > 2.5 * u["css_var_top"][1]
+    # aggregation + neutrality: theta[:, cols] / sum(theta[:, cols]) ~ Dirichlet(alpha_cols)
+    torch.manual_seed(0)
+    alpha = (counts + 1.0).double()
+    cols = [0, 1]
+    for n in range(3):
+        th = torch.distributions.Dirichlet(alpha[n]).sample((400000,))[:, cols]
+        th = th / th.sum(1, keepdim=True)
+        c = int(alpha[n, cols].argmax())
+        mc = dict(css_var_top=float(th[:, c].var()), css_var=float(th.var(0).sum()),
+                  css_exp_entropy=float((-torch.special.xlogy(th, th).sum(1)).mean()))
+        for k, v in mc.items():
+            assert abs(float(u[k][n]) - v) < 2e-3 * max(1.0, v), (n, k, float(u[k][n]), v)
+    # through the checkpoint and the alpha0 read-outs
+    lb = load_baselines(_roundtrip([full])["baselines"])
+    assert lb[0].query_uncertainty and lb[0].config()["query_uncertainty"] is True
+    (r2,) = lb[0].with_alpha0(0.1).rows([1, 2])
+    want = B.dirichlet_uncertainties(counts[:, cols] + 0.1)
+    assert all(torch.equal(r2.uncertainties()[k], want[k]) for k in DIRICHLET_KEYS)
+    assert "query_uncertainty" not in plain.config()
+    print(f"PASS css_full channels on the queried columns: var_top G0 "
+          f"{float(u['css_var_top'][0]):.4f} > G1 {float(u['css_var_top'][1]):.4f} (all-K "
+          f"{float(up['css_var_top'][0]):.4f} ~ {float(up['css_var_top'][1]):.4f}); = Monte Carlo")
+
+
 # ---------------------------------------------------------------------- storage
 def test_sparse_rows_exact_and_compact():
     g = torch.Generator().manual_seed(7)
@@ -247,11 +309,12 @@ def test_sparse_rows_exact_and_compact():
     x[5, 7] = 1e-38                                            # tiny / subnormal values
     x[5, 8] = 1e-45
     x[6, 100] = 3.0e5
+    x[7, 3] = -0.0                                             # kept: bit for bit
     s = sparse_rows(x)
     assert s["nnz"].dtype == torch.int16 and s["col"].dtype == torch.int16
     y = dense_rows(s)
-    assert torch.equal(x, y) and y.dtype == x.dtype
-    nnz = int((x != 0).sum())
+    assert torch.equal(x.view(torch.int32), y.view(torch.int32)) and y.dtype == x.dtype
+    nnz = int(((x != 0) | torch.signbit(x)).sum())
     assert s["nnz"].nbytes + s["col"].nbytes + s["val"].nbytes == 2 * 500 + 6 * nnz
     # NaN is kept as a value (dense_rows restores it in place)
     xn = x.clone()
@@ -292,8 +355,21 @@ def test_sparse_rows_exact_and_compact():
         CSS(1, torch.zeros(40000, 2), storage="sparse")
     with pytest.raises(ValueError):
         sparse_rows(torch.zeros(3))
-    print(f"PASS row-sparse storage: exact (tiny, subnormal, NaN values), {n_sparse} B vs dense "
-          f"{buf2.tell()} B for 500 x 101 at {nnz / 500:.1f} nonzeros per Gaussian")
+    # dense fallback: row-sparse only while 2N + 6 nnz < 4NK (here N = K = 3: nnz < 5)
+    for k_nz in (4, 5, 9):
+        xs = torch.zeros(3, 3)
+        xs.view(-1)[:k_nz] = torch.arange(1, k_nz + 1).float()
+        cs = CSS(3, torch.eye(3, 2), yager=False, storage="sparse")
+        cs.counts.copy_(xs)
+        st = cs.state_dict()["counts"]
+        assert B.is_sparse_rows(st) == (k_nz < 5), k_nz
+        assert B.is_sparse_rows(B.compact_rows(xs)) == (k_nz < 5)
+        back = CSS(3, torch.eye(3, 2), yager=False)
+        back.load_state_dict(cs.state_dict())
+        assert torch.equal(back.counts, xs)
+    print(f"PASS row-sparse storage: exact (-0.0, tiny, subnormal, NaN values), {n_sparse} B vs "
+          f"dense {buf2.tell()} B for 500 x 101 at {nnz / 500:.1f} nonzeros per Gaussian; "
+          f"dense when not smaller")
 
 
 def test_full_vocab_css_checkpoint_config():
@@ -312,18 +388,40 @@ def test_full_vocab_css_checkpoint_config():
     cfg_css, cfg_full = saved[2]["config"], saved[3]["config"]
     assert set(cfg_css) == {"num_gaussians", "text", "alpha0", "yager", "class_ids", "dtype"}
     assert cfg_full["name"] == "css_full" and cfg_full["storage"] == "sparse"
+    assert cfg_full["query_uncertainty"] is True
     assert cfg_full["yager"] is False and set(saved[3]["state"]) == {"counts", "class_ids"}
-    assert B.is_sparse_rows(saved[3]["state"]["counts"])
+    nnz = int((bs[3].counts != 0).sum())                      # row-sparse only if smaller
+    assert B.is_sparse_rows(saved[3]["state"]["counts"]) == (2 * N + 6 * nnz < 4 * N * 6)
     assert torch.is_tensor(saved[2]["state"]["counts"])       # css: dense, as in v1
     lb = load_baselines(_roundtrip(bs)["baselines"])
     assert lb[3].name == "css_full" and lb[3].storage == "sparse" and lb[3].class_ids == [1, 2, 3, 4, 5, 6]
+    assert lb[3].query_uncertainty and not lb[2].query_uncertainty
     assert torch.equal(lb[3].counts, bs[3].counts) and torch.equal(lb[2].counts, bs[2].counts)
     (q,) = [r for r in row_factory(_roundtrip(bs), field, "cpu", class_ids=[3, 1])
             if r.name == "css_full"]
     assert torch.equal(q.buffer(), bs[3].mean()[:, [2, 0]])
     with pytest.raises(ValueError, match="not in the CSS vocabulary"):
         bs[3].rows(class_ids=[7])
-    print("PASS checkpoint: v1 CSS config unchanged; css_full name/storage recorded, no Yager")
+    print("PASS checkpoint: v1 CSS config unchanged; css_full name/storage/query_uncertainty "
+          "recorded, no Yager")
+
+
+# ------------------------------------------------------------- validation-only rule
+def test_css_full_rule_is_validation_only():
+    r = B.CSS_FULL_RULE
+    assert r == dict(rows=("css_full", "css_full_a0.01", "css_full_a0.1", "css_full_a10"),
+                     criterion="nll", stat="mean", variant="all", stage="val", test=False)
+    for s in ("VALIDATION-ONLY", "CSS_FULL_RULE"):
+        assert s in B.__doc__, s
+    nll = lambda v: {"all": {"nll": {"mean": v}}}
+    summ = {"css": nll(0.1), "css_a0.01": nll(0.05), "css_full": nll(0.9),
+            "css_full_a0.1": nll(0.5), "css_full_a0.01": nll(0.5), "css_full_a10": nll("nan"),
+            "ours_P2": nll(0.01)}
+    assert B.choose_css_full(summ) == "css_full_a0.01"        # tie: the first listed
+    assert B.choose_css_full(dict(summ, css_full=nll(0.4))) == "css_full"
+    assert B.choose_css_full({"css": nll(0.1)}) is None
+    assert B.choose_css_full({"css_full": {"covered": {}}}) is None
+    print("PASS CSS_FULL_RULE: validation only, lowest mean NLL among css_full*, NaN skipped")
 
 
 # ------------------------------------------------------------------- eval_seg CLI
@@ -405,6 +503,7 @@ def test_eval_seg_cli_scores_css_full(tmp_path):
         assert rows[name]["all"]["miou"] > 0.9, (name, rows[name]["all"])
         assert set(rows[name]["all"]["ranking"]) >= set(DIRICHLET_KEYS)
     assert "yager_conflict" not in rows["css_full"]["all"]["ranking"]
+    assert B.choose_css_full(res["summary"]) in B.CSS_FULL_RULE["rows"]
     print("PASS eval_seg --row-factory: css_full* scored on the present classes, mIoU "
           + ", ".join(f"{n} {rows[n]['all']['miou']:.3f}" for n in ["css"] + full_rows))
 
@@ -413,7 +512,9 @@ if __name__ == "__main__":
     import tempfile
     test_css_full_equals_css_when_vocab_is_present()
     test_css_full_present_column_renormalisation_exact()
+    test_css_full_uncertainty_on_queried_columns()
     test_sparse_rows_exact_and_compact()
     test_full_vocab_css_checkpoint_config()
+    test_css_full_rule_is_validation_only()
     with tempfile.TemporaryDirectory() as tmp:
         test_eval_seg_cli_scores_css_full(pathlib.Path(tmp))

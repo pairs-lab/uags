@@ -74,7 +74,15 @@ def load_feature_transform(spec, arg, pca, device):
 
 def calibrate_field(field, q, fixed=None):
     """End of the mapping pass: the threshold from the field's own null (calib_mode), or one
-    fixed threshold (--fixed-change-thr); returns its description for the summary."""
+    fixed threshold (--fixed-change-thr); returns its description for the summary.
+    borrows_from (rule "history" only): the bucket whose null sets a bucket's threshold when it
+    has fewer than MIN_NULL samples. null_exceedance: per history bucket, the share of its
+    mapping-pass scores above the threshold applied to it (thr_by_hist, else change_thr), on
+    the field's 4000-bin histogram (a bin counts when its lower edge >= the threshold: exact for
+    the bin-edge thresholds of "history" and "pooled", a lower bound for "max" and "fixed").
+    Nominal 1 - q; a bucket with fewer than 1/(1 - q) samples gets its largest score as
+    threshold, i.e. exceedance 0 in sample, so the update-pass rate can deviate from 1 - q
+    through small buckets as well as through a mapping / update mismatch."""
     counts = field.c_hist.sum(1)
     labels = _bucket_labels(field.HIST_EDGES)
     good = [b for b in range(len(counts)) if counts[b] >= field.MIN_NULL]
@@ -82,14 +90,21 @@ def calibrate_field(field, q, fixed=None):
         thr = field.calibrate_change_threshold(q)
     else:
         thr = field.set_change_threshold(fixed)
-    return dict(rule="fixed" if fixed is not None else field.cfg.calib_mode, quantile=q,
-                change_thr=thr, history_buckets=labels,
-                thr_by_hist=(None if field.thr_by_hist is None
-                             else [float(x) for x in field.thr_by_hist]),
-                null_samples=[int(c) for c in counts],
-                borrows_from=[None if b in good else
+    rule = "fixed" if fixed is not None else field.cfg.calib_mode
+    by_hist = None if field.thr_by_hist is None else [float(x) for x in field.thr_by_hist]
+    applied = by_hist if by_hist is not None else [float(thr)] * len(counts)
+    lo = field._c_edges[:-1]
+    above = [float(field.c_hist[b][lo >= applied[b] - 1e-6].sum())   # float32 thr_by_hist
+             for b in range(len(counts))]
+    n = float(counts.sum())
+    return dict(rule=rule, quantile=q, change_thr=thr, history_buckets=labels,
+                thr_by_hist=by_hist, null_samples=[int(c) for c in counts],
+                borrows_from=[None if rule != "history" or b in good else
                               (labels[min(good, key=lambda g: abs(g - b))] if good else "pooled")
-                              for b in range(len(counts))])
+                              for b in range(len(counts))],
+                null_exceedance=[above[b] / float(counts[b]) if counts[b] > 0 else None
+                                 for b in range(len(counts))],
+                null_exceedance_pooled=sum(above) / n if n > 0 else None)
 
 
 class ChangeTally:
@@ -105,8 +120,12 @@ class ChangeTally:
     Gaussians are kept in a histogram on the field's bins (4000 on [0, 2]): the validation
     null of the fixed-threshold ablation. reset_pixel_mass_share = pixel mass of the Gaussians
     reset during the sequence / pixel mass of the observed Gaussians (all views so far);
-    gaussian_fa = Gaussians reset / Gaussians tested at least once (the paper's per-Gaussian FA:
-    it grows with the number of views that test a Gaussian)."""
+    gaussian_fa = Gaussians reset / Gaussians observed in the sequence (the paper's FA: the
+    share of static Gaussians flagged at least once during the update, on the Gaussians the
+    update observed, as usplat.change_eval judges them; it grows with the number of views that
+    test a Gaussian); reset_share_of_tested = Gaussians reset / Gaussians tested at least once
+    (a diagnostic: its denominator leaves out the never-tested Gaussians, so it is larger than
+    gaussian_fa by the inverse coverage)."""
 
     def __init__(self, field):
         self.field = field
@@ -153,7 +172,8 @@ class ChangeTally:
                    gaussians_observed=int(obs.sum()), gaussians_reset=int(reset.sum()),
                    gaussians_observed_update=int((upd > 0).sum()),
                    gaussians_tested=int(self.ever_tested.sum()),
-                   gaussian_fa=rate(int(reset.sum()), int(self.ever_tested.sum())),
+                   gaussian_fa=rate(int(reset.sum()), int((upd > 0).sum())),
+                   reset_share_of_tested=rate(int(reset.sum()), int(self.ever_tested.sum())),
                    reset_pixel_mass_share=(float(pm[reset].sum() / pm[obs].sum())
                                            if bool(obs.any()) else None),
                    reset_update_mass_share=(float(upd[reset].sum() / upd.sum())

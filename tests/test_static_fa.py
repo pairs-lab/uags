@@ -83,9 +83,25 @@ def test_tally_matches_brute_force():
     fired = sorted({n for r in ref for n in r[1]})
     tested = {n for r in ref for n in r[0]}
     pm = f.pixel_mass.double()
+    seen_upd = {int(n) for ids, _ in views[half:] for n in ids}
     assert s["gaussians_reset"] == len(fired) and s["gaussians_tested"] == len(tested)
-    assert math.isclose(s["gaussian_fa"], len(fired) / len(tested))
+    assert s["gaussians_observed_update"] == len(seen_upd) and set(fired) <= tested <= seen_upd
+    assert math.isclose(s["gaussian_fa"], len(fired) / len(seen_upd))      # the paper's FA
+    assert math.isclose(s["reset_share_of_tested"], len(fired) / len(tested))
     assert math.isclose(s["reset_pixel_mass_share"], float(pm[fired].sum() / pm[pm > 0].sum()))
+    # calibration record: borrowing (history rule only) and the null's own exceedance
+    counts = f.c_hist.sum(1)
+    centres = (torch.arange(4000, dtype=torch.float64) + 0.5) / 2000
+    for b in range(6):
+        own = bool(counts[b] >= f.MIN_NULL)
+        assert (calib["borrows_from"][b] is None) == own
+        if counts[b] == 0:
+            assert calib["null_exceedance"][b] is None
+            continue
+        above = float(f.c_hist[b][centres > thr[b]].sum() / counts[b])
+        assert math.isclose(calib["null_exceedance"][b], above, abs_tol=1e-12)
+        if own:
+            assert calib["null_exceedance"][b] <= 1 - 0.9 + 1e-12      # q-quantile, own null
     print(f"PASS tally = brute force: {T} tests, {F} fires, rate {F / T:.4f}")
 
 
@@ -229,6 +245,8 @@ def test_fixed_threshold_and_default_mock(tmp_path, capsys):
     m = json.loads(out.read_text())["metrics"]
     assert m["calibration"]["rule"] == "fixed" and m["calibration"]["thr_by_hist"] is None
     assert m["calibration"]["change_thr"] == 0.05 and m["config"]["fixed_change_thr"] == 0.05
+    assert m["calibration"]["borrows_from"] == [None] * 6           # nothing is borrowed
+    assert len(m["calibration"]["null_exceedance"]) == 6
     r = subprocess.run(["git", "-C", str(REPO), "show", "3eb0e86:scripts/run_mapping.py"],
                        capture_output=True, text=True)
     if r.returncode != 0:

@@ -128,10 +128,13 @@ def _rates(runs):
     rows = {}
     for s, m in runs.items():
         u = m["update"]
+        c = m["calibration"]
         rows[s] = dict(rate=u["rate"], tests=u["tests"], fires=u["fires"],
                        gaussian_fa=u.get("gaussian_fa"),
+                       reset_share_of_tested=u.get("reset_share_of_tested"),
                        reset_pixel_mass_share=u["reset_pixel_mass_share"],
-                       threshold=m["calibration"]["change_thr"],
+                       threshold=c["change_thr"], thr_by_hist=c.get("thr_by_hist"),
+                       null_exceedance=c.get("null_exceedance"),
                        by_hist=[b["rate"] for b in u["by_hist"]],
                        baselines={n: b["rate"] for n, b in u.get("baselines", {}).items()})
     return rows
@@ -203,8 +206,11 @@ def _print_rates(rates, q):
     for name, rows in rates.items():
         for s, r in rows.items():
             bl = " ".join(f"{n} {fmt(v)}" for n, v in sorted(r["baselines"].items()))
+            th = r.get("thr_by_hist")                # history rule: the per-bucket thresholds
+            thr = (f"thr {r['threshold']:.4f}" if not th else
+                   f"thr by history {min(th):.4f}-{max(th):.4f}")
             print(f"{name:>16} {s:>9}: rate {fmt(r['rate'])} ({r['fires']}/{r['tests']}; "
-                  f"nominal {1 - q:.0e}) thr {r['threshold']:.4f} reset mass "
+                  f"nominal {1 - q:.0e}) {thr} reset mass "
                   f"{100 * (r['reset_pixel_mass_share'] or 0):.2f}% {bl}")
 
 

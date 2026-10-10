@@ -403,7 +403,7 @@ class DirectionalSemanticField:
             keep = cfg.fast_memory ** wc_                      # 1 where unseen
             leak = 1.0 - keep
             if cfg.slow_decay < 1.0:
-                ds = cfg.slow_decay ** wc
+                ds = cfg.slow_decay ** wc_                     # per view unit of the stream
                 self.Rs.mul_(ds[:, None]); self.ns.mul_(ds)
             self.Rs.add_(leak[:, None] * self.Rf); self.ns.add_(leak * self.nf)
             un2 = (uc_ * uc_).sum(-1)

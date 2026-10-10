@@ -330,7 +330,45 @@ def test_persistence_and_residual_special_case():
           f"feature residual ({scores[10][0]:.4f})")
 
 
+def _stats(U, m, centre):
+    """ViewStats of one view: every Gaussian n sees the unit feature U[n] with pixel mass m[n]
+    (ref = 100: view weight min(1, m/100))."""
+    from usplat.vmf_field import ViewStats
+    R = U * m[:, None]
+    return ViewStats(R, m, R if centre else None, m if centre else None, None, None, 100.0)
+
+
+def test_slow_decay_uses_stream_view_weight():
+    """slow_decay < 1 decays the older bucket by lambda^w per view, w = the view weight of the
+    change stream. Regression: the decay read `wc`, the centred channel's EVIDENCE weight, so
+    centre=False raised NameError and evidence="pixels" decayed by lambda^(pixel mass).
+    Brute force with fast_memory = 0 (view i leaks fully into S at view i + 1, then decays):
+        S_t = sum_{i<t} w_i u_i prod_{j=i+2..t} lambda^{w_j},  F_t = w_t u_t."""
+    torch.manual_seed(0)
+    N, d, V, lam = 6, 8, 7, 0.6
+    Wt = 0.2 + 0.8 * torch.rand(V, N)                      # partial view weights
+    U = Fn.normalize(torch.randn(V, N, d), dim=-1)
+    for kw in (dict(centre=False), dict(centre=True, evidence="pixels")):
+        f = DirectionalSemanticField(N, d, FieldConfig(slow_decay=lam, fast_memory=0.0,
+                                                       readmit_depth=None, **kw))
+        if f.cfg.centre:
+            f.set_centre(torch.zeros(d))
+        for t in range(V):
+            f._ingest(_stats(U[t], 100.0 * Wt[t], f.cfg.centre), None)
+            Rs, ns = torch.zeros(N, d), torch.zeros(N)
+            for i in range(t):
+                c = torch.prod(lam ** Wt[i + 2:t + 1], dim=0)  # empty product = 1
+                Rs += (c * Wt[i])[:, None] * U[i]
+                ns += c * Wt[i]
+            assert torch.allclose(f.ns, ns, atol=1e-5), (kw, t)
+            assert torch.allclose(f.Rs, Rs, atol=1e-5), (kw, t)
+            assert torch.allclose(f.nf, Wt[t], atol=1e-6), (kw, t)
+        if kw.get("evidence") == "pixels":                 # the posterior still counts pixels
+            assert torch.allclose(f.raw.W1, 100.0 * Wt.sum(0), rtol=1e-5)
+    print("PASS slow_decay: S decays by lambda^w (stream view weight), centre on or off")
+
 if __name__ == "__main__":
+    test_slow_decay_uses_stream_view_weight()
     test_change_reset_readmit()
     test_readmit_without_depth_uses_views()
     test_buckets_partition_and_decay()

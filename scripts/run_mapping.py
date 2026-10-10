@@ -340,18 +340,22 @@ def run_mock(num_gaussians=200, feat_dim=32, num_frames=16, num_protos=6, seed=0
         return s
 
 
-def css_vocabulary(args):
+def css_vocabulary(args, full=False):
     """CSS is closed-set: it receives, at mapping time, the classes present in the scene's
     evaluation frames (the same rule as the queries of scripts/eval_seg.py), in vocabulary
-    order, with the extractor's frozen templates."""
+    order, with the extractor's frozen templates. full=True (--css-full-vocab, the control
+    css_full): every class of the vocabulary; no evaluation frame is read."""
     from usplat.datasets import make_dataset
     v = json.load(open(args.vocab))
     ignore = set(int(i) for i in (v.get("ignore") or v.get("ignore_ids") or []))
     order = [int(k) for k in v["classes"]]
-    ds = make_dataset(args.dataset, args.css_eval_data, stride=args.css_eval_stride)
-    present = set()
-    for i in range(len(ds)):
-        present |= set(torch.unique(ds[i]["labels"]).tolist())
+    if full:
+        present = set(order)
+    else:
+        ds = make_dataset(args.dataset, args.css_eval_data, stride=args.css_eval_stride)
+        present = set()
+        for i in range(len(ds)):
+            present |= set(torch.unique(ds[i]["labels"]).tolist())
     ids = [c for c in order if c in present and c not in ignore]
     prompts = [v["classes"][str(c)].get("prompt", v["classes"][str(c)]["name"]) for c in ids]
     tpl = (v.get("templates_by_extractor") or {}).get(args.extractor) \
@@ -518,6 +522,10 @@ def run_gsplat(args, rec=None):
     if args.baselines and args.vocab and args.css_eval_data:
         css_ids, prompts, tpl = css_vocabulary(args)
         css_text = pca.project_text(clip.text_embedding(prompts, templates=tuple(tpl)))
+    full_ids, full_text = None, None
+    if args.css_full_vocab:                                 # control: CSS over every class
+        full_ids, prompts, tpl = css_vocabulary(args, full=True)
+        full_text = pca.project_text(clip.text_embedding(prompts, templates=tuple(tpl)))
     del clip                                                # its blocks stay in our cache
     peak_extract = (torch.cuda.max_memory_allocated() / 2 ** 20
                     if torch.cuda.is_available() else None)
@@ -539,6 +547,12 @@ def run_gsplat(args, rec=None):
             text = css_text
             print(f"CSS vocabulary: {len(css_ids)} classes present in {args.css_eval_data}")
         bs = B.default_baselines(field, text=text, class_ids=css_ids)
+        if full_ids is not None:
+            bs.append(B.full_vocab_css(field, full_text, full_ids))
+            print(f"CSS full vocabulary: {len(full_ids)} classes of {args.vocab} (rows "
+                  f"{B.CSS_FULL}*), counts {N} x {len(full_ids)} fp32 = "
+                  f"{N * len(full_ids) * 4 / 2 ** 20:.0f} MiB in memory, saved row-sparse "
+                  f"(dense if not smaller)")
     css = [b for b in bs if isinstance(b, B.CSS)]
 
     # ---- residual change baselines on the same views (--change-baselines) --------------
@@ -707,6 +721,9 @@ def main(argv=None):
     ap.add_argument("--css-eval-data", default="",
                     help="evaluation sequence whose present classes form the CSS vocabulary")
     ap.add_argument("--css-eval-stride", type=int, default=10)
+    ap.add_argument("--css-full-vocab", action="store_true",
+                    help="with --baselines: also accumulate CSS over every class of --vocab "
+                         "(rows css_full*: the control for CSS being told the scene's classes)")
     ap.add_argument("--clip-model", default="ViT-B-16")
     ap.add_argument("--clip-pretrained", default="laion2b_s34b_b88k")
     ap.add_argument("--feat-dim", type=int, default=64,
@@ -768,6 +785,8 @@ def main(argv=None):
         else:
             run_mock(**kw)
     else:
+        if args.css_full_vocab and not (args.baselines and args.vocab):   # before extraction
+            raise SystemExit("--css-full-vocab needs --baselines and --vocab")
         if not (args.ply and args.data):
             raise SystemExit("--backend gsplat requires --ply and --data")
         if args.summary_json and not args.update_data:

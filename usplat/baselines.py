@@ -56,7 +56,8 @@ CSS needs one-hot label targets and runs its own bki_grad_accumulate_groups call
     sum_n w x_n, so these rows use the common composite sum_n w u_n / alpha instead.
     Query sets: rows(class_ids) keeps the columns of the queried global ids, in the query
     order (eval_seg's View.class_ids); seg_eval.class_scores renormalises them per pixel.
-    The uncertainty channels stay over the full mapped vocabulary.
+    The uncertainty channels stay over the full mapped vocabulary (for CSS the queried and
+    the mapped classes are the same; css_full below reads them on the queried columns).
     "yager_conflict": per view, one subjective-logic opinion per Gaussian from its one-hot counts
     r_c (prior weight K): b_c = r_c/S_v, u = K/S_v, S_v = sum_c r_c + K. Views are fused in
     order with Yager's rule (Yager, Inf. Sci. 41(2):93-137, 1987,
@@ -66,6 +67,26 @@ CSS needs one-hot label targets and runs its own bki_grad_accumulate_groups call
         b_c <- b_c b'_c + b_c u' + u b'_c ,   u <- u u' + k
     The row reports the accumulated conflict sum_v k_v. Evidential BKI for Gaussian maps:
     E2-BKI (Kim et al., RA-L 11(3) 2026, doi:10.1109/lra.2026.3653367).
+    Full-vocabulary control "css_full" (full_vocab_css; scripts/run_mapping.py
+    --css-full-vocab): a second CSS over EVERY class of --vocab (101 in
+    configs/vocab_replica.json), fed the same pixels, so it is NOT told which classes the
+    scene holds: y_p is the argmax over all K classes. Its rows "css_full" and
+    "css_full_a<alpha0>" (CSS_ALPHA0_GRID) are queried like CSS: rows(class_ids) keeps the
+    present columns and seg_eval.class_scores renormalises them per pixel, so the mass of a
+    vote for an absent class drops out. Its Dirichlet channels are read out on the same
+    columns (query_uncertainty): theta restricted to the queried classes and renormalised is
+    exactly Dirichlet(alpha_cols) (aggregation and neutrality), the law whose mean is the
+    renormalised predictive; over all K columns a Gaussian whose votes went to absent classes
+    would get a flat present-class predictive and a confident u. With the vocabulary equal to
+    the present classes the labels, counts, rows and channels are CSS's exactly. No Yager
+    opinions (another N x K tensor). VALIDATION-ONLY control (CSS_FULL_RULE): no test number.
+    Memory: counts N x K fp32 (404 MB for 1M Gaussians at K = 101), plus the one-hot pass,
+    which holds an (N, K + 1) buffer and its gradient. Disk: storage="sparse" saves each
+    (N, K) state tensor row-sparse and exact (sparse_rows: per Gaussian its int16 number of
+    nonzeros, per nonzero an int16 column and the fp32 value), 2N + 6 nnz bytes instead of
+    4NK, or dense when that is not smaller (compact_rows: above about 2K/3 nonzeros per
+    Gaussian); nnz counts the (Gaussian, class) pairs that got a vote, at most the number of
+    classes a Gaussian's pixels were labelled with.
 (e) Ours-scalar (plan Tab III h): the field's P0 feature with the single scalar
     1 - A_d(kappa_post) (the exact posterior spread, rows.py channel "spread"), no
     epistemic/aleatoric split.
@@ -76,7 +97,8 @@ is undefined), then Ours-scalar, then every baseline's rows. Rows read their acc
 asked, so they can be built before the updates; seg_eval.freeze_rows snapshots them.
 
 Checkpoints: default_baselines(field, text, class_ids) builds and attaches the K11 set
-(NormLift with the averaging row, the view count on its feature, CSS); update_all runs one
+(NormLift with the averaging row, the view count on its feature, CSS; full_vocab_css builds
+the control css_full); update_all runs one
 keyframe for all of them; baselines_state(bs) is saved as ckpt["baselines"]; row_factory is
 scripts/eval_seg.py --row-factory usplat.baselines:row_factory and returns the baseline rows
 only (eval_seg builds the ours_* rows itself).
@@ -84,6 +106,7 @@ only (eval_seg builds the ours_* rows itself).
 from __future__ import annotations
 from dataclasses import dataclass, field as dc_field
 from typing import Callable, Optional, Sequence
+import math
 import torch
 import torch.nn.functional as Fn
 
@@ -329,17 +352,75 @@ def dirichlet_uncertainties(alpha: torch.Tensor, chunk: int = 1 << 18):
     return out
 
 
+CSS_STORAGE = ("dense", "sparse")
+_ROW_SPARSE = "row_sparse_v1"
+_INT16_MAX = 32767
+
+
+@torch.no_grad()
+def sparse_rows(x: torch.Tensor):
+    """(N, K) -> exact row-sparse form: nnz (N,) int16 nonzeros per row, col (nnz,) int16 and
+    val (nnz,) (x's dtype) in row-major order. 2N + (2 + itemsize) nnz bytes; dense_rows
+    inverts it bit for bit (only +0.0 entries are dropped)."""
+    if x.dim() != 2 or x.shape[1] > _INT16_MAX:
+        raise ValueError(f"sparse_rows needs (N, K <= {_INT16_MAX}), got {tuple(x.shape)}")
+    nz = (x != 0) | torch.signbit(x)                        # NaN and -0.0 are kept as values
+    r, c = nz.nonzero(as_tuple=True)
+    return dict(format=_ROW_SPARSE, shape=[int(s) for s in x.shape],
+                nnz=nz.sum(1).to(torch.int16), col=c.to(torch.int16), val=x[r, c].clone())
+
+
+def is_sparse_rows(s):
+    return isinstance(s, dict) and s.get("format") == _ROW_SPARSE
+
+
+def sparse_nbytes(s):
+    return s["nnz"].nbytes + s["col"].nbytes + s["val"].nbytes
+
+
+@torch.no_grad()
+def compact_rows(x: torch.Tensor):
+    """sparse_rows(x) if it is smaller than x, 2N + (2 + itemsize) nnz < itemsize N K bytes
+    (fp32: below 2K/3 nonzeros per row), else x itself (dense); load_state_dict takes both."""
+    s = sparse_rows(x)
+    return s if sparse_nbytes(s) < x.numel() * x.element_size() else x
+
+
+@torch.no_grad()
+def dense_rows(s, device="cpu"):
+    """Inverse of sparse_rows."""
+    N, K = (int(v) for v in s["shape"])
+    nnz, col, val = s["nnz"].long(), s["col"].long(), s["val"]
+    if nnz.numel() != N or int(nnz.sum()) != col.numel() or col.numel() != val.numel():
+        raise ValueError(f"corrupt row-sparse state: {nnz.numel()} rows for N = {N}, "
+                         f"{int(nnz.sum())} nonzeros, {col.numel()} columns, {val.numel()} values")
+    x = torch.zeros(N, K, dtype=val.dtype)
+    x[torch.repeat_interleave(torch.arange(N), nnz), col] = val
+    return x.to(device)
+
+
 class CSS:
     """Closed-set Dirichlet per Gaussian (CSS) with a Yager-conflict read-out."""
     _state = ("counts", "yb", "yu", "yk")
 
     def __init__(self, num_gaussians, text: torch.Tensor, alpha0=1.0, yager=True,
-                 device="cpu", dtype=torch.float32, class_ids: Optional[Sequence[int]] = None):
+                 device="cpu", dtype=torch.float32, class_ids: Optional[Sequence[int]] = None,
+                 name="css", storage="dense", query_uncertainty=False):
         """text: (K, d) class embeddings in the field space (StreamingPCA.project_text) of the
         frozen vocabulary. class_ids: the K global class ids of the text rows (vocabulary
         ids; rows(class_ids) selects columns by them). alpha0 > 0: uninformative Dirichlet
         prior (1 = flat; the default, not tuned at mapping time: scripts/eval_seg.py also scores
-        the read-outs of CSS_ALPHA0_GRID and the lowest validation NLL picks the Table I row)."""
+        the read-outs of CSS_ALPHA0_GRID and the lowest validation NLL picks the Table I row).
+        name: the row name ("css"; the read-outs are "<name>_a<alpha0>"). storage: how
+        state_dict saves the (N, K) tensors, "dense" or "sparse" (compact_rows, exact).
+        query_uncertainty: rows(class_ids) reads the Dirichlet channels out on the queried
+        columns, Dirichlet(alpha[:, cols]) (css_full), instead of on all K."""
+        if storage not in CSS_STORAGE:
+            raise ValueError(f"storage {storage!r} not in {CSS_STORAGE}")
+        if storage == "sparse" and int(text.shape[0]) > _INT16_MAX:
+            raise ValueError(f"storage 'sparse' keeps int16 columns: K <= {_INT16_MAX}")
+        self.name, self.storage = str(name), storage
+        self.query_uncertainty = bool(query_uncertainty)
         self.N, self.K = int(num_gaussians), int(text.shape[0])
         self.device, self.dtype = torch.device(device), dtype
         self.text = text.to(self.device, dtype)
@@ -366,8 +447,15 @@ class CSS:
         return cls(field.N, text, device=field.device, dtype=field.dtype, **kw)
 
     def config(self):
-        return dict(num_gaussians=self.N, text=self.text.cpu(), alpha0=self.alpha0,
-                    yager=self.yager, class_ids=self.class_ids, dtype=_dtype_name(self.dtype))
+        cfg = dict(num_gaussians=self.N, text=self.text.cpu(), alpha0=self.alpha0,
+                   yager=self.yager, class_ids=self.class_ids, dtype=_dtype_name(self.dtype))
+        if self.name != "css":                       # a default CSS saves the v1 config
+            cfg["name"] = self.name
+        if self.storage != "dense":
+            cfg["storage"] = self.storage
+        if self.query_uncertainty:
+            cfg["query_uncertainty"] = True
+        return cfg
 
     # ------------------------------------------------------------ updates
     @torch.no_grad()
@@ -442,8 +530,13 @@ class CSS:
             raise ValueError("CSS(yager=False) keeps no opinions")
         return self.yk
 
-    def uncertainties(self):
-        out = dirichlet_uncertainties(self.alpha())
+    def uncertainties(self, cols=None):
+        """Dirichlet channels over all K classes, or with cols over Dirichlet(alpha[:, cols]):
+        the exact law of theta restricted to those classes and renormalised. The channels are
+        symmetric in the classes, so cols are read in mapping order (all K in any order give
+        the K-class values bit for bit)."""
+        a = self.alpha()
+        out = dirichlet_uncertainties(a if cols is None else a[:, torch.sort(cols).values])
         if self.yager:
             out["yager_conflict"] = self.yk.clone()
         return out
@@ -463,13 +556,17 @@ class CSS:
                              f"({self.K} classes fixed at mapping time)")
         return torch.tensor([pos[c] for c in ids], device=self.device, dtype=torch.long)
 
-    def rows(self, class_ids=None, name="css"):
+    def rows(self, class_ids=None, name=None):
         """class_ids=None: all K columns in mapping order. Else the columns of the queried
-        global ids in the query order (View.class_ids); the evaluator renormalises them."""
+        global ids in the query order (View.class_ids); the evaluator renormalises them.
+        name: the row name (default self.name). query_uncertainty: the Dirichlet channels on
+        the queried columns too."""
+        name = self.name if name is None else name
         if class_ids is None:
             return [_row(name, "probs", self.mean, self.uncertainties)]
         cols = self.columns(class_ids)
-        return [_row(name, "probs", lambda: self.mean()[:, cols], self.uncertainties)]
+        unc = (lambda: self.uncertainties(cols)) if self.query_uncertainty else self.uncertainties
+        return [_row(name, "probs", lambda: self.mean()[:, cols], unc)]
 
     def with_alpha0(self, alpha0):
         """The same counts read out with another prior alpha0 (a shallow copy: alpha0 enters
@@ -483,6 +580,8 @@ class CSS:
 
     def state_dict(self):
         s = {k: getattr(self, k).cpu() for k in self._state}
+        if self.storage == "sparse":                 # (N, K) tensors row-sparse if smaller
+            s = {k: compact_rows(v) if v.dim() == 2 else v for k, v in s.items()}
         s["class_ids"] = None if self.class_ids is None else list(self.class_ids)
         return s
 
@@ -495,6 +594,7 @@ class CSS:
             if self.class_ids is not None and ids != self.class_ids:
                 raise ValueError(f"saved class ids {ids} != this CSS's {self.class_ids}")
             self.class_ids = ids
+        s = {k: dense_rows(v) if is_sparse_rows(v) else v for k, v in s.items()}
         return _load_tensors(self, s)
 
 
@@ -547,6 +647,19 @@ def default_baselines(field, text=None, class_ids=None, alpha0=1.0, beta=1.0, ya
     return bs
 
 
+CSS_FULL = "css_full"
+
+
+def full_vocab_css(field, text, class_ids, alpha0=1.0):
+    """The control for "CSS was told the scene's classes" (run_mapping.py --css-full-vocab):
+    CSS over every vocabulary class, text (K, d) with its K global ids, rows css_full*, its
+    Dirichlet channels on the queried columns. No Yager opinions; row-sparse on disk. Append
+    it to the baselines list: update_all and run_mapping.py run its own one-hot pass like
+    CSS's. Validation only (CSS_FULL_RULE)."""
+    return CSS.for_field(field, text, alpha0=alpha0, yager=False, class_ids=class_ids,
+                         name=CSS_FULL, storage="sparse", query_uncertainty=True)
+
+
 def baselines_state(baselines):
     """ckpt["baselines"]: [{type, config, state}] in list order. A ViewCount keeps the list
     index of the accumulator whose feature() it renders ("feature_from")."""
@@ -586,7 +699,34 @@ def load_baselines(saved, device="cpu"):
 # CSS prior read-outs evaluated next to the mapped alpha0 (row "css", alpha0 = 1): rows
 # "css_a<alpha0>". The Table I CSS row is the one with the lowest validation NLL (the
 # strongest CSS on the validation scenes); the counts are pixel masses at the mapping grid.
+# The full-vocabulary control gets the same grid ("css_full_a<alpha0>") and the same rule.
 CSS_ALPHA0_GRID = (0.01, 0.1, 10.0)
+
+# css_full is a VALIDATION-ONLY control (fixed 2026-10-10, before any run with it): the v1 test
+# fields hold no css_full state, and no guarded stage maps the test scenes with
+# --css-full-vocab (scripts/replica_tab1_v2.sh evaluates the existing fields and never maps), so
+# it has no test number. Its read-out follows CSS's rule (scripts/make_tables.py choose --key
+# css), machine-readable here: the row of "rows" with the lowest mean validation NLL over the
+# validation scenes (eval_seg summary, variant "all"); ties go to the first listed (the mapped
+# alpha0 = 1); choose_css_full applies it. A test look would need a guarded mapping + test
+# stage pre-registered with this rule, and v2 validation temperatures (the mapping-code hash
+# changes).
+CSS_FULL_RULE = dict(rows=(CSS_FULL,) + tuple(f"{CSS_FULL}_a{a:g}" for a in CSS_ALPHA0_GRID),
+                     criterion="nll", stat="mean", variant="all", stage="val", test=False)
+
+
+def choose_css_full(val_summary, rule=CSS_FULL_RULE):
+    """CSS_FULL_RULE on an eval_seg validation summary {row: {variant: {metric: {stat}}}}: the
+    row with the lowest finite criterion, None if no css_full row is in it."""
+    cand = {}
+    for r in rule["rows"]:
+        try:
+            v = float(val_summary[r][rule["variant"]][rule["criterion"]][rule["stat"]])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if math.isfinite(v):
+            cand[r] = v
+    return min(cand, key=cand.get) if cand else None
 
 
 def row_factory(ckpt, field=None, device="cpu", class_ids=None):
@@ -605,5 +745,5 @@ def row_factory(ckpt, field=None, device="cpu", class_ids=None):
     for b in bs:
         if isinstance(b, CSS):
             for a0 in CSS_ALPHA0_GRID:
-                rows += b.with_alpha0(a0).rows(class_ids, name=f"css_a{a0:g}")
+                rows += b.with_alpha0(a0).rows(class_ids, name=f"{b.name}_a{a0:g}")
     return rows

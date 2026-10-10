@@ -34,9 +34,7 @@ Rows: ours_P0/P1/P2 (usplat.rows.field_rows), ours_scalar (the 1 - A_d spread on
 ours_P3_b<beta_g> (usplat.rows.FieldProbRow: the per-Gaussian predictive rendered as a
 mixture, one row per beta_g of usplat.rows.P3_BETAS; --no-p3 leaves them out), and
 the rows of --row-factory "module:function", called as fn(ckpt, field, device) -> [Row]
-(e.g. baselines stored in the field checkpoint). --rows selects by name. --v2-rows adds the
-Table I v2 candidates (P2 on the P1 base, the P1 prior grid, the P4 vote predictive; see
-candidate_rows and configs/tab1_v2_prereg.json).
+(e.g. baselines stored in the field checkpoint). --rows selects by name.
 --with-2d adds the row "2d_features": the extractor run on the EVALUATION frame itself, the
 same tokens -> upsample -> PCA path as run_mapping.py (the map's PCA), no 3D map. It covers
 every pixel (alpha = 1), has no own uncertainty (MSP/entropy only) and gets its own beta.

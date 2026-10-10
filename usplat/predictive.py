@@ -106,16 +106,20 @@ def vote_fractions(mu, kappa, text, lam=1.0, n_samples=256, seed=0, chunk=4096):
         z_ns = A_n mu_n + sigma_n (I - mu_n mu_n^T) eps_s,   A_n = A_d(kappa_n),
         sigma_n = lam sqrt(A_n/kappa_n)       (lam = 1 matches the vMF tangent variance,
                                                vmf_math.tangent_var; the radial part is fixed
-                                               at its mean A_n: in d = 64 the vote fractions
-                                               stay within ~0.02 of an exact vMF sampler,
-                                               tests/test_vote_predictive.py, below the MC
-                                               error ~0.03 of S = 256)
+                                               at its mean A_n: in d = 64 a vote fraction
+                                               stays within ~0.03 of an exact vMF sampler,
+                                               tests/test_vote_predictive.py; the gap grows
+                                               below kappa ~ 10 for texts that share a
+                                               component along mu_n (< 0.01 above), and lam
+                                               partly absorbs it)
     With m_nk = mu_n . t_k, ET = E T^T (S, K) and e_ns = mu_n . eps_s,
         z_ns . t_k = A_n m_nk + sigma_n (ET_sk - e_ns m_nk),
     and since sigma_n > 0 the argmax is that of (A_n/sigma_n - e_ns) m_nk + ET_sk: one fused
     multiply-add per (n, s, k). mu: (N, d) unit rows (or 0); kappa (N,) >= 0; text (K, d) in
-    the field space. float32 on mu's device, chunks of `chunk` Gaussians, so the result does
-    not depend on the chunk size or the device's random stream.
+    the field space, distinct rows (an exact tie, e.g. a duplicated prompt, goes to the lower
+    index, unlike argmax_votes; merge duplicates in the vocabulary). float32 on mu's device,
+    chunks of `chunk` Gaussians, so the result does not depend on the chunk size or the
+    device's random stream.
     Cost for N = 1e6, K = 30, S = 256, d = 64: m and e take N d (K + S) = 1.8e10 MACs, the
     scores N S K = 7.7e9 FMAs (+ argmax); memory per chunk of 4096: scores (B, S, K) 126 MB,
     e and the argmax index 12 MB, the output (N, K) 120 MB. The run is memory bound (the scores

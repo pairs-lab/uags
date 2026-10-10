@@ -8,7 +8,7 @@ It is the one special function the field needs:
     MAP concentration A_d(kappa_hat) = ||R + m0|| / (n + c0);
   * the posterior mean of the direction is E[mu] = A_d(kappa_post) mu*, which the
     mean-field predictive uses to shrink poorly-supported Gaussians;
-  * 1 - A_d(kappa) is the exact expected angular spread E[1 - cos];
+  * 1 - A_d(kappa) is the exact expected angular spread E[1 - cos].
   * A_d(kappa)/kappa is the variance of a vMF sample along each tangent direction
     (tangent_var), which the vote predictive P4 moment-matches (usplat.predictive).
 

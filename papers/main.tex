@@ -436,10 +436,10 @@ $s_n\ge\tau_{\min}$ (default 3 views).%
 %% Footnote source: docs/reports/2026-09-29-replica-tab1/logs/support_stats.log
 %% (validation fields at code 5e8c51e; 640x480 frames, --downscale 2 in
 %% scripts/replica_tab1.sh, so H*W = 320*240 and a0*H*W = 7.68 px).
-\footnote{At our $320\times240$ accumulation resolution, one full view is
-$a_0HW=7.68$ pixels of splat mass. On office\_0 / room\_2, $u^{\mathrm{ale}}$
-is defined for 22.4\% / 12.2\% of the Gaussians but 84.2\% / 81.8\% of the
-pixel mass.} Two simpler estimates mix the amount of
+\footnote{One full view is $a_0HW=7.68$ pixels of splat mass at our
+$320\times240$ resolution. On office\_0 / room\_2, $u^{\mathrm{ale}}$ is
+defined for 22.4 / 12.2\% of the Gaussians but 84.2 / 81.8\% of the pixel
+mass.} Two simpler estimates mix the amount of
 evidence into the dispersion. The mean resultant length
 $\bar r_n=\lVert\R_n\rVert/W_1$ is biased upward, by up to about
 $1/\sqrt{n_K}$. A prior-shrunk agreement such as $\lVert\R_n\rVert/(W_1+c_0)$
@@ -487,12 +487,11 @@ We chose $\lambda=0$ and $k=2$ on a tuning replay not used for testing: in
 7-Scenes chess~\cite{glocker2013}, half of the sampled 3D points take the
 CLIP features of a point over 0.5\,m away in their later views. Then
 $\bar c_n$ is the minimum over the last two views $t$ of
-$1-\cos\big(\sum_{v<t}\omega_{v,n}\mathbf{u}_{v,n},\,\mathbf{u}_{t,n}\big)$, the
-cosine distance between all earlier evidence and the current view. This member
-is the classic feature-residual test~\cite{jiang2026mif,
-ackermann2025clsplats}. We do not claim the statistic, only how its threshold
-is set and the bookkeeping around it. Centering the features on the scene mean
-hurt in tuning, so it is off.
+$1-\cos\big(\sum_{v<t}\omega_{v,n}\mathbf{u}_{v,n},\,\mathbf{u}_{t,n}\big)$,
+all earlier evidence against the current view. This member is the classic
+feature-residual test~\cite{jiang2026mif, ackermann2025clsplats}, which we do
+not claim. Centering the features on the scene mean hurt in tuning, so it is
+off.
 
 %% Fixed threshold, valid features: static c_max q0.95 = 0.273 (chess) vs
 %% 0.202 (office), data-and-baselines logs/g1_{chess,office}_final_frac0.5.json
@@ -627,12 +626,11 @@ frames with gsplat~\cite{ye2024gsplat} (degree-0 color, 30k iterations, at most
 $10^6$ Gaussians). Every method uses this fixed geometry and the same LSeg
 features, compressed to $d=64$
 (\secref{sec:features}). The coverage floor $\tau_{\mathrm{cov}}=0.5$ is fixed
-in advance, and all temperatures are set on the validation scenes. We
-freeze every choice before the test scenes run, and we run them once. We report
-the mean and the population standard deviation over the test scenes ($N=6$ for
+in advance. We freeze every choice before the test scenes run, and we run
+them once. We report the mean and the population standard deviation over the test scenes ($N=6$ for
 Replica, $N=7$ for RIO10).
 
-%% Temperatures of the baselines: stated in sec:predictive (fit by NLL on val).
+%% Temperatures (ours and baselines): stated once, in sec:predictive (NLL, val).
 \textbf{Segmentation baselines.} All baselines share our geometry, features and
 splat weights. \emph{2D features} apply the extractor to the
 evaluation frame itself, with no map, and covers every pixel. \emph{Averaging} is the pixel-weighted
@@ -656,8 +654,8 @@ learns $u\in[0,1]$ per Gaussian, which down-weights a pixel's cross-entropy at
 the price $\lambda_u\bar U$ ($\lambda_u\in\{1,2,4\}$ chosen on validation,
 its paper: 1; no smoothing term). \emph{CSS}~\cite{wilson2025css} keeps a Dirichlet
 posterior over a closed label set, and each pixel votes for the class whose
-text is closest to its feature. CSS receives the classes present in the evaluation frames at mapping time,
-which the open-vocabulary rows do not get. Its flat prior
+text is closest to its feature. CSS receives the classes present in the evaluation frames at mapping time.
+Its flat prior
 $\alpha_0\in\{0.01, 0.1, 1, 10\}$ is chosen by validation NLL. We composite its variance
 with the linear splat weights of every other channel, not with squared
 weights as CSS does.
@@ -707,8 +705,7 @@ of $f$, where $\bar e_u(f)$ is the mean error left after removing the fraction
 $f$ of pixels with the highest $u$, and $\bar e_\star(f)$ uses the error as
 $u$. A tie in $u$
 (e.g. view counts) takes the mean error of its pixels, the expectation over a
-random order. We grade each
-channel against the error it is meant for. For a field built from $M$ of the
+random order. For a field built from $M$ of the
 180 mapping frames, a pixel has reducible error ($e_{\mathrm{red}}=1$) if it
 is wrong at $M$ frames and right with the full map. It has irreducible error
 ($e_{\mathrm{irr}}=1$) if it is wrong in both. All $M$-frame fields use the
@@ -808,8 +805,7 @@ vs 20.6).
   Reference curves: averaging (one minus maximum probability) and, built from
   NormLift's quantities, $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$ and
   $1-\mathcal{R}$; view count; P0 and P2 (one minus maximum probability).
-  Replica validation, mean, $N=2$
-  (views\_val\_206c0b7.json).}}}
+  Replica validation, mean, $N=2$.}}}
   \caption{Does each uncertainty rank its own error? AUSE (\%) of the
   epistemic and aleatoric channels against reducible error $e_{\mathrm{red}}$
   and irreducible error $e_{\mathrm{irr}}$, for fields built from $M$ of the

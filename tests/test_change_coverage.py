@@ -125,6 +125,28 @@ def test_audit_does_not_change_the_field(tmp_path):
     print("PASS audit leaves the field unchanged and flags a calibrated field")
 
 
+def test_audit_stream_support_is_necessary():
+    """On a record-only field every Gaussian with a defined score has change-stream support
+    min(n, n^2/T2) >= tau_min (n = ns + nf), in every change_weight mode, and the audit reports
+    that share; the posterior W1 is no such condition under "visibility" (a partly drawn
+    Gaussian counts as a full view in the stream, as a fraction of one in W1)."""
+    A = _load_audit()
+    for mode in ("view", "visibility", "relmax"):
+        kw = {} if mode == "view" else dict(fast_min=0.5, slow_min=0.5)
+        f, _ = _map_field(2e-3, change_weight=mode, **kw)
+        r = A.audit(f)
+        obs = f.pixel_mass > 0
+        n = (f.ns + f.nf).double()
+        sup = torch.minimum(n, n * n / f.T2.double().clamp_min(1e-12))
+        dfd = torch.isfinite(f.c_last) & obs
+        assert bool(dfd.any()) and bool((sup[dfd] >= f.cfg.tau_min).all()), mode
+        assert math.isclose(r["stream_support_ge_tau_share"],
+                            float((sup[obs] >= f.cfg.tau_min).double().mean())), mode
+        if mode == "visibility":
+            assert bool((dfd & (f.raw.W1 < f.cfg.tau_min)).any())
+    print("PASS audit: stream support >= tau_min for every defined score (all modes)")
+
+
 # ---------------------------------------------------------------- change-stream weight
 def test_posterior_bit_identical_across_change_weight():
     """change_weight touches only the change-test stream and views_since_reset: in the

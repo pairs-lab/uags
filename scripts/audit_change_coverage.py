@@ -15,8 +15,13 @@ scripts/run_mapping.py saves; its "field" entry is DirectionalSemanticField.stat
   shares       defined share of the observed Gaussians and of their pixel mass
   deciles      the observed Gaussians sorted by pixel mass, 10 equal-count groups (decile 0 =
                smallest): size, pixel-mass range and defined share of each
-  view mass    W1 (view units) of the observed Gaussians and the share with W1 >= tau_min,
-               a necessary condition for a defined score
+  view mass    W1 of the observed Gaussians (the posterior evidence: view units, or pixel
+               mass with evidence="pixels"), descriptive
+  stream       support of the change-test stream, min(n, n^2/T2) with n = ns + nf (view
+               units of FieldConfig.change_weight), and the share with support >= tau_min. On
+               a record-only field (no resets, slow_decay = 1) n only grows, so this is a
+               necessary condition for a defined score in every change_weight mode (W1 is not:
+               "visibility" / "relmax" weigh a view more than its posterior view weight)
   null         c_hist samples per history bucket (h = slow-bucket mass; edges 4, 6, 10, 20, 40
                views); a bucket with fewer than MIN_NULL samples borrows the nearest bucket
                that has enough (the rule of calibrate_change_threshold)
@@ -27,6 +32,9 @@ PRE-REGISTERED decision (written 2026-10-10, before any audit run; constants bel
   PASS iff >= 50% of the observed pixel mass AND >= 50% of the observed Gaussians in the
   lower 5 pixel-mass deciles have a defined score. FAIL means the change test, as configured,
   never scores most of the small Gaussians: coverage, not the statistic, limits it.
+  Scope (SCOPE): a configuration choice the decision informs (e.g. the opt-in change weight)
+  is taken on VALIDATION fields only (Replica office_0, room_2: scripts/replica_static_fa.sh
+  STAGE=audit); on test fields the audit is descriptive, run after the configs are frozen.
 
     PYTHONPATH=. python3 scripts/audit_change_coverage.py \\
         --field /home/thanhnc/gauss_ws/data/uags_fields/office_0_lseg.pt \\
@@ -55,6 +63,8 @@ QUANTILES = (0.99, 0.999)
 RULE = (f"PASS iff >= {PASS_MASS_SHARE:.0%} of the observed pixel mass AND >= "
         f"{PASS_LOWER_SHARE:.0%} of the observed Gaussians in the lower {LOWER_DECILES} "
         f"pixel-mass deciles have a defined change score (isfinite(c_last))")
+SCOPE = ("configuration choices follow the decision on validation fields only; on test "
+         "fields the audit is descriptive")
 
 
 def load_field(path):
@@ -123,9 +133,11 @@ def audit(field, quantiles=QUANTILES):
         lower = dec < LOWER_DECILES
         out["lower_defined_share"] = float(do[lower].double().mean())
         out["pixel_mass_quantiles"] = _q(po)
-        W1 = field.raw.W1[obs]
-        out["view_mass_quantiles"] = _q(W1)
-        out["view_mass_ge_tau_share"] = float((W1 >= cfg.tau_min).double().mean())
+        out["view_mass_quantiles"] = _q(field.raw.W1[obs])
+        n = (field.ns + field.nf)[obs].double()             # change-stream support
+        sup = torch.minimum(n, n * n / field.T2[obs].double().clamp_min(1e-12))
+        out["stream_support_quantiles"] = _q(sup)
+        out["stream_support_ge_tau_share"] = float((sup >= cfg.tau_min).double().mean())
     # the mapping-pass null per history bucket, and which buckets borrow
     counts = field.c_hist.sum(1)
     labels = bucket_labels(field.HIST_EDGES)
@@ -173,8 +185,9 @@ def format_report(path, r):
     if r.get("view_mass_quantiles"):
         qs = lambda d: " ".join(f"{k} {v:.3g}" for k, v in d.items())
         lines.append(f"pixel mass {qs(r['pixel_mass_quantiles'])}; view mass W1 "
-                     f"{qs(r['view_mass_quantiles'])}; W1 >= tau_min "
-                     f"({r['config']['tau_min']:g}): {pct(r['view_mass_ge_tau_share'])}")
+                     f"{qs(r['view_mass_quantiles'])}; change-stream support "
+                     f"{qs(r['stream_support_quantiles'])}, >= tau_min "
+                     f"({r['config']['tau_min']:g}): {pct(r['stream_support_ge_tau_share'])}")
     for d in r.get("deciles", []):
         lines.append(f"  decile {d['decile']}: n {d['n']:>8}  pixel mass "
                      f"[{d['pixel_mass_min']:.3g}, {d['pixel_mass_max']:.3g}] "
@@ -205,7 +218,7 @@ def run(args, rec=None):
         reports[path] = audit(field, tuple(float(q) for q in args.quantiles.split(",")))
         del field
         print(format_report(path, reports[path]), flush=True)
-    out = dict(fields=reports, rule=RULE,
+    out = dict(fields=reports, rule=RULE, scope=SCOPE,
                passed={p: r["decision"]["passed"] for p, r in reports.items()})
     if rec is not None:
         rec.update(out)

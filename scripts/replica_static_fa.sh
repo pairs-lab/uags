@@ -23,8 +23,11 @@
 #                 check only). A finished per-scene record is never overwritten (a crashed run,
 #                 status "running"/"failed", is rerun). Then scripts/static_fa_report.py
 #                 criterion -> $OUT/test_criterion.json.
-#   STAGE=audit : CPU only: scripts/audit_change_coverage.py on the 8 Table I fields
-#                 -> $OUT/audit_tab1_fields.json (coverage of the change test, its decision rule)
+#   STAGE=audit : CPU only: scripts/audit_change_coverage.py on the 2 VALIDATION Table I fields
+#                 -> $OUT/audit_val_fields.json (coverage of the change test, its pre-registered
+#                 decision). Any configuration choice it informs (e.g. the opt-in change weight)
+#                 is taken on these fields only; the 6 test fields may be audited by hand, as a
+#                 descriptive number, only after the change-evaluation configs are frozen.
 # PRE-REGISTERED criterion (configs/static_fa.json "criterion"): the realised per-view false-alarm
 # rate of static_fa at q = 0.999 lies within [0.5x, 2x] of the nominal 1e-3 on >= 5 of the 6 test
 # scenes. Every GPU step goes through scripts/gpu_gate.sh. Logs: $OUT/logs/<config>_<scene>.<ts>.log
@@ -51,7 +54,7 @@ CONFIGS="static_fa $(cfgval "$FROZEN" ablations)"
 case "$STAGE" in
   val)   SCENES=$VAL_SCENES ;;
   test)  SCENES=$TEST_SCENES ;;
-  audit) SCENES="$VAL_SCENES $TEST_SCENES" ;;
+  audit) SCENES=$VAL_SCENES ;;                  # decisions on validation fields only
   *)     echo "STAGE must be val, test or audit (got '$STAGE')"; exit 2 ;;
 esac
 echo "[$STAGE] $TS git $(git rev-parse --short HEAD) dirty: $(git status --porcelain --untracked-files=no -- scripts usplat configs | wc -l) files"
@@ -61,7 +64,7 @@ if [ "$STAGE" = audit ]; then
   for s in $SCENES; do FIELD_LIST+=("$FIELDS/${s}_lseg.pt"); done
   L="$OUT/logs/audit.$TS.log"
   python3 scripts/audit_change_coverage.py --field "${FIELD_LIST[@]}" \
-    --out "$OUT/audit_tab1_fields.json" 2>&1 | tee "$L"
+    --out "$OUT/audit_val_fields.json" 2>&1 | tee "$L"
   exit 0
 fi
 

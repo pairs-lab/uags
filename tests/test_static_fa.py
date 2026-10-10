@@ -228,6 +228,22 @@ def test_mock_static_summary_complete(tmp_path, monkeypatch):
           f"baselines {({n: round(b['rate'], 4) for n, b in u['baselines'].items()})}")
 
 
+def test_no_save_field_leaves_existing_field(tmp_path):
+    """--no-save-field (save_field of run_gsplat): an existing field file stays byte-identical
+    and the 1 GB record is never built; without it the record replaces the file atomically."""
+    out = tmp_path / "fields" / "office_0_lseg.pt"
+    out.parent.mkdir()
+    torch.save(dict(field="v1"), out)
+    before = out.read_bytes()
+    built = []
+    build = lambda: built.append(1) or dict(field="new", code=dict(mapping_code_sha256="ab" * 32))
+    assert RM.save_field(str(out), build, no_save=True) is False
+    assert out.read_bytes() == before and not built
+    assert RM.save_field(str(out), build) is True and built == [1]
+    assert torch.load(out)["field"] == "new"
+    assert sorted(p.name for p in out.parent.iterdir()) == [out.name]    # no temp file left
+
+
 def test_feature_transform_loader(tmp_path, monkeypatch):
     (tmp_path / "fa_fac.py").write_text("def make(arg, pca, device):\n"
                                         "    return (arg, pca, device)\n")

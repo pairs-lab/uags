@@ -666,19 +666,29 @@ def run_gsplat(args, rec=None):
               f"per-view false-alarm rate {u['rate']} (nominal {1 - args.change_quantile:.3g})")
         for n, b in u.get("baselines", {}).items():
             print(f"  {n}: {b['tests']} tests, {b['fires']} fires, rate {b['rate']}")
-    if args.no_save_field:
-        print(f"--no-save-field: no field written ({args.out} is not touched)")
-        return
-    out = dict(field=field.state_dict(), pca=pca.state_dict(), config=vars(args), timing=timing,
-               field_config=field.cfg.to_dict(), extractor=args.extractor,
-               extractor_options=ext_opts, pca_explained=explained,
-               code=mapping_code_state(), gpu_reserved_mib=held,
-               baselines=B.baselines_state(bs) if bs else [], css_class_ids=css_ids)
-    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    tmp = f"{args.out}.tmp{os.getpid()}"                      # atomic: never a truncated field
+    save_field(args.out, lambda: dict(
+        field=field.state_dict(), pca=pca.state_dict(), config=vars(args), timing=timing,
+        field_config=field.cfg.to_dict(), extractor=args.extractor,
+        extractor_options=ext_opts, pca_explained=explained,
+        code=mapping_code_state(), gpu_reserved_mib=held,
+        baselines=B.baselines_state(bs) if bs else [], css_class_ids=css_ids),
+        no_save=args.no_save_field)
+
+
+def save_field(path, build, no_save=False):
+    """torch.save(build(), path) atomically (never a truncated field). no_save
+    (--no-save-field): nothing is built or written, so an existing file at path is never
+    touched. Returns whether a field was written."""
+    if no_save:
+        print(f"--no-save-field: no field written ({path} is not touched)")
+        return False
+    out = build()
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    tmp = f"{path}.tmp{os.getpid()}"                          # atomic: never a truncated field
     torch.save(out, tmp)
-    os.replace(tmp, args.out)
-    print(f"saved field -> {args.out} (mapping code {out['code']['mapping_code_sha256'][:12]})")
+    os.replace(tmp, path)
+    print(f"saved field -> {path} (mapping code {out['code']['mapping_code_sha256'][:12]})")
+    return True
 
 
 def main(argv=None):

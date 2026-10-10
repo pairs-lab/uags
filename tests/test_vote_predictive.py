@@ -30,7 +30,7 @@ from usplat.predictive import (argmax_votes, posterior_mean, tangent_noise, vote
 from usplat.rows import (FieldRow, FieldVoteRow, VoteCache, freeze, p1_prior_rows, p4_rows,
                          v2_rows, P1_C0S, P4_ALPHA0S, P4_LAMBDAS, P4_INF_ALPHA0)
 from usplat.vmf_field import DirectionalSemanticField, FieldConfig
-from usplat.vmf_math import a_d, a_d_inv, a_d_scalar, tangent_var
+from usplat.vmf_math import a_d_inv, a_d_scalar, tangent_var
 
 
 def wood_vmf(mu, kappa, n):

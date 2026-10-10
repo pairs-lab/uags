@@ -27,7 +27,6 @@ import subprocess
 
 import pytest
 import torch
-import torch.nn.functional as Fn
 
 from usplat.rows import v2_rows, P1_C0S, P4_ALPHA0S, P4_LAMBDAS, P4_INF_ALPHA0, P4_SAMPLES
 from usplat.vmf_field import DirectionalSemanticField, FieldConfig
@@ -47,10 +46,6 @@ def _load(name, path):
 mt = _load("make_tables_v2", REPO / "scripts" / "make_tables.py")
 
 
-def _rows_of_prereg(p):
-    return mt.prereg_rows(p)
-
-
 # --------------------------------------------------------------------------- prereg
 def test_prereg_matches_the_code():
     p = json.loads(PREREG.read_text())
@@ -61,7 +56,7 @@ def test_prereg_matches_the_code():
     assert g["p4_samples"] == P4_SAMPLES and g["p4_seed"] == 0
     f = DirectionalSemanticField(5, 4, FieldConfig(change_test=False))
     names = [r.name for r in v2_rows(f, torch.eye(4)[:3])]
-    assert set(_rows_of_prereg(p)) == set(names) | {"ours_P2"}
+    assert set(mt.prereg_rows(p)) == set(names) | {"ours_P2"}
     ch = p["choices"]
     assert set(ch["@p1"]["rows"]) == {n for n in names if n.startswith("ours_P1_c")}
     assert set(ch["@p4"]["rows"]) == {n for n in names if n.startswith("ours_P4_a")}
@@ -71,7 +66,7 @@ def test_prereg_matches_the_code():
     assert p["metric"]["name"] == "nll" and p["metric"]["pooling"] == "pixels"
     assert p["metric"]["variant"] == "all" and 0 < p["tie"]["tol"] < 1e-2
     assert p["v1"]["test_commit"] == "224fe1e"
-    print(f"PASS prereg: {len(_rows_of_prereg(p))} rows, grids match usplat.rows")
+    print(f"PASS prereg: {len(mt.prereg_rows(p))} rows, grids match usplat.rows")
 
 
 def test_v1_table_is_unchanged(monkeypatch):
@@ -92,7 +87,7 @@ def _val_body(nll, n=(100, 900), rows=None, betas=True):
     """A validation body with two scenes; nll: {row: (scene0, scene1)}; other prereg rows
     get a high NLL."""
     p = json.loads(PREREG.read_text())
-    rows = rows or _rows_of_prereg(p)
+    rows = rows or mt.prereg_rows(p)
     scenes = {}
     for j, name in enumerate(("office_0", "room_2")):
         scenes[name] = dict(rows={r: {"all": dict(nll=nll.get(r, (2.0, 2.0))[j], n_pixels=n[j],
@@ -126,7 +121,7 @@ def test_choose_v2_pooled_ties_and_refusals():
     b = _val_body({"ours_P2": (0.80, 0.80), "ours_P2p1": (0.80003, 0.80003)})
     assert mt.choose_v2(b, "@ours_v2", p)[0] == "ours_P2"
     # refusals: a missing candidate, a NaN value
-    rows = [r for r in _rows_of_prereg(p) if r != "ours_P4_a1_s2"]
+    rows = [r for r in mt.prereg_rows(p) if r != "ours_P4_a1_s2"]
     with pytest.raises(SystemExit, match="ours_P4_a1_s2"):
         mt.choose_v2(_val_body({}, rows=rows), "@p4", p)
     with pytest.raises(SystemExit, match="non-finite"):
@@ -221,9 +216,9 @@ def test_eval_seg_v2_rows(tmp_path):
     out = cli.main(base + ["--val-scenes", scenes, "--scenes", scenes, "--v2-rows", "--plain-json",
                            "--out", str(tmp_path / "v2.json")])
     p = json.loads(PREREG.read_text())
-    assert set(_rows_of_prereg(p)) <= set(out["betas"])
+    assert set(mt.prereg_rows(p)) <= set(out["betas"])
     rows = out["scenes"]["toy"]["rows"]
-    for r in _rows_of_prereg(p):
+    for r in mt.prereg_rows(p):
         assert rows[r]["all"]["miou"] > 0.9, (r, rows[r]["all"]["miou"])
         assert set(rows[r]["all"]["ranking"]) >= {"u_epi", "u_ale", "msp"}
     assert set(out["betas"]["ours_P2p1"]) == {"beta0", "a", "b", "g"}

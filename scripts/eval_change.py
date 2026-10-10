@@ -49,7 +49,9 @@ update stride and keyframe rule, --change-baselines and NON-oracle depth only (n
 rendered depth); gt-rio10 per scene; eval --split val per val scene with --dump-scores;
 thresholds over the val dumps; criterion --split val (G3, binding) with --precondition
 static_fa_val=<T2 val_selection.json>; then eval --split test per test scene with
---reference <criterion_val.json> --thresholds <thresholds.json>.
+--reference <criterion_val.json> --thresholds <thresholds.json>. The oracle row depth_oracle
+needs ChangeBaselines fed the rescan's rendered mesh depth (run_mapping.py --oracle-depth), which
+a field fed sensor depth does not hold: until RIO10 has that input path it stays missing.
 
     python3 scripts/eval_change.py eval --field F.pt --gt gt.pt --config configs/swap_replica.json \
         --scene room_0 --split test --compare-field ours_noreset=F_noreset.pt \

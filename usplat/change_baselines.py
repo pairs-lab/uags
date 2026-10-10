@@ -201,6 +201,7 @@ class ChangeBaselines:
         self.depth_gauss_name, self.depth_render_name = f"depth_gauss{sfx}", f"depth_render{sfx}"
         self.series: dict[str, TemporalScore] = {}
         self.num_views = 0
+        self.last_view_weights: dict[str, torch.Tensor] = {}   # w_v of the last update()
 
     def config(self):
         return dict(num_gaussians=self.N, k=self.k, ewma_rate=self.ewma_rate,
@@ -302,7 +303,7 @@ class ChangeBaselines:
                                              device=dev, dtype=dt)
         ref = self.view_mass_frac * float(num_pixels)
         shared = None if observed is None else observed.detach().to(dev).reshape(-1)
-        per_view = {}
+        per_view, weights = {}, {}
         with torch.no_grad():
             for name, (S, m) in zip(names, out):
                 seen = m > _EPS                               # the field's "seen" rule
@@ -314,8 +315,30 @@ class ChangeBaselines:
                 r = torch.where(obs, r, torch.full_like(r, float("nan")))
                 self._series(name).push(r, obs, wv)
                 per_view[name] = r
+                weights[name] = wv
         self.num_views += 1
+        self.last_view_weights = weights
         return per_view
+
+    @torch.no_grad()
+    def push_view(self, per_view, weights=None):
+        """Feed one view's per-view residuals, as update() returned them (NaN = not observed),
+        into this accumulator's filters, with the view weights update() used (its
+        last_view_weights; the ewma needs them). The residual of a view does not depend on
+        the filter state, so an accumulator fed this way from some of another's views holds
+        exactly the state update() would give on those views alone, with no render and no
+        backward pass (scripts/run_mapping.py: the update-pass-only state of the
+        checkpoint, while the accumulator of the whole run keeps the null of ResidualNull)."""
+        for name, r in per_view.items():
+            r = r.detach().to(self.device, self.dtype)
+            w = None if weights is None or weights.get(name) is None \
+                else weights[name].detach().to(self.device, self.dtype)
+            self._series(name).push(r, torch.isfinite(r), w)
+        self.num_views += 1
+
+    def empty_like(self):
+        """A new accumulator with this one's configuration, device and dtype and no state."""
+        return ChangeBaselines(device=self.device, dtype=self.dtype, **self.config())
 
     # ------------------------------------------------------------ read-outs
     @property
@@ -337,6 +360,7 @@ class ChangeBaselines:
     def reset(self):
         self.series.clear()
         self.num_views = 0
+        self.last_view_weights = {}
 
     def state_dict(self):
         return dict(config=self.config(), dtype=str(self.dtype), num_views=self.num_views,

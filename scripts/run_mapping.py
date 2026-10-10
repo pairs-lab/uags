@@ -32,6 +32,14 @@ rule (ResidualNull: the q-quantile of their own mapping-pass scores, pooled), co
 way. --fixed-change-thr replaces the calibration by one fixed threshold (ablation).
 --no-save-field writes no field file, so an existing field at --out is never overwritten.
 
+Labelled change evaluation (scripts/eval_change.py) reads, from a field saved after an update
+pass: change_scores = {"<residual>/<filter>": (N,)} of the residual baselines over the UPDATE
+views only (a second ChangeBaselines fed the update views' residuals, ChangeBaselines.push_view;
+the accumulator of the whole run keeps the mapping-pass null) with change_baselines_scope =
+"update", and normlift_R_before_update = NormLift's reliability R at the end of the mapping pass
+(--baselines; the row normlift_drop). --oracle-depth marks the --use-depth input as rendered mesh
+depth (Replica): the depth residuals are then the oracle rows depth_*_oracle.
+
 Feature transform (--feature-transform MODULE:FACTORY, --feature-transform-arg STRING): at
 startup xform = FACTORY(arg, pca, device); on the UPDATE sequence only, right after z (h*w, d)
 is in field space and before the field and CSS see it, z = xform(z, fr, i, (h, w)), with fr
@@ -408,7 +416,7 @@ def run_gsplat(args, rec=None):
     from usplat.extractors import get_extractor
     from usplat import baselines as B
 
-    device = "cuda"
+    device = args.device
     torch.manual_seed(args.seed)                            # PCA pixel subsample (randperm)
     from usplat import gpu_reserve                          # fraction from scripts/gpu_gate.sh
     held = gpu_reserve.apply(device)
@@ -556,12 +564,13 @@ def run_gsplat(args, rec=None):
     css = [b for b in bs if isinstance(b, B.CSS)]
 
     # ---- residual change baselines on the same views (--change-baselines) --------------
-    cb = nulls = tally = None
+    cb = nulls = tally = cb_upd = nl_before = None
     cb_times = []
     if args.change_baselines:
         from usplat.change_baselines import ChangeBaselines, ResidualNull
         cb = ChangeBaselines(N, k=max(1, int(cfg.change_persist)),
-                             view_mass_frac=cfg.view_mass_frac, device=device)
+                             view_mass_frac=cfg.view_mass_frac, oracle_depth=args.oracle_depth,
+                             device=device)
         nulls = ResidualNull()
 
     def baseline_view(ras, fr, z, kw):
@@ -615,6 +624,8 @@ def run_gsplat(args, rec=None):
             used += 1
             if pv is not None and desc == "mapping":
                 nulls.record(cb, pv)                            # static by assumption: null
+            if pv is not None and cb_upd is not None and desc == "update":
+                cb_upd.push_view(pv, cb.last_view_weights)      # update-pass-only state
             if tally is not None and desc == "update":
                 tally.step(i, nulls.test(cb, pv) if pv is not None else None)
         return used
@@ -634,6 +645,11 @@ def run_gsplat(args, rec=None):
         if nulls is not None:
             print(f"residual baselines (q={args.change_quantile}): "
                   f"{nulls.calibrate(args.change_quantile)}")
+        if cb is not None:          # cb keeps the null's state (ResidualNull reads its ring)
+            cb_upd = cb.empty_like()
+        nl = next((b for b in bs if isinstance(b, B.NormLift)), None)
+        if nl is not None:
+            nl_before = nl.reliability().float().cpu()
         if rec is not None:
             tally = ChangeTally(field)
         used += run_sequence(upd, upd_idx, upd_tok, "update")
@@ -685,8 +701,20 @@ def run_gsplat(args, rec=None):
         field_config=field.cfg.to_dict(), extractor=args.extractor,
         extractor_options=ext_opts, pca_explained=explained,
         code=mapping_code_state(), gpu_reserved_mib=held,
-        baselines=B.baselines_state(bs) if bs else [], css_class_ids=css_ids),
+        baselines=B.baselines_state(bs) if bs else [], css_class_ids=css_ids,
+        normlift_R_before_update=nl_before, **change_state(cb_upd)),
         no_save=args.no_save_field)
+
+
+def change_state(cb_upd):
+    """Checkpoint keys of the residual baselines' update-pass-only state (usplat.change_eval):
+    every filter's score in float32, its configuration, the number of update views and the
+    scope marker; {} without --change-baselines or an update pass."""
+    if cb_upd is None:
+        return {}
+    return dict(change_scores={k: v.float().cpu() for k, v in cb_upd.scores().items()},
+                change_baselines_config=cb_upd.config(),
+                change_baselines_views=cb_upd.num_views, change_baselines_scope="update")
 
 
 def save_field(path, build, no_save=False):
@@ -751,6 +779,10 @@ def main(argv=None):
     ap.add_argument("--change-baselines", action="store_true",
                     help="also run the residual change baselines (NCC, feature, depth) with "
                          "label-free thresholds from their own mapping-pass scores")
+    ap.add_argument("--oracle-depth", action="store_true",
+                    help="with --change-baselines --use-depth: the dataset depth is rendered "
+                         "mesh depth (Replica), so the depth residuals are the oracle rows "
+                         "depth_*_oracle (upper bound, never G3)")
     ap.add_argument("--fixed-change-thr", type=float, default=None,
                     help="one fixed change threshold instead of the calibration (ablation)")
     ap.add_argument("--no-save-field", action="store_true",
@@ -765,6 +797,8 @@ def main(argv=None):
     ap.add_argument("--mock-static", action="store_true",
                     help="mock backend: no content change in the update half")
     ap.add_argument("--channel-chunk", type=int, default=32)
+    ap.add_argument("--device", default="cuda",
+                    help="gsplat backend device (cpu only with a CPU rasterizer, in tests)")
     ap.add_argument("--query", default="", help="comma-separated open-vocab text queries")
     ap.add_argument("--out", default="outputs/field.pt")
     args = ap.parse_args(argv)
@@ -787,6 +821,9 @@ def main(argv=None):
     else:
         if args.css_full_vocab and not (args.baselines and args.vocab):   # before extraction
             raise SystemExit("--css-full-vocab needs --baselines and --vocab")
+        if args.oracle_depth and not (args.change_baselines and args.use_depth):
+            raise SystemExit("--oracle-depth names the depth rows of --change-baselines "
+                             "--use-depth")
         if not (args.ply and args.data):
             raise SystemExit("--backend gsplat requires --ply and --data")
         if args.summary_json and not args.update_data:

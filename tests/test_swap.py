@@ -437,6 +437,134 @@ def test_end_to_end_cpu(tmp_path):
                   "--device", "cpu", "--plain-json", "--out", str(tmp_path / "x.pt")])
 
 
+class _CpuGSplat:
+    """GSplatFeatureRasterizer stand-in on the CPU (eval_seg.PinholeMockRasterizer) with the
+    calls run_mapping.run_gsplat makes: render_image, render_depth, gaussian_depths."""
+
+    @classmethod
+    def from_splats(cls, splats, viewmat, K, w, h, **kw):
+        import sys
+        sys.path.insert(0, os.path.join(REPO, "scripts"))
+        from eval_seg import PinholeMockRasterizer
+        o = cls()
+        o.r = PinholeMockRasterizer(splats, viewmat, K, w, h)
+        o.h, o.w = h, w
+        o.width, o.height = w, h
+        o.num_gaussians = o.r.num_gaussians
+        o.z = splats["means"].float() @ viewmat[2, :3] + viewmat[2, 3]
+        return o
+
+    def __call__(self, buf):
+        return self.r(buf)
+
+    @torch.no_grad()
+    def render_image(self, colors):
+        W = self.r._r.weights()
+        return (W @ colors).reshape(self.h, self.w, -1), W.sum(1).reshape(self.h, self.w)
+
+    @torch.no_grad()
+    def render_depth(self):
+        W = self.r._r.weights()
+        a = W.sum(1)
+        d = torch.where(a > 1e-6, W @ self.z / a.clamp_min(1e-12), torch.zeros_like(a))
+        return d.reshape(self.h, self.w), a.reshape(self.h, self.w)
+
+    def gaussian_depths(self):
+        return self.z
+
+
+def _toy_scene(tmp_path, n1=8, n2=6):
+    root = str(tmp_path / "Replica")
+    _write_replica(os.path.join(root, "toy", "Sequence_1"), n1)
+    _write_replica(os.path.join(root, "toy", "Sequence_2"), n2)
+    spec_path, _ = _toy_spec(tmp_path)
+    xs, ys = torch.arange(-1.9, 1.95, 0.1), torch.arange(-1.45, 1.5, 0.1)
+    gy, gx = torch.meshgrid(ys, xs, indexing="ij")
+    means = torch.stack([gx.reshape(-1), gy.reshape(-1), torch.full((gx.numel(),), 2.0)], -1)
+    N = means.shape[0]
+    torch.save(dict(means=means, quats=torch.tensor([1.0, 0, 0, 0]).expand(N, 4).clone(),
+                    scales=torch.full((N, 3), 0.06), opacities=torch.full((N,), 0.9)),
+               tmp_path / "gs.pt")
+    return root, spec_path
+
+
+def _run_mapping_cpu(monkeypatch):
+    """scripts/run_mapping.py with its gsplat backend on the CPU (--device cpu)."""
+    import usplat.extractors as EX
+    import usplat.gsplat_adapter as GA
+    monkeypatch.setattr(GA, "GSplatFeatureRasterizer", _CpuGSplat)
+    monkeypatch.setattr(EX, "get_extractor", lambda name, device="cpu", **kw: FakeExtractor())
+    return _load_cli("run_mapping")
+
+
+def _swap_fields(tmp_path, monkeypatch, root, spec_path, reset_extra=(), noreset_extra=()):
+    """The reset and no-reset fields of scripts/replica_swap.sh (its run_mapping.py arguments,
+    scaled to the toy scene), mapped by the REAL run_gsplat."""
+    rm = _run_mapping_cpu(monkeypatch)
+    bank = tmp_path / "banks" / "toy.pt"
+    if not bank.exists():
+        _load_cli("make_swap_bank").main(["--spec", spec_path, "--scene", "toy", "--root", root,
+                                          "--extractor", "lseg", "--device", "cpu",
+                                          "--out", str(bank)], extractor=FakeExtractor())
+    fd = tmp_path / "fields"
+    common = ["--backend", "gsplat", "--device", "cpu", "--dataset", "replica_semnerf",
+              "--data", f"{root}/toy/Sequence_1", "--stride", "1", "--downscale", "16",
+              "--ply", str(tmp_path / "gs.pt"), "--extractor", "lseg", "--feat-dim", "8",
+              "--pca-frames", "4", "--seed", "0", "--use-depth",
+              "--update-data", f"{root}/toy/Sequence_2", "--update-stride", "1",
+              "--feature-transform", "usplat.swap:swap_factory", "--kf-trans", "0.005"]
+    arg = f"bank={bank},spec={spec_path},scene=toy,log={fd}/toy_swap%s.frames.json"
+    F, F0 = str(fd / "toy_swap.pt"), str(fd / "toy_swap_noreset.pt")
+    rm.main(common + ["--baselines", "--change-baselines", "--oracle-depth",
+                      "--feature-transform-arg", arg % "", "--out", F] + list(reset_extra))
+    rm.main(common + ["--feature-transform-arg", arg % "_noreset", "--fixed-change-thr", "inf",
+                      "--pca-from", F, "--out", F0] + list(noreset_extra))
+    return str(bank), F, F0
+
+
+def test_run_mapping_checkpoint_to_eval_change(tmp_path, monkeypatch):
+    """From the checkpoint run_mapping.py's real run_gsplat saves (CPU stand-ins for gsplat and
+    LSeg) with replica_swap.sh's arguments to eval_change gt-swap / eval / criterion: the
+    residual rows the run maps (ncc, feature, oracle depth) and normlift_drop are scored, not
+    missing; the saved scores cover the update views only (equal to a ChangeBaselines fed
+    only those views); the no-reset field carries no baselines and is still accepted."""
+    root, spec_path = _toy_scene(tmp_path)
+    bank, F, F0 = _swap_fields(tmp_path, monkeypatch, root, spec_path)
+    ck, ck0 = (torch.load(p, map_location="cpu", weights_only=False) for p in (F, F0))
+    assert ck["change_baselines_scope"] == "update" and ck["change_baselines_views"] == 6
+    assert ck["change_baselines_config"]["oracle_depth"] is True
+    assert {k.split("/")[0] for k in ck["change_scores"]} == {
+        "ncc", "feat", "depth_gauss_oracle", "depth_render_oracle"}
+    assert ck["normlift_R_before_update"].shape == (ck["field"]["c_last"].numel(),)
+    assert ck0["baselines"] == [] and "change_scores" not in ck0
+    assert ck0.get("normlift_R_before_update") is None
+    cli = _load_cli("eval_change")
+    gt = tmp_path / "gt" / "toy.pt"
+    cli.main(["gt-swap", "--ply", str(tmp_path / "gs.pt"), "--data", f"{root}/toy/Sequence_2",
+              "--update-stride", "1", "--frames-log", str(tmp_path / "fields" / "toy_swap.frames.json"),
+              "--bank", bank, "--spec", spec_path, "--scene", "toy", "--downscale", "16",
+              "--backend", "mock", "--device", "cpu", "--out", str(gt)])
+    out = tmp_path / "rec" / "eval_val_toy.json"
+    cli.main(["eval", "--field", F, "--gt", str(gt), "--config", spec_path, "--scene", "toy",
+              "--split", "val", "--compare-field", f"ours_noreset={F0}", "--out", str(out)])
+    m = json.load(open(out))["metrics"]
+    st = {k: v["status"] for k, v in m["rows"].items()}
+    for r in ("ours_c_max", "ncc", "feature_residual", "depth_oracle", "normlift_drop"):
+        assert st[r] == "ok", (r, st[r])
+        assert m["rows"][r]["gaussian"]["coverage"] > 0, r
+    assert m["rows"]["depth_oracle"]["source"].startswith("change_baselines:depth_render_oracle")
+    for r in ("depth_residual", "fused", "css_var", "yager_conflict"):      # not applicable
+        assert st[r].startswith("missing"), (r, st[r])
+    assert m["seg"]["rows"]["averaging"].get("status") is None          # from the reset field
+    cli.main(["criterion", "--config", spec_path, "--split", "val", "--records", str(out),
+              "--out", str(tmp_path / "rec" / "criterion_val.json")])
+    # the saved scores are those of the update views alone
+    import usplat.change_eval as CE
+    sc, why = CE._cb_scores(ck)
+    assert why is None and set(sc) == set(ck["change_scores"])
+    assert any(bool(torch.isfinite(v).any()) for v in sc.values())
+
+
 # ------------------------------------------------------------------ the shell script
 def _run_sh(tmp_path, stage, **env):
     e = dict(os.environ, DRY_RUN="1", STAGE=stage, ROOT=str(tmp_path / "Replica"),

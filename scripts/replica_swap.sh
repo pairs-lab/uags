@@ -5,11 +5,16 @@
 #             real target-class features from mapping frames (GPU: LSeg)
 #   reset     run_mapping.py on Sequence_1, update pass on Sequence_2 through
 #             --feature-transform usplat.swap:swap_factory (the default field: change test on),
-#             with --change-baselines (the residual rows; read only from a checkpoint whose
-#             ChangeBaselines state is marked update-pass only, usplat/change_eval.py)
+#             with --baselines (averaging, NormLift: the rows averaging and normlift_drop) and
+#             --change-baselines (the residual rows, saved as the update-pass-only
+#             change_scores that usplat/change_eval.py reads). Replica's depth is rendered from
+#             the scene mesh, so --oracle-depth: the depth rows are the oracle rows
+#             (depth_oracle; depth_residual and fused stay missing). No --vocab: the closed-set
+#             CSS rows (css_var, yager_conflict) are not applicable to the swap and stay missing
 #   noreset   the same with --fixed-change-thr inf (the change test runs, the same c, never a
 #             reset) and the reset field's PCA (--pca-from), so both fields see identical
-#             features; eval_change.py checks it (code, arguments, PCA, centre, frames logs)
+#             features; eval_change.py checks it (code, arguments, PCA, centre, frames logs).
+#             Only its mu* is read (segmentation block), so it is mapped without baselines
 #   gt        scripts/eval_change.py gt-swap: update-pass splat mass on swapped pixels over the
 #             frames the transform logged (GPU: gsplat)
 #   eval      scripts/eval_change.py eval (CPU): change rows + accuracy on swapped / static
@@ -123,12 +128,12 @@ for s in $SCENES; do
     python3 scripts/make_swap_bank.py --spec "$SPEC" --scene "$s" --root "$ROOT" \
     --extractor "$EXTRACTOR" --device cuda --out "$BANK" --record "$OUT/bank_${s}.json"
   COMMON=(--backend gsplat --dataset replica_semnerf --data "$ROOT/$s/$MSEQ" --stride "$MSTRIDE"
-          --downscale "$DOWNSCALE" --ply "$MAPS/${s}_seq1.pt" --extractor "$EXTRACTOR" --baselines
+          --downscale "$DOWNSCALE" --ply "$MAPS/${s}_seq1.pt" --extractor "$EXTRACTOR"
           --feat-dim 64 --pca-frames 20 --seed 0 --use-depth
           --update-data "$ROOT/$s/$USEQ" --update-stride "$USTRIDE"
           --feature-transform usplat.swap:swap_factory)
   [ -f "$F" ] || step "$OUT/map_${s}.$TS.log" scripts/gpu_gate.sh "$MAP_NEED" \
-    python3 scripts/run_mapping.py "${COMMON[@]}" --change-baselines \
+    python3 scripts/run_mapping.py "${COMMON[@]}" --baselines --change-baselines --oracle-depth \
     --feature-transform-arg "bank=$BANK,spec=$SPEC,scene=$s,log=$SWAP/fields/${s}_swap.frames.json" \
     --out "$F"
   [ -f "$F0" ] || step "$OUT/map_${s}_noreset.$TS.log" scripts/gpu_gate.sh "$MAP_NEED" \

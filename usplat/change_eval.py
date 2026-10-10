@@ -59,11 +59,16 @@ JUDGED Gaussians (label 1 stale / 0 static; -1 unjudged is left out):
 Every row that a checkpoint cannot provide stays in the record as "missing: <reason>".
 Residual rows (ncc, feature, depth) read ChangeBaselines state saved in the field checkpoint,
 which must cover the UPDATE pass only (the field's c is likewise cleared at calibration): the
-checkpoint holds ckpt["change_baselines"] = ChangeBaselines.state_dict() taken after a
-cb.reset() at the end of the mapping pass, or ckpt["change_scores"] = {"<residual>/<filter>":
-(N,)} of the update pass, AND ckpt["change_baselines_scope"] = "update". Without that marker
+checkpoint holds ckpt["change_scores"] = {"<residual>/<filter>": (N,)} of the update pass
+(what scripts/run_mapping.py --change-baselines writes: a second accumulator fed only the update
+views, ChangeBaselines.push_view) or ckpt["change_baselines"] = a ChangeBaselines.state_dict()
+of the update views only, AND ckpt["change_baselines_scope"] = "update". Without that marker
 the rows stay missing: a state that also saw the mapping pass mixes mapping residuals into
-kmin / max and is never read.
+kmin / max and is never read. The depth rows are depth_gauss / depth_render (non-oracle depth)
+or, from a run with --oracle-depth (rendered mesh depth, e.g. Replica), depth_*_oracle, which
+only the row depth_oracle reads. normlift_drop = R before the update - R after it, with R
+before from ckpt["normlift_R_before_update"] (N,) (run_mapping.py --baselines) or the NormLift
+of ckpt["baselines_before_update"].
 
 A ground-truth file (torch.save of a dict, make_gt) holds: label (N,) int8, object_id (N,)
 int64 (-1 none), object_ids / object_labels (O,), mass (N,) or None, target (N,) int64 or
@@ -616,6 +621,7 @@ RESIDUAL_ROWS = (                      # (row, ChangeBaselines residual names, i
 CB_KEYS = ("change_baselines",)        # ChangeBaselines.state_dict() in the field checkpoint
 CB_SCORES_KEY = "change_scores"        # or {"<residual>/<filter>": (N,)} directly
 CB_SCOPE_KEY, CB_SCOPE = "change_baselines_scope", "update"   # both: update pass only
+NL_BEFORE_KEY = "normlift_R_before_update"   # NormLift R (N,) at the end of the mapping pass
 
 
 def _row(score=None, fired=None, input="", oracle=False, status="ok", source=""):
@@ -691,7 +697,16 @@ def checkpoint_rows(ckpt, field, filt="kmin", cb_key=None):
         rows["css_var"] = _row(input="F+V", status="missing: no CSS baseline")
         rows["yager_conflict"] = _row(input="F+V", status="missing: no CSS baseline")
     before = ckpt.get("baselines_before_update")
-    if nl_after is not None and before:
+    r_before = ckpt.get(NL_BEFORE_KEY)
+    if nl_after is not None and r_before is not None:
+        r_before = torch.as_tensor(r_before).double().reshape(-1)
+        rows["normlift_drop"] = (_row(r_before - nl_after.reliability().double(), None, "F",
+                                      source=f"baselines:NormLift R drop ({NL_BEFORE_KEY})")
+                                 if r_before.numel() == nl_after.N else
+                                 _row(input="F", status=f"missing: {NL_BEFORE_KEY} has "
+                                                        f"{r_before.numel()} entries, NormLift "
+                                                        f"{nl_after.N}"))
+    elif nl_after is not None and before:
         from .baselines import load_baselines, NormLift
         nl_before = next((b for b in load_baselines(before) if isinstance(b, NormLift)), None)
         rows["normlift_drop"] = (_row((nl_before.reliability() - nl_after.reliability()).double(),
@@ -699,8 +714,8 @@ def checkpoint_rows(ckpt, field, filt="kmin", cb_key=None):
                                  if nl_before is not None else
                                  _row(input="F", status="missing: no NormLift before the update"))
     else:
-        rows["normlift_drop"] = _row(input="F", status="missing: no NormLift state before the "
-                                                        "update (ckpt['baselines_before_update'])")
+        rows["normlift_drop"] = _row(input="F", status=f"missing: no NormLift state before the "
+                                                        f"update (ckpt[{NL_BEFORE_KEY!r}])")
     return rows
 
 

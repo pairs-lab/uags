@@ -791,28 +791,40 @@ chosen $\lambda_u=4$; its test AUSE (19.7) is near that of a random order
   ($e_{\mathrm{red}}$ is empty at $M=180$). y-axis: AUSE, lower is better.
   Reference curves: averaging (one minus maximum probability) and, built from
   NormLift's quantities, $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$ and
-  $1-\mathcal{R}$. Replica test, mean $\pm$ std, $N=6$.}}}
-  \caption{Does each uncertainty rank its own error? AUSE of the epistemic and
-  aleatoric channels against reducible error $e_{\mathrm{red}}$ and irreducible
-  error $e_{\mathrm{irr}}$, for fields built from $M$ of the 180 mapping frames.
-  If the two channels separate, each is lower on its own target than on the
-  other one. \todo{update once measured.}}
+  $1-\mathcal{R}$; view count; P0 and P2 (one minus maximum probability).
+  Replica validation, mean, $N=2$
+  (views\_val\_206c0b7.json).}}}
+  \caption{Does each uncertainty rank its own error? AUSE (\%) of the
+  epistemic and aleatoric channels against reducible error $e_{\mathrm{red}}$
+  and irreducible error $e_{\mathrm{irr}}$, for fields built from $M$ of the
+  180 mapping frames. Replica validation scenes, mean over $N=2$.
+  \todo{test scenes pending.}}
   \label{fig:views}
 \end{figure}
 
-Fig.~\ref{fig:views} tests whether the two channels separate. Our
-$u^{\mathrm{epi}}$ counts views with a weight that saturates at one full view,
-so views with a small footprint count fractionally. The score
-$1/(1+N_{\mathrm{eff}})$, built from NormLift's Kish count of pixel masses,
-depends only on the relative masses of the views, so ten tiny views count as
-much as ten full ones. The two can therefore rank $e_{\mathrm{red}}$
-differently for Gaussians with small footprints. For the aleatoric channel we
-compare $\hat\rho$~\eqref{eq:rho} with NormLift's cross-view consistency
-$C_{\mathrm{inter}}$, which, like $\bar r$, is biased upward at few views, and
-with its reliability $\mathcal{R}$, which shrinks with scarce evidence.
-\todo{interpret once measured: is each channel lower on its own target, and is
-$u^{\mathrm{epi}}$ lower than one minus the maximum probability on
-$e_{\mathrm{red}}$?}
+%% Source: docs/reports/2026-09-29-replica-tab1/logs/views/views_val_206c0b7.json
+%% (x100). Primary: summary[M][row][channel].{e_red,e_irr}.mean; e_red at
+%% M = 10/30/90: u_epi 1.07/0.43/0.15, u_ale 3.94/0.78/0.14, NormLift 1-Cinter
+%% 1.97/0.37/0.14, epi 2.39/0.83/0.58, 1-R 2.19/0.62/0.40, view count
+%% 1.99/0.73/0.53 (full views 1.51/0.85/0.25). Secondary (post hoc):
+%% summary_on_ale_defined, share 1.3/29.3/73.8% of covered pixels. MSP of
+%% ours_P0 and ours_P2 <= both channels on both targets in both analyses
+%% (closest: P0 3.340 vs u_ale 3.337 on e_irr at M = 90, secondary).
+On the validation scenes (Fig.~\ref{fig:views}), our $u^{\mathrm{epi}}$ ranks
+$e_{\mathrm{red}}$ better than the view count and NormLift's
+$1/(1+N_{\mathrm{eff}})$ and $1-\mathcal{R}$ at every $M$, and better than
+$u^{\mathrm{ale}}$ and $1-C_{\mathrm{inter}}$ at $M=10$ (AUSE 1.07 vs 3.94 and
+1.97), but $1-C_{\mathrm{inter}}$ is lower at $M=30$ (0.37 vs 0.43) and both
+agreement scores are lower at $M=90$ (0.14 vs 0.15). On $e_{\mathrm{irr}}$,
+$u^{\mathrm{ale}}$ is worse than $1-C_{\mathrm{inter}}$ at every $M$; at small
+$M$ it is undefined on most pixels, which then rank as most uncertain
+(\secref{sec:metrics}). A secondary analysis, chosen post hoc on validation,
+scores the pixels where $u^{\mathrm{ale}}$ is defined (1.3, 29 and 74\% of the
+covered pixels at $M=10,30,90$). There $u^{\mathrm{ale}}$ ranks
+$e_{\mathrm{irr}}$ 2--4 times better than $u^{\mathrm{epi}}$ and on par with
+$1-C_{\mathrm{inter}}$ (2.35/2.08/3.34 vs 8.43/6.89/7.92 and 2.42/2.07/3.36).
+In both analyses, ranking by the maximum probability of either P0 or P2
+matches or beats both channels on both targets.
 
 %% ----------------------------------------------------------------------------
 \subsection{Real Rearrangements: Stale Content}

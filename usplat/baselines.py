@@ -704,7 +704,8 @@ CSS_ALPHA0_GRID = (0.01, 0.1, 10.0)
 
 # css_full is a VALIDATION-ONLY control (fixed 2026-10-10, before any run with it): the v1 test
 # fields hold no css_full state, and no guarded stage maps the test scenes with
-# --css-full-vocab (scripts/replica_tab1_v2.sh evaluates the existing fields and never maps), so
+# --css-full-vocab (scripts/replica_tab1_v2.sh evaluates the existing fields and never maps;
+# scripts/scannet_tab1.sh refuses it in MAP_EXTRA, as its prereg has no css_full choice), so
 # it has no test number. Its read-out follows CSS's rule (scripts/make_tables.py choose --key
 # css), machine-readable here: the row of "rows" with the lowest mean validation NLL over the
 # validation scenes (eval_seg summary, variant "all"); ties go to the first listed (the mapped

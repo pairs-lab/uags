@@ -83,8 +83,13 @@
 #                     step unless make_tables.py has the v2 selection and the prereg is
 #                     committed. The test stage passes it iff the validation evaluation did
 #                     (its recorded argv)
-#   MAP_EXTRA=<args>  extra run_mapping.py arguments (e.g. a CSS vocabulary option); part of
-#                     the protocol recorded by val, so select and test refuse another value
+#   MAP_EXTRA=<args>  extra run_mapping.py arguments; part of the protocol recorded by val, so
+#                     select and test refuse another value. An existing field is reused only
+#                     when it was mapped with the same MAP_EXTRA ($FIELDS/<scene>_lseg.pt.map_extra.json,
+#                     written after its mapping). --css-full-vocab is refused: css_full is a
+#                     validation-only control (usplat/baselines.py CSS_FULL_RULE) and this
+#                     prereg has no css_full choice, so a test number would have no recorded
+#                     validation choice
 #   DRY_RUN=1         print the GPU and data steps instead of running them; the checks run
 #   EVAL_NEED=<MiB>   evaluation GPU cap: 7000, or 10000 with --v2-rows (its frozen P1 and P4
 #                     buffers, as scripts/replica_tab1_v2.sh)
@@ -114,6 +119,9 @@ DOWNSCALE=${DOWNSCALE:-2}
 TAU_COV=${TAU_COV:-0.5}          # coverage rule of Replica Table I
 V2_ROWS=${V2_ROWS:-auto}
 MAP_EXTRA=${MAP_EXTRA:-}
+case " $MAP_EXTRA " in         # argparse also takes a unique prefix (--css-full, --css-f)
+  *" --css-f"*) echo "refused: MAP_EXTRA $MAP_EXTRA: css_full is a validation-only control (usplat/baselines.py CSS_FULL_RULE); configs/scannet_v2_prereg.json registers no css_full choice"; exit 1 ;;
+esac
 FACTOR=2                         # prepared colour = native / FACTOR
 MAP_STRIDE=10                    # mapping frames 0, 10, 20, ...
 EVAL_STRIDE=20 EVAL_OFFSET=5     # evaluation frames 5, 25, 45, ... (configs/scannet_*.json)
@@ -444,7 +452,19 @@ for s in $SCENES; do
       --max-res 0 --out "$MAPS/$s.pt"
     [ "$DRY_RUN" = 1 ] || { grep -E "gpu_gate|PSNR|psnr|Gaussians|dropped|saved" "$L" | tail -5 || true; }
   fi
-  if [ ! -f "$FIELDS/${s}_lseg.pt" ]; then
+  if [ -f "$FIELDS/${s}_lseg.pt" ]; then   # reused only if mapped with this MAP_EXTRA
+    python3 - "$FIELDS/${s}_lseg.pt.map_extra.json" "$MAP_EXTRA" <<'PY' || exit 1
+import json, os, sys
+p, want = sys.argv[1], sys.argv[2]
+if not os.path.exists(p):
+    sys.exit(f"refused: no {p}: the MAP_EXTRA of the existing field is unknown (move the field "
+             f"aside to map it again)")
+got = json.load(open(p)).get("map_extra")
+if got != want:
+    sys.exit(f"refused: the existing field was mapped with MAP_EXTRA={got!r}, now {want!r} "
+             f"(move it aside to map it again, or use its MAP_EXTRA)")
+PY
+  else
     L="$OUT/map_${s}.$TS.log"
     # shellcheck disable=SC2086          # MAP_EXTRA: word-split on purpose
     step "$L" scripts/gpu_gate.sh "$MAP_NEED" python3 scripts/run_mapping.py --backend gsplat \
@@ -453,6 +473,8 @@ for s in $SCENES; do
       --css-eval-data "$PREP/$s/$VIEW" --css-eval-stride 1 --feat-dim 64 --pca-frames 20 \
       --seed 0 --out "$FIELDS/${s}_lseg.pt" $MAP_EXTRA
     [ "$DRY_RUN" = 1 ] || { grep -E "gpu_gate|PCA|CSS|keyframes used|timing|saved" "$L" || true; }
+    [ "$DRY_RUN" = 1 ] || python3 -c 'import json, sys; json.dump(dict(map_extra=sys.argv[2]), open(sys.argv[1], "w"))' \
+      "$FIELDS/${s}_lseg.pt.map_extra.json" "$MAP_EXTRA"
   fi
   for job in $DISTILL_JOBS; do            # trained baselines: f3dgs, legs:<lambda_u>
     m=${job%%:*}; lam=${job#*:}; [ "$m" = "$job" ] && lam=1

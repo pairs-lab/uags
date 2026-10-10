@@ -612,6 +612,10 @@ def test_script_selection_and_test_refusals(script_repo, tmp_path):
     assert r.returncode == 1 and "protocol differs" in r.stdout
     r = _run(script_repo, out, STAGE="test", MAP_EXTRA="--css-vocab full")
     assert r.returncode == 1 and "map_extra" in r.stdout
+    for flag in ("--css-full-vocab", "--css-full", "--seed 0 --css-f"):   # no css_full look
+        for stage in ("val", "test", "prep"):
+            r = _run(script_repo, out, STAGE=stage, MAP_EXTRA=flag)
+            assert r.returncode == 1 and "validation-only control" in r.stdout, r.stdout
     # eval_val.json changed after the selection; one not made with the recorded settings
     orig = (out / "eval_val.json").read_text()
     _fake_eval_val(out / "eval_val.json", script_repo, tau_cov=0.3)

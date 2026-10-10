@@ -67,6 +67,21 @@ defined (they were tested) and last_fired those above the threshold; n_tests / n
 both per history bucket. On a static sequence n_fires / n_tests is the REALISED per-view
 false-alarm rate that the quantile q targets (scripts/run_mapping.py --summary-json).
 
+Change-stream weight (change_weight, opt-in; default "view" as above). The test is defined
+only after tau_min views of mass a0*H*W (7.7 px on Replica at 320x240), and most Gaussians
+collect a few pixels over the whole mapping pass, so most are never tested. Alternatives that
+count a view by how much of the Gaussian it shows, not by its pixel size:
+    "visibility"  w = clamp(m_v / m_unocc_v, 0, 1),  m_unocc = o 2 pi / sqrt(det conic), the
+                  splat mass of the projected 2D Gaussian without occlusion (from the
+                  rasterizer, ViewStats.m_unocc): the transmittance-weighted visible share
+    "relmax"      w = m_v / max_{v' <= v} m_v'   (running max of the raw mass, per Gaussian)
+They enter ONLY the change-test stream and views_since_reset (re-admission): the posterior
+statistics R, W1, W2, Q, Wr are bit-identical across change_weight settings as long as the
+same Gaussians are reset (tests/test_change_coverage.py). With fast_memory = 0 the recent
+bucket is the current view alone, so fast_min = 1 asks for a view of weight 1; under
+"visibility" even a fully visible Gaussian gets slightly less (gsplat clamps alpha at 0.999
+and cuts it below 1/255), so pair it with fast_min and slow_min < 1 (e.g. 0.5).
+
 Every fix has a switch in FieldConfig so the ablations can turn it off one at a time;
 FieldConfig.legacy() reproduces the field at git ab28fb4 (tests/test_legacy.py).
 """
@@ -125,6 +140,11 @@ class FieldConfig:
                                      # length). "history": one quantile per slow-bucket history
                                      # size; "pooled": one quantile for all; "max": per-Gaussian
                                      # max over the mapping pass (inflated by short histories)
+    change_weight: str = "view"      # weight of a view in the change-test stream and in
+                                     # views_since_reset (never in the posterior): "view"
+                                     # min(1, m/(a0 H W)); "visibility" min(1, m/m_unocc)
+                                     # (rasterizer's unoccluded splat mass); "relmax"
+                                     # m / running max_v m. Opt-in, see the module docstring
     readmit_views: float = 3.0       # views after a reset before re-admission
     readmit_depth: Optional[float] = 0.05  # |depth residual| [m]; None = views only
     r_stable: float = 0.6            # agreement needed for the robust set
@@ -150,7 +170,8 @@ class FieldConfig:
                       ("epistemic", ("support", "kish", "views", "posterior", "pixels")),
                       ("change_score", ("raw", "normalized")),
                       ("kappa_mode", ("map", "fixed")),
-                      ("calib_mode", ("history", "pooled", "max"))):
+                      ("calib_mode", ("history", "pooled", "max")),
+                      ("change_weight", ("view", "visibility", "relmax"))):
             if getattr(self, k) not in ok:
                 raise ValueError(f"{k}={getattr(self, k)!r} not in {ok}")
 
@@ -164,6 +185,8 @@ class ViewStats(NamedTuple):
     Ds: Optional[torch.Tensor]       # (N,)    sum_p w depth_p       (observed depth)
     Dm: Optional[torch.Tensor]       # (N,)
     ref: float                       # a0 * H * W
+    m_unocc: Optional[torch.Tensor] = None   # (N,) unoccluded splat mass o 2 pi/sqrt(det conic)
+                                             # (change_weight="visibility" only)
 
 
 class _Channel:
@@ -229,11 +252,11 @@ class _Channel:
 
 
 # per-Gaussian / per-bucket tensors of state_dict (after the channels). States saved before
-# the test record (last_tested ... n_fires) lack them: from_state keeps the zeros
+# the test record (last_tested ... n_fires) or m_max lack them: from_state keeps the zeros
 _STATE_TENSORS = ("Rf", "nf", "Rs", "ns", "fB2", "fC", "fCq", "fBq2", "T2", "TQ", "pixel_mass",
                   "depth_abs", "depth_w", "depth_last", "views_since_reset", "c_ring", "c_hist",
                   "c_last", "c_max", "changed", "n_resets", "last_tested", "last_fired",
-                  "n_tests", "n_fires")
+                  "n_tests", "n_fires", "m_max")
 
 
 class DirectionalSemanticField:
@@ -281,6 +304,7 @@ class DirectionalSemanticField:
         self.last_fired = torch.zeros(N, dtype=torch.bool, device=self.device)
         self.n_tests = torch.zeros(nb, dtype=torch.int64, device=self.device)
         self.n_fires = torch.zeros(nb, dtype=torch.int64, device=self.device)
+        self.m_max = z(N)                                      # running max_v m_v ("relmax")
         self.pixel_mass = z(N)                                 # sum_v m_v (ablation)
         self.depth_abs, self.depth_w = z(N), z(N)              # |observed - Gaussian| depth
         self.views_since_reset = z(N)                          # view units in every mode
@@ -342,7 +366,16 @@ class DirectionalSemanticField:
         Rc_v, mc_v = out[1] if cfg.centre else (None, None)
         Ds_v, Dm_v = (out[-1][0][:, 0], out[-1][1]) if use_depth else (None, None)
         ref = cfg.view_mass_frac * float(num_pixels or P)
-        stats = ViewStats(R_v, m_v, Rc_v, mc_v, Ds_v, Dm_v, ref)
+        m_unocc = None
+        if cfg.change_weight == "visibility":
+            fn = getattr(rasterize_fn, "unoccluded_mass", None)
+            if fn is None:
+                raise ValueError("change_weight='visibility' needs a rasterizer with "
+                                 "unoccluded_mass() (MockFeatureRasterizer, "
+                                 "GSplatFeatureRasterizer)")
+            with torch.no_grad():
+                m_unocc = fn().to(self.device, self.dtype).reshape(-1)
+        stats = ViewStats(R_v, m_v, Rc_v, mc_v, Ds_v, Dm_v, ref, m_unocc)
         self._ingest(stats, gauss_depth)
         for hook in self.view_hooks:
             hook(stats)
@@ -353,8 +386,9 @@ class DirectionalSemanticField:
         return self.update_view(rasterize_fn, z_obs, **kw)
 
     @torch.no_grad()
-    def update_sparse(self, gauss_ids, weights, z, num_pixels, normalize_z=True):
-        """One view from explicit (gaussian_id, weight, feature) triples."""
+    def update_sparse(self, gauss_ids, weights, z, num_pixels, normalize_z=True, m_unocc=None):
+        """One view from explicit (gaussian_id, weight, feature) triples (m_unocc: (N,)
+        unoccluded splat mass, needed only with change_weight="visibility")."""
         gid = gauss_ids.to(self.device).long()
         w = weights.to(self.device, self.dtype)
         z = z.to(self.device, self.dtype)
@@ -371,7 +405,8 @@ class DirectionalSemanticField:
             Rc_v = torch.zeros_like(R_v).index_add_(0, gid, wc[:, None] * zhat)
             mc_v = torch.zeros_like(m_v).index_add_(0, gid, wc)
         stats = ViewStats(R_v, m_v, Rc_v, mc_v, None, None,
-                          self.cfg.view_mass_frac * float(num_pixels))
+                          self.cfg.view_mass_frac * float(num_pixels),
+                          None if m_unocc is None else m_unocc.to(self.device, self.dtype))
         self._ingest(stats, None)
         for hook in self.view_hooks:
             hook(stats)
@@ -394,6 +429,26 @@ class DirectionalSemanticField:
         w = (m / ref).clamp(max=1.0)
         return torch.where(seen, w, torch.zeros_like(w)), seen
 
+    def _change_weights(self, m, s: ViewStats):
+        """Weight of a view in the change-test stream and in views_since_reset
+        (FieldConfig.change_weight): w = clamp(m / den, 0, 1) with den = a0*H*W ("view", the
+        default: _view_weights), the unoccluded splat mass s.m_unocc ("visibility") or the
+        running max of the raw mass m_max, this view included ("relmax"). The posterior
+        channels never see it."""
+        mode = self.cfg.change_weight
+        if mode == "view":
+            return self._view_weights(m, s.ref)
+        if mode == "visibility":
+            if s.m_unocc is None:
+                raise ValueError("change_weight='visibility' needs ViewStats.m_unocc (a "
+                                 "rasterizer with unoccluded_mass())")
+            den = s.m_unocc.to(self.device, self.dtype)
+        else:                                                  # "relmax"
+            den = self.m_max
+        seen = m > _EPS
+        w = (m / den.clamp_min(_EPS)).clamp(0.0, 1.0)
+        return torch.where(seen, w, torch.zeros_like(w)), seen
+
     def _weights(self, m, ref):
         """Evidence weights of the posterior channels: views (F1) or pixel mass (legacy).
         The change test, re-admission and depth bookkeeping always use view weights."""
@@ -406,14 +461,16 @@ class DirectionalSemanticField:
     def _ingest(self, s: ViewStats, gauss_depth):
         cfg = self.cfg
         w, seen = self._weights(s.m, s.ref)
-        wv, _ = self._view_weights(s.m, s.ref)
+        if cfg.change_weight == "relmax":
+            self.m_max = torch.maximum(self.m_max, s.m)       # this view included: w <= 1
+        wv, _ = self._change_weights(s.m, s)                   # views_since_reset
         u = s.R / s.m.clamp_min(_EPS)[:, None]
         self.pixel_mass += s.m
         if cfg.centre:
             wc, seen_c = self._weights(s.mc, s.ref)
             uc = s.Rc / s.mc.clamp_min(_EPS)[:, None]
             # change-test stream: centred features, view weights
-            wt, seen_t = self._view_weights(s.mc, s.ref)
+            wt, seen_t = self._change_weights(s.mc, s)
             ut = uc
         else:
             wt, seen_t, ut = wv, seen, u
@@ -713,7 +770,7 @@ class DirectionalSemanticField:
         self.raw.reset(slice(None)); self.cen.reset(slice(None))
         for t in (self.Rf, self.nf, self.Rs, self.ns, self.fB2, self.fC, self.fCq, self.fBq2,
                   self.T2, self.TQ, self.pixel_mass, self.depth_abs, self.depth_w,
-                  self.views_since_reset, self.c_max):
+                  self.views_since_reset, self.c_max, self.m_max):
             t.zero_()
         self.depth_last.fill_(float("nan")); self.c_last.fill_(float("nan"))
         self.c_ring.fill_(float("nan")); self.c_hist.zero_(); self.thr_by_hist = None

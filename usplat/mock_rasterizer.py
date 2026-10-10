@@ -11,6 +11,7 @@ It exposes the SAME call signature the real adapter promises:
 linear in `feature_buffer` (exactly as real alpha-compositing is).
 """
 from __future__ import annotations
+import math
 import torch
 
 
@@ -56,6 +57,14 @@ class MockFeatureRasterizer:
             T = T * (1.0 - a)
         self._W = W
         return W
+
+    @torch.no_grad()
+    def unoccluded_mass(self) -> torch.Tensor:
+        """(N,) splat mass of each Gaussian without occlusion: the integral of its alpha over
+        the image plane, o 2 pi sigma^2 (isotropic conic I / sigma^2, i.e. o 2 pi /
+        sqrt(det conic), the formula of the gsplat adapter). Like the adapter it ignores the
+        0.999 alpha clamp and the pixel grid's border (FieldConfig.change_weight="visibility")."""
+        return self.opacities * (2.0 * math.pi) * (self.sigmas ** 2 + 1e-9)
 
     def __call__(self, feature_buffer: torch.Tensor) -> torch.Tensor:
         """Render (P, k) feature image = W @ feature_buffer. Differentiable w.r.t.

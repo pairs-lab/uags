@@ -442,6 +442,70 @@ def test_test_counters_and_state():
     print(f"PASS counters = brute force: {int(f.n_tests.sum())} tests, "
           f"{int(f.n_fires.sum())} fires; round trip and old states")
 
+def test_defaults_match_base_commit(tmp_path):
+    """FieldConfig() is unchanged by the test record and the opt-in change weight: the field at
+    git 3eb0e86 (Table I v1) and the current one, fed the same mock sequence with a content
+    change, observed depth and a calibrated threshold (resets and re-admissions happen), agree
+    bit for bit in every state tensor they share."""
+    import importlib
+    import os
+    import subprocess
+    import sys
+    import pytest
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pkg = tmp_path / "usplat_v1"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    for name in ("vmf_field.py", "bki_accumulate.py", "vmf_math.py"):
+        r = subprocess.run(["git", "-C", repo, "show", f"3eb0e86:usplat/{name}"],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            pytest.skip("git history with 3eb0e86 not available")
+        (pkg / name).write_text(r.stdout)
+    sys.path.insert(0, str(tmp_path))
+    try:
+        old_mod = importlib.import_module("usplat_v1.vmf_field")
+    finally:
+        sys.path.remove(str(tmp_path))
+    from usplat.mock_rasterizer import MockFeatureRasterizer
+    from usplat.clip_dense import MockDenseCLIP
+    torch.manual_seed(5)
+    N, d, H = 120, 16, 32
+    grid = torch.stack(torch.meshgrid(torch.arange(H), torch.arange(H), indexing="xy"),
+                       -1).reshape(-1, 2).float()
+    means2d = torch.rand(N, 2) * H
+    ras = MockFeatureRasterizer(means2d, 0.5 + 2.5 * torch.rand(N), 0.3 + 0.6 * torch.rand(N),
+                                torch.rand(N), grid)
+    clip = MockDenseCLIP(feat_dim=d, num_protos=5, noise=0.2, seed=5)
+    proto = (means2d[:, 0] / H * 5).long().clamp(0, 4)
+    moved = torch.where(torch.arange(N) % 3 == 0, (proto + 1) % 5, proto)
+    dom = ras.weights().argmax(1)
+    W = ras.weights()
+    gdepth = 1.0 + torch.rand(N)
+    ren = W @ gdepth / W.sum(1).clamp_min(1e-12)
+    views = [(clip.extract_from_labels((proto if v < 10 else moved)[dom].reshape(H, H))
+              .reshape(-1, d), ren + 0.01 * torch.randn(H * H)) for v in range(20)]
+    old = old_mod.DirectionalSemanticField(N, d, old_mod.FieldConfig(view_mass_frac=1e-3))
+    new = DirectionalSemanticField(N, d, FieldConfig(view_mass_frac=1e-3))
+    for f in (old, new):
+        for v, (z, dep) in enumerate(views):
+            if v == 10:
+                f.calibrate_change_threshold(0.99)
+            f.update_view(ras, z, depth_obs=dep, gauss_depth=gdepth)
+    assert int(new.n_resets.sum()) > 0 and int(new.n_fires.sum()) == int(new.n_resets.sum())
+    so, sn = old.state_dict(), new.state_dict()
+    shared = [k for k in so if isinstance(so[k], torch.Tensor)]
+    assert len(shared) > 20
+    for k in shared:
+        assert sn[k] is not None and torch.equal(so[k].nan_to_num(-7), sn[k].nan_to_num(-7)), k
+    for k in so:
+        if so[k] is None:
+            assert sn[k] is None, k
+    assert so["config"] == {k: v for k, v in sn["config"].items() if k != "change_weight"}
+    print(f"PASS defaults = git 3eb0e86 bit for bit ({len(shared)} tensors, "
+          f"{int(new.n_resets.sum())} resets)")
+
+
 if __name__ == "__main__":
     test_slow_decay_uses_stream_view_weight()
     test_test_counters_and_state()

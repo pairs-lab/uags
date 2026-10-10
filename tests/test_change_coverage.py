@@ -123,3 +123,130 @@ def test_audit_does_not_change_the_field(tmp_path):
     f.calibrate_change_threshold()
     assert A.audit(f)["calibrated_at_save"]
     print("PASS audit leaves the field unchanged and flags a calibrated field")
+
+
+# ---------------------------------------------------------------- change-stream weight
+def test_posterior_bit_identical_across_change_weight():
+    """change_weight touches only the change-test stream and views_since_reset: in the
+    record-only mapping pass the posterior statistics are bit-identical for "view",
+    "visibility" and "relmax" while the change streams differ; after a calibrated update with
+    a content change, the Gaussians that no setting reset keep bit-identical statistics."""
+    ras, proto, H = _scene(seed=1)
+    clip = MockDenseCLIP(feat_dim=16, num_protos=5, noise=0.2, seed=1)
+    dom = ras.weights().argmax(1)
+    torch.manual_seed(1)
+    moved = torch.where(torch.arange(ras.N) % 2 == 0, (proto + 1) % 5, proto)  # half change
+    zs = [clip.extract_from_labels((proto if v < 8 else moved)[dom].reshape(H, H))
+          .reshape(-1, 16) for v in range(14)]
+    fields = {}
+    for mode in ("view", "visibility", "relmax"):
+        f = DirectionalSemanticField(ras.N, 16, FieldConfig(
+            view_mass_frac=2e-3, change_weight=mode, readmit_depth=None))
+        for v, z in enumerate(zs):
+            if v == 8:
+                snap = {n: getattr(f.raw, n).clone() for n in ("R", "W1", "W2", "Q", "Wr")}
+                snap["ns"] = f.ns.clone()
+                f.calibrate_change_threshold()
+            f.update_view(ras, z)
+        fields[mode] = (f, snap)
+    ref, rsnap = fields["view"]
+    never = torch.ones(ras.N, dtype=torch.bool)
+    for f, _ in fields.values():
+        never &= f.n_resets == 0
+    assert 0 < int(never.sum()) < ras.N
+    for mode, (f, snap) in fields.items():
+        for name in ("R", "W1", "W2", "Q", "Wr"):
+            assert torch.equal(snap[name], rsnap[name]), (mode, name)      # mapping pass
+            assert torch.equal(getattr(f.raw, name)[never], getattr(ref.raw, name)[never]), \
+                (mode, name)
+        assert torch.equal(f.pixel_mass, ref.pixel_mass)
+        if mode != "view":
+            assert not torch.equal(snap["ns"], rsnap["ns"]), mode           # stream differs
+    print(f"PASS change_weight: posterior bit-identical (mapping; {int(never.sum())} "
+          "never-reset Gaussians after the update), change streams differ")
+
+
+def test_unoccluded_mass_mock_and_gsplat_meta():
+    """Mock: an unoccluded Gaussian inside the pixel grid has m_v = its unoccluded mass (the
+    pixel sum approximates the integral), an occluded one less: w = m_v / m_unocc is its
+    visible share. gsplat meta: o 2 pi / sqrt(det conic) equals the numerical integral of
+    o exp(-1/2 d^T conic d) for anisotropic conics, packed and unpacked; culled Gaussians 0."""
+    from usplat.gsplat_adapter import unoccluded_mass_from_meta
+    grid = torch.stack(torch.meshgrid(torch.arange(40), torch.arange(40), indexing="xy"),
+                       -1).reshape(-1, 2).float()
+    ras = MockFeatureRasterizer(torch.tensor([[20.0, 20.0], [20.0, 21.0], [8.0, 30.0]]),
+                                torch.tensor([2.0, 3.0, 1.5]), torch.tensor([0.5, 0.6, 0.4]),
+                                torch.tensor([1.0, 0.0, 0.5]), grid)
+    vis = ras.weights().sum(0) / ras.unoccluded_mass()
+    assert abs(float(vis[2]) - 1.0) < 1e-3 and abs(float(vis[1]) - 1.0) < 1e-3
+    assert 0.3 < float(vis[0]) < 0.75                       # behind Gaussian 1
+    # gsplat meta (synthetic): anisotropic covariances, conic = their inverse
+    g = torch.Generator().manual_seed(0)
+    N = 5
+    A = torch.randn(N, 2, 2, generator=g, dtype=torch.float64)
+    cov = A @ A.transpose(1, 2) + 0.5 * torch.eye(2, dtype=torch.float64)
+    inv = torch.linalg.inv(cov)
+    conic = torch.stack([inv[:, 0, 0], inv[:, 0, 1], inv[:, 1, 1]], -1)
+    op = 0.2 + 0.7 * torch.rand(N, generator=g, dtype=torch.float64)
+    xs = torch.arange(-12.0, 12.0, 0.02, dtype=torch.float64)
+    X, Y = torch.meshgrid(xs, xs, indexing="xy")
+    ref = torch.stack([op[n] * torch.exp(-0.5 * (inv[n, 0, 0] * X * X + 2 * inv[n, 0, 1] * X * Y
+                                                 + inv[n, 1, 1] * Y * Y)).sum() * 0.02 ** 2
+                       for n in range(N)])
+    ids = torch.tensor([0, 2, 3])
+    packed = unoccluded_mass_from_meta(dict(gaussian_ids=ids, conics=conic[ids],
+                                            opacities=op[ids]), N)
+    assert torch.allclose(packed[ids], ref[ids], rtol=1e-4) and packed[1] == 0 == packed[4]
+    radii = torch.zeros(1, N, 2, dtype=torch.int32)
+    radii[0, ids] = 3
+    unpacked = unoccluded_mass_from_meta(dict(gaussian_ids=None, conics=conic[None],
+                                              opacities=None, radii=radii), N, opacities=op)
+    assert torch.equal(unpacked, packed)
+    print(f"PASS unoccluded mass: mock visible shares {[round(float(v), 3) for v in vis]}; "
+          "gsplat meta formula = numerical integral (packed and unpacked)")
+
+
+def test_visibility_weight_makes_small_gaussians_testable():
+    """A Gaussian of 2 px (a quarter of a full view at a0 H W = 7.68 px) that is fully
+    visible counts as one view per view with change_weight="visibility" (w = m / m_unocc), so
+    its change score is defined after the persistence window; with view weights it never is
+    in 8 views. A half-occluded one (w = 0.5) stays untested while fast_min = 1 (fast_memory
+    = 0: the recent bucket is the current view alone) and is tested with fast_min = 0.5.
+    views_since_reset and the stream mass follow the visibility weights. The option needs the
+    unoccluded mass (ValueError otherwise); relmax keeps m_max in its state."""
+    import pytest
+    torch.manual_seed(0)
+    N, d, P = 4, 8, 76800                                   # 320 x 240: a0 H W = 7.68 px
+    m = torch.tensor([2.0, 2.0, 1.0, 7.68])
+    m_un = torch.tensor([2.0, 4.0, 1.0, 7.68])              # Gaussian 1: half occluded
+    mu = Fn.normalize(torch.randn(N, d), dim=-1)
+    zs = [Fn.normalize(mu + 0.2 * torch.randn(N, d), dim=-1) for _ in range(8)]
+    out = {}
+    for mode, fast_min in (("view", 1.0), ("visibility", 1.0), ("visibility", 0.5)):
+        f = DirectionalSemanticField(N, d, FieldConfig(change_weight=mode, fast_min=fast_min,
+                                                       slow_min=fast_min, readmit_depth=None))
+        for z in zs:
+            f.update_sparse(torch.arange(N), m, z, num_pixels=P, m_unocc=m_un)
+        out[mode, fast_min] = f
+    v, s, s5 = out["view", 1.0], out["visibility", 1.0], out["visibility", 0.5]
+    tested = torch.isfinite(s.c_last)
+    assert tested.tolist() == [True, False, True, True]     # w = 0.5 < fast_min = 1
+    assert torch.isfinite(s5.c_last).all()
+    assert torch.isnan(v.c_last[:3]).all() and torch.isfinite(v.c_last[3])
+    assert torch.allclose(s.views_since_reset, 8 * (m / m_un).clamp(max=1))
+    assert torch.allclose(s.ns + s.nf, 8 * (m / m_un).clamp(max=1))
+    assert torch.allclose(v.views_since_reset, 8 * (m / 7.68).clamp(max=1))
+    assert torch.equal(v.raw.W1, s.raw.W1) and torch.equal(v.raw.R, s.raw.R)
+    f = DirectionalSemanticField(N, d, FieldConfig(change_weight="visibility"))
+    with pytest.raises(ValueError, match="unoccluded"):
+        f.update_sparse(torch.arange(N), m, mu, num_pixels=P)
+    W = torch.rand(P, N)
+    with pytest.raises(ValueError, match="unoccluded"):
+        f.update_view(lambda buf: W @ buf, Fn.normalize(torch.randn(P, d), dim=-1))
+    r = DirectionalSemanticField(N, d, FieldConfig(change_weight="relmax", readmit_depth=None))
+    for scale in (0.5, 1.0, 0.25):
+        r.update_sparse(torch.arange(N), m * scale, mu, num_pixels=P)
+    assert torch.allclose(r.views_since_reset, torch.full((N,), 1.0 + 1.0 + 0.25))
+    g = DirectionalSemanticField.from_state(r.state_dict())
+    assert torch.equal(g.m_max, r.m_max) and g.cfg.change_weight == "relmax"
+    print("PASS visibility weight: 2 px Gaussians tested (views: never); relmax state kept")

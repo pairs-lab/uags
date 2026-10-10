@@ -25,8 +25,13 @@
 # Scenes: the files the prereg names (scenes.validation, scenes.test; disjoint). SCENES may
 # point at another file (e.g. moved fields) with the same scene names (make_tables.py
 # check-scenes). Another dataset later, same rules: commit its own prereg (a copy naming its
-# scene files; v1.test_commit only if its test split was looked at before) and run with
-# PREREG=<that file> and its own OUT.
+# scene files, with "pipeline" naming this script; v1.test_commit only if its test split was
+# looked at before) and run with PREREG=<that file> and its own OUT. A prereg of another
+# pipeline (e.g. configs/scannet_v2_prereg.json, scripts/scannet_tab1.sh) is refused: its test
+# split has its own once-gate there.
+# Text cache: TEXT_CACHE defaults to $OUT/text_cache_<extractor>.pt, seeded with a copy of the v1
+# cache ($FIELDS/text_cache_lseg.pt, read only; eval_seg.py adds missing prompts to the cache it
+# is given); a TEXT_CACHE inside $FIELDS is refused.
 # Every GPU step goes through scripts/gpu_gate.sh (never beside a USGLoc job, poll every 5 s).
 # GPU memory: the v1 evaluation peaked at 2.5 GB allocated (6.6 GB reserved) for 1M
 # Gaussians; the v2 rows add ~2.2 GB of frozen buffers (10 P4 rows (N, K) and 4 new P1 rows
@@ -51,6 +56,8 @@ if [ -z "${OUT:-}" ] && [ "$(realpath -m "$PREREG")" != "$(realpath -m "$PREREG_
   echo "refused: PREREG=$PREREG is not the Replica prereg; set OUT for its records"; exit 1
 fi
 OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/tab1_v2}
+python3 -c "import json, sys; sys.exit(0 if str(json.load(open(sys.argv[1])).get('pipeline') or '').startswith('scripts/replica_tab1_v2.sh') else 1)" "$PREREG" || {
+  echo "refused: $PREREG is not a prereg of scripts/replica_tab1_v2.sh (its \"pipeline\" names another script, whose test split has its own gate)"; exit 1; }
 STAGE=${STAGE:-val}
 DOWNSCALE=${DOWNSCALE:-2}
 TAU_COV=${TAU_COV:-0.5}          # coverage rule of v1, unchanged
@@ -60,7 +67,12 @@ DATASET=${DATASET:-replica_semnerf}
 STRIDE=${STRIDE:-10}
 EXTRACTOR=${EXTRACTOR:-lseg}
 ROW_FACTORY=${ROW_FACTORY-usplat.baselines:row_factory,usplat.distill:row_factory}
-TEXT_CACHE=${TEXT_CACHE:-$FIELDS/text_cache_lseg.pt}
+V1_TEXT_CACHE=$FIELDS/text_cache_lseg.pt           # read only
+TEXT_CACHE=${TEXT_CACHE:-$OUT/text_cache_${EXTRACTOR}.pt}
+case "$(realpath -m "$TEXT_CACHE")" in
+  "$(realpath -m "$FIELDS")"/*)
+    echo "refused: TEXT_CACHE $TEXT_CACHE is inside the v1 fields directory (eval_seg.py writes missing prompts into its cache): leave it unset for a copy in OUT"; exit 1 ;;
+esac
 WITH_2D=${WITH_2D:-1}
 BACKEND=${BACKEND:-gsplat}
 DEVICE=${DEVICE:-cuda}
@@ -90,6 +102,9 @@ for a in ${EXTRA[@]+"${EXTRA[@]}"}; do   # resources and the text encoder only
   esac
 done
 mkdir -p "$OUT"
+if [ ! -f "$TEXT_CACHE" ] && [ "$EXTRACTOR" = lseg ] && [ -f "$V1_TEXT_CACHE" ]; then
+  cp "$V1_TEXT_CACHE" "$TEXT_CACHE"           # the v1 text embeddings, never the v1 file
+fi
 echo "[v2 $STAGE] $TS git $(git rev-parse --short HEAD) dirty: $(git status --porcelain --untracked-files=no -- scripts usplat configs | wc -l) files; scenes $SCENES; prereg $PREREG sha256 $(sha256sum "$PREREG" | cut -c1-12)"
 # the existing fields only: v2 never maps (build them with scripts/replica_tab1.sh EVAL=0)
 python3 - "$SCENES" <<'PY' || exit 1

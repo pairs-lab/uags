@@ -14,7 +14,7 @@ Temperatures come from an eval_seg.py fit on the full validation maps (--betas) 
 same for every k. Everything else (vocabulary, text cache, frames, coverage rule) is
 eval_seg.py's, which this script imports.
 
-Added analyses (T4b; fixed 2026-10-10 before any run with them). Additive JSON keys only:
+Added analyses (fixed 2026-10-10 before any run with them). Additive JSON keys only:
 every key above keeps its meaning and value.
  (a) "reducibility" per row: among the pixels covered in both maps and WRONG at k, how well a
      score separates e_red (right at full, the positive class) from e_irr (wrong at full):
@@ -25,7 +25,10 @@ every key above keeps its meaning and value.
      reducible; the undefined tier, most uncertain for the AUSE, is then least reducible).
      AUROC(-s) = 1 - AUROC(s); 0.5 = no separation; n_undefined counts the wrong pixels with
      undefined u. The key is turned into dense ranks first (ties kept), so the +inf tier
-     stays on top (auroc itself would rank a non-finite score last).
+     stays on top (auroc itself would rank a non-finite score last). With few views the
+     undefined tier holds most pixels and decides "-u_ale"; "auroc_defined" {"-u_ale"} is
+     the same AUROC on the wrong pixels where u_ale is defined (NaN if none), which reads
+     u_ale alone.
  (b) "random_gap" {e_red, e_irr} and "ause_norm" {signal: {target: AUSE / random_gap}} per
      row, also inside on_ale_defined: 0 = the oracle order, 1 = a random order (NaN when the
      gap is 0: no error or only errors). The random gap depends on the errors only, so the
@@ -41,7 +44,9 @@ run of (a)): the epistemic-separation claim ("u_epi ranks the errors that more v
 kept only if, at M = 10 mapping views, the reducibility AUROC of u_epi of row ours_P0 is
 > 0.60 on BOTH validation scenes (office_0, room_2) AND above the AUROC of the same row's
 MSP on both. A NaN AUROC fails. Otherwise the claim is dropped (no other M, row, threshold or
-scene set is tried). Validation only: scripts/replica_views.sh scores one scene per run, and
+scene set is tried). M is the k-view field label; a field whose recorded mapping keyframes
+(n_mapping_views) differ from M leaves its scene missing (undecided). Validation only:
+scripts/replica_views.sh scores one scene per run, and
     python3 scripts/eval_views.py verdict <views>/views_val_office_0.json
         <views>/views_val_room_2.json --out <views>/reducibility_val.json      (one line)
 merges them and writes the verdict once (an existing verdict file is never overwritten).
@@ -155,15 +160,17 @@ def reducibility_auroc(out_k, out_full, covered_only=True):
     keep, _ = _aligned_keep(out_k, out_full, covered_only)
     wrong = keep & ~out_k["correct"].bool()
     red = out_full["correct"].bool()[wrong].double()
-    au = {}
+    cov = out_k["covered"].bool()[wrong]
+    au, au_def = {}, {}
     for s, v in ranking_signals(out_k).items():
         r = _rank_key(v[wrong])
         au[s] = auroc(r, red)
         if s in NEGATED:
             au[f"-{s}"] = auroc(-r, red)
-    cov = out_k["covered"].bool()[wrong]
-    return dict(auroc=au, n_pixels=int(wrong.sum()), n_e_red=int(red.sum()),
-                n_e_irr=int((1.0 - red).sum()),
+            d = cov & torch.isfinite(out_k["u"][s][wrong])   # the finite-u tier alone
+            au_def[f"-{s}"] = auroc(-r[d], red[d]) if bool(d.any()) else _NAN
+    return dict(auroc=au, auroc_defined=au_def, n_pixels=int(wrong.sum()),
+                n_e_red=int(red.sum()), n_e_irr=int((1.0 - red).sum()),
                 n_undefined={k: int((cov & ~torch.isfinite(u[wrong])).sum())
                              for k, u in out_k["u"].items()})
 
@@ -306,7 +313,8 @@ def _get(d, *keys):
 def summarize_extra(results, ks):
     """The added analyses over scenes (a scene without a value counts as NaN):
     {"ause_norm": {k: {row: {signal: {target: stats}}}}, "reducibility": {k: {row: {signal:
-    stats}}}, "ale_split": {k: {row: {tier: {share, rate, ause, ause_norm}}}}}."""
+    stats}}} ("<signal>@defined": auroc_defined), "ale_split": {k: {row: {tier: {share, rate,
+    ause, ause_norm}}}}}."""
     out = {"ause_norm": {}, "reducibility": {}, "ale_split": {}}
     for k in ks:
         per = [res["k"][str(k)]["rows"] for res in results.values()]
@@ -319,6 +327,10 @@ def summarize_extra(results, ks):
                      for s in sigs}
             sigs = sorted({s for x in g for s in x.get("reducibility", {}).get("auroc", {})})
             ra[r] = {s: scene_stats([_get(x, "reducibility", "auroc", s) for x in g]) for s in sigs}
+            sigs = sorted({s for x in g
+                           for s in x.get("reducibility", {}).get("auroc_defined", {})})
+            ra[r].update({f"{s}@defined": scene_stats([_get(x, "reducibility", "auroc_defined", s)
+                                                       for x in g]) for s in sigs})
             if all("ale_split" in x for x in g):
                 sp[r] = {tier: dict(share=scene_stats([_get(x, "ale_split", tier, "share") for x in g]),
                                     **{key: {t: scene_stats([_get(x, "ale_split", tier, key, t)
@@ -333,11 +345,14 @@ def reducibility_verdict(scenes, crit=REDUCIBILITY_CRITERION):
     """The pre-registered criterion on {scene: evaluate_scene output}: "kept" if on every
     criterion scene the AUROC of crit["score"] (row crit["row"], M = crit["k"]) is above
     crit["auroc_min"] and above that of crit["against"]; "dropped" otherwise (a NaN fails);
-    "undecided" while a criterion scene, its k or its row is missing. Other scenes are listed
-    and ignored."""
+    "undecided" while a criterion scene, its k or its row is missing, or its k-view field
+    records other than k mapping keyframes. Other scenes are listed and ignored."""
     per, missing = {}, []
     for sc in crit["scenes"]:
         a = _get(scenes, sc, "k", str(crit["k"]), "rows", crit["row"], "reducibility", "auroc")
+        n_map = _get(scenes, sc, "k", str(crit["k"]), "n_mapping_views")
+        if isinstance(n_map, (int, float)) and n_map == n_map and int(n_map) != int(crit["k"]):
+            a = None                                    # the field label is not M views
         if not isinstance(a, dict):
             missing.append(sc)
             continue

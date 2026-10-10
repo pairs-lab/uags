@@ -1,16 +1,18 @@
-"""scripts/eval_views.py added analyses (T4b) against brute force on toy cases.
+"""scripts/eval_views.py added analyses against brute force on toy cases.
 
  * (a) reducibility AUROC: among pixels covered in both maps and wrong at k, e_red (right at
    full) against e_irr, for every ranking signal and -u_ale, equals a pairwise brute force on
    the three-tier key (uncovered > undefined > finite u, written independently here as
    tuples), also with covered_only=False (the uncovered tier on top, not last); AUROC(-s) =
-   1 - AUROC(s);
+   1 - AUROC(s); "-u_ale" inside the defined tier (auroc_defined) against the pairwise
+   brute force on the finite u_ale only;
  * (b) AUSE / random gap equals a loop brute force of the tie-aware sparsification curve; the
    oracle order gives 0, a constant score 1;
  * (c) the u_ale split: AUSE on the defined pixels equals the brute force there; on the
    undefined tier it equals the tier's random gap; counts, shares and error rates;
  * the pre-registered criterion: its constants and header text, kept / dropped / undecided
-   (NaN fails, extra scenes ignored);
+   (NaN fails, extra scenes ignored, a k-view field that records other than M = 10 mapping
+   keyframes leaves its scene missing);
  * the CLI on the mock backend: the new keys are present, consistent with the old ones (the
    wrong-at-k pixels are e_red + e_irr), and `eval_views.py verdict` merges per-scene files,
    refuses duplicates and never overwrites a verdict.
@@ -126,6 +128,11 @@ def test_reducibility_auroc_brute_force(covered_only):
     keys = [_tier_key(ok, "u_ale", i) for i in idx]
     assert abs(res["auroc"]["-u_ale"] - _bf_auroc(keys, lab, negate=True)) < 1e-12
     assert abs(res["auroc"]["-u_ale"] + res["auroc"]["u_ale"] - 1.0) < 1e-12
+    dfn = [i for i in idx if ok["covered"][i] and not math.isnan(float(ok["u"]["u_ale"][i]))]
+    want = _bf_auroc([float(ok["u"]["u_ale"][i]) for i in dfn],
+                     [bool(of["correct"][i]) for i in dfn], negate=True)
+    assert set(res["auroc_defined"]) == {"-u_ale"}
+    assert abs(res["auroc_defined"]["-u_ale"] - want) < 1e-12 and len(dfn) > 0
     n_und = sum(1 for i in idx if ok["covered"][i] and math.isnan(float(ok["u"]["u_ale"][i])))
     assert res["n_undefined"] == {"u_epi": 0, "u_ale": n_und} and n_und > 0
     if not covered_only:                    # the uncovered tier exists and is ranked on top
@@ -140,9 +147,11 @@ def test_reducibility_auroc_degenerate():
     of = dict(of, correct=torch.ones_like(of["correct"]), covered=torch.ones_like(of["covered"]))
     res = EV.reducibility_auroc(ok, of)
     assert res["n_e_irr"] == 0 and all(math.isnan(v) for v in res["auroc"].values())
+    assert math.isnan(res["auroc_defined"]["-u_ale"])
     ok2 = dict(ok, correct=torch.ones_like(ok["correct"]), covered=torch.ones_like(ok["covered"]))
     res = EV.reducibility_auroc(ok2, of)
     assert res["n_pixels"] == 0 and all(math.isnan(v) for v in res["auroc"].values())
+    assert math.isnan(res["auroc_defined"]["-u_ale"])         # no defined wrong pixel
 
 
 # ------------------------------------------------------------------------------- (b)
@@ -207,8 +216,9 @@ def test_ale_split_brute_force():
 
 
 # ---------------------------------------------------------------- the pre-registered rule
-def _scene(u_epi, msp, k=10, row="ours_P0"):
-    return {"k": {str(k): {"rows": {row: {"reducibility": {"auroc": {"u_epi": u_epi,
+def _scene(u_epi, msp, k=10, row="ours_P0", n_map=None):
+    return {"k": {str(k): {"n_mapping_views": n_map,
+                           "rows": {row: {"reducibility": {"auroc": {"u_epi": u_epi,
                                                                      "msp": msp}}}}}}}
 
 
@@ -231,8 +241,12 @@ def test_reducibility_criterion_is_preregistered():
     assert und["status"] == "undecided" and und["kept"] is None and und["missing"] == ["room_2"]
     assert V({"office_0": _scene(0.9, 0.5), "room_2": _scene(0.9, 0.5, k=30)})["status"] == "undecided"
     assert V({"office_0": _scene(0.9, 0.5), "room_2": _scene(0.9, 0.5, row="ours_P2")})["missing"] == ["room_2"]
+    # M is the field label; a field with other recorded mapping keyframes is not M = 10
+    assert V({"office_0": _scene(0.9, 0.5, n_map=10), "room_2": _scene(0.9, 0.5, n_map=10)})["kept"]
+    mis = V({"office_0": _scene(0.9, 0.5, n_map=10), "room_2": _scene(0.9, 0.5, n_map=9)})
+    assert mis["status"] == "undecided" and mis["missing"] == ["room_2"]
     print("PASS criterion: constants and header fixed; kept / dropped (threshold, MSP, NaN) / "
-          "undecided (scene, k, row missing)")
+          "undecided (scene, k, row missing; field keyframes != M)")
 
 
 # ---------------------------------------------------------------------------- CLI
@@ -328,6 +342,7 @@ def test_eval_views_cli_added_keys_and_verdict(tmp_path):
     assert red["n_e_red"] == r["n_e_red"] and red["n_e_irr"] == r["n_e_irr"]   # wrong at k
     assert red["n_pixels"] == r["n_e_red"] + r["n_e_irr"] > 0
     assert set(red["auroc"]) == {"msp", "entropy", "u_epi", "u_ale", "-u_ale"}
+    assert set(red["auroc_defined"]) == {"-u_ale"}
     for s, t in r["ause"].items():
         for tn, a in t.items():
             want = a / r["random_gap"][tn] if r["random_gap"][tn] > 1e-12 else float("nan")
@@ -339,12 +354,17 @@ def test_eval_views_cli_added_keys_and_verdict(tmp_path):
     assert "ale_split" not in out["scenes"]["toy"]["k"]["10"]["rows"]["ours_scalar"]  # no u_ale
     assert {"random_gap", "ause_norm"} <= set(r["on_ale_defined"])
     assert out["summary_reducibility"]["10"]["ours_P0"]["u_epi"]["n"] == 1
+    assert out["summary_reducibility"]["10"]["ours_P0"]["-u_ale@defined"]["n"] == 1
     assert out["reducibility_criterion"]["status"] == "undecided"
     # the verdict from per-scene files (as scripts/replica_views.sh writes them)
     saved = json.loads((tmp_path / "v.json").read_text())
+    toy = saved["scenes"]["toy"]
+    assert toy["k"]["10"]["n_mapping_views"] == 3                 # the toy's "10" has 3 views
+    assert EV.reducibility_verdict({"office_0": toy, "room_2": toy})["status"] == "undecided"
+    toy["k"]["10"]["n_mapping_views"] = 10                        # as a real 10-view field
     paths = []
     for name in ("office_0", "room_2"):
-        d = dict(saved, scenes={name: saved["scenes"]["toy"]})
+        d = dict(saved, scenes={name: toy})
         p = tmp_path / f"views_val_{name}.json"
         p.write_text(json.dumps(d))
         paths.append(str(p))

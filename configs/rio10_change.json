@@ -1,0 +1,71 @@
+{
+ "schema": "uags.rio10_change/1",
+ "frozen": "2026-10-10, before any RIO10 data or method output exists. Values marked [A] in the plan (docs/reports/2026-09-28-paper-completion-plan/1-plan.md section 3) are taken as they are; the alignment rule below may only make d_move LARGER (refuse otherwise) and is checked on val scene 01 before any method output is read.",
+ "data_root": "/home/thanhnc/gauss_ws/data/rio10",
+ "splits": {
+  "val": ["01", "04", "06"],
+  "test": ["02", "03", "05", "07", "08", "09", "10"]
+ },
+ "mapping": {"sequence": 1, "stride": 10, "part": "all"},
+ "update": {"sequence": 2, "stride": 5, "part": "first_half"},
+ "semantic_block": {"sequence": 2, "stride": 10, "part": "second_half"},
+ "gt_source": "instances",
+ "gt_source_note": "instances: RIO10 labels.ply instance ids of seqXX_01 vs seqXX_02 (V8 of usplat/datasets_rio.py unverified); 3rscan: removed/rigid/nonrigid of 3RScan.json with the scan-id map rio_to_3rscan",
+ "rio_to_3rscan": {},
+ "class_map": {},
+ "class_map_note": "RIO10 label name -> configs/vocab_replica.json id for the segmentation pass-through (plan K12); empty until it is written on val 01 from label names only. Empty: the ground truth carries no targets and eval reports no segmentation block",
+ "object": {
+  "d_move_cm": 10.0,
+  "r_deg": 10.0,
+  "min_points": 50,
+  "ignore_instance_ids": [0],
+  "icp_iters": 50,
+  "icp_max_points": 4000,
+  "seed": 0
+ },
+ "gaussian": {"d_near_cm": 5.0},
+ "visibility": {
+  "depth": "rendered",
+  "depth_note": "seqXX_02 rendered mesh depth: ground-truth side only (hidden / unobserved), never an input of a method row except the oracle row",
+  "depth_margin_cm": 5.0,
+  "near_m": 0.05,
+  "observed_min_mass_px": 1.0,
+  "downscale": 4
+ },
+ "alignment": {
+  "static_labels": ["wall", "floor", "ceiling"],
+  "require_d_move_above_p95": true
+ },
+ "rows": {
+  "residual_filter": "kmin",
+  "residual_filter_note": "a residual row scores a Gaussian by the largest value of its k = 2 persistent residual over the update (paper, Metrics)",
+  "primary": "ours_c_max",
+  "fused": ["ours_c_max", "depth_residual"],
+  "common_rows": ["ours_c_max", "ncc", "feature_residual", "depth_residual"]
+ },
+ "operating_point": {
+  "baseline_target_fa": 0.001,
+  "note": "baselines: one threshold per row from the static VALIDATION Gaussians (scripts/eval_change.py thresholds). Gaussian-level FA: the checkpoint stores no per-view residuals, so the paper's per-view 1e-3 rate is approximated by a Gaussian-level rate; ours uses its label-free fired flags"
+ },
+ "criteria_rule": "any_of",
+ "criteria": {
+  "g3_i": {
+   "split": "val",
+   "statement": "Ours c has a higher Gaussian-level AP than every non-oracle residual (NCC, depth, feature) on >= 2 of 3 val scenes",
+   "min_pass": 2,
+   "conditions": [
+    {"left": "rows.ours_c_max.gaussian.ap", "op": ">", "right": "rows.ncc.gaussian.ap"},
+    {"left": "rows.ours_c_max.gaussian.ap", "op": ">", "right": "rows.depth_residual.gaussian.ap"},
+    {"left": "rows.ours_c_max.gaussian.ap", "op": ">", "right": "rows.feature_residual.gaussian.ap"}
+   ]
+  },
+  "g3_ii": {
+   "split": "val",
+   "statement": "fusion (c + non-oracle depth) has a higher AP than non-oracle depth alone by >= 0.03 on >= 2 of 3 val scenes",
+   "min_pass": 2,
+   "conditions": [
+    {"left": "rows.fused.gaussian.ap", "op": ">=", "right": "rows.depth_residual.gaussian.ap", "offset": 0.03}
+   ]
+  }
+ }
+}

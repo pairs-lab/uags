@@ -7,15 +7,22 @@ scripts/replica_tab1_v2.sh).
  * Table I v1 is reproduced byte for byte from the v1 records (make_tables defaults unchanged);
  * '@p1' / '@p4' / '@ours_v2' take the lowest validation NLL pooled over pixels (not the scene
    mean), ties within tol go to the candidate listed first, a missing or NaN row refuses;
- * check-test refuses: no / unfinished validation record, a v2 row without beta, no
+ * the scenes of a stage are the prereg's (by name; validation and test disjoint);
+ * check-test refuses: no / unfinished validation record, a v2 row without beta, a record of
+   other scenes than the prereg's validation scenes or with betas fit elsewhere, a record
+   without a commit, made with uncommitted changes, or of other code than the tree's, no
    selection, a validation record or prereg changed after the selection, a selection the rule
-   does not reproduce, a finished test record; it lets a crashed test record be rerun;
+   does not reproduce, another selection than an earlier test attempt's, a finished test
+   record; it lets a crashed test record be rerun;
  * eval_seg --v2-rows fits and evaluates the v2 rows on the CPU toy scene; without the flag
    the row set is v1's;
- * replica_tab1_v2.sh end to end in a scratch git repository (mock backend, CPU): STAGE=val
-   writes the selection; STAGE=test refuses a dirty tree, an uncommitted prereg and the v1
-   output directory, logs the SECOND look, evaluates once, and refuses a second test run and
-   a later validation run.
+ * replica_tab1_v2.sh end to end in a scratch git repository (mock backend, CPU, a toy
+   prereg): STAGE=val refuses the v1 output directory, an uncommitted prereg, another prereg
+   without its own OUT, the test scenes, EVAL_EXTRA options that set the protocol and a dirty
+   tree, then writes the selection; STAGE=test refuses a dirty tree and code changed since
+   the validation commit, logs the SECOND look, appends every attempt to the look record,
+   evaluates once, and refuses a second test run; once it has started (even crashed), a
+   validation run is refused.
 """
 import copy
 import importlib.util
@@ -129,27 +136,87 @@ def test_choose_v2_pooled_ties_and_refusals():
     print("PASS v2 choices: pooled NLL, first-listed tie-break, refusals")
 
 
-def _write_record(path, b, status="ok"):
-    path.write_text(json.dumps(dict(status=status, run_id="r1", metrics=b)))
+VAL_CFG = dict(val_scenes="configs/replica_val.json", scenes="configs/replica_val.json")
+
+
+def _write_record(path, b, status="ok", git=None, config=VAL_CFG):
+    path.write_text(json.dumps(dict(status=status, run_id="r1", config=config, git=git,
+                                    metrics=b)))
+
+
+def _git(root, *a):
+    return subprocess.run(["git", "-C", str(root), "-c", "user.name=t",
+                           "-c", "user.email=t@example.com", *a],
+                          check=True, capture_output=True, text=True).stdout.strip()
+
+
+def test_prereg_scenes():
+    p = json.loads(PREREG.read_text())
+    assert mt.prereg_scenes(p, "validation") == ["office_0", "room_2"]
+    assert mt.prereg_scenes(p, "test") == sorted(["room_0", "room_1", "office_1", "office_2",
+                                                  "office_3", "office_4"])
+    val, test = REPO / "configs" / "replica_val.json", REPO / "configs" / "replica_test.json"
+    assert mt.check_scenes(str(val), "validation", p) == ["office_0", "room_2"]
+    with pytest.raises(SystemExit, match="validation scenes are"):
+        mt.check_scenes(str(test), "validation", p)
+    with pytest.raises(SystemExit, match="test scenes are"):
+        mt.check_scenes(str(val), "test", p)
+    both = copy.deepcopy(p)
+    both["scenes"]["test"] = "configs/replica_val.json"
+    with pytest.raises(SystemExit, match="overlap"):
+        mt.prereg_scenes(both, "validation")
+    print("PASS prereg scenes: names enforced, splits disjoint")
 
 
 def test_select_and_check_test(tmp_path):
+    if shutil.which("git") is None:
+        pytest.skip("needs git")
     prereg = tmp_path / "prereg.json"
     shutil.copy(PREREG, prereg)
+    repo = tmp_path / "repo"                    # the code the gate compares with
+    (repo / "configs").mkdir(parents=True)
+    (repo / "scripts").mkdir()
+    for f in ("replica_val.json", "replica_test.json"):
+        shutil.copy(REPO / "configs" / f, repo / "configs" / f)
+    (repo / "scripts" / "x.py").write_text("x = 1\n")
+    _git(repo, "init", "-q")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "init")
+    clean = dict(commit=_git(repo, "rev-parse", "HEAD"), dirty=False, dirty_tracked=False)
     val, sel, test = tmp_path / "eval_val.json", tmp_path / "sel.json", tmp_path / "eval_test.json"
-    gate = lambda: mt.check_test(str(val), str(sel), str(test), str(prereg))
+    look = tmp_path / "look_test.json"
+    gate = lambda: mt.check_test(str(val), str(sel), str(test), str(prereg), str(look),
+                                 root=str(repo))
     with pytest.raises(SystemExit, match="no validation record"):
         gate()
     b = _val_body({"ours_P2p1": (0.7, 0.7)})
-    _write_record(val, b, status="running")
+    _write_record(val, b, status="running", git=clean)
     with pytest.raises(SystemExit, match="not a finished validation"):
         gate()
     nob = copy.deepcopy(b)
     del nob["betas"]["ours_P4_inf"]
-    _write_record(val, nob)
+    _write_record(val, nob, git=clean)
     with pytest.raises(SystemExit, match="ours_P4_inf"):
         gate()
+    # the validation record must be of the prereg's validation scenes, betas fit there
+    other = copy.deepcopy(b)
+    other["scenes"]["room_0"] = other["scenes"].pop("room_2")
+    _write_record(val, other, git=clean)
+    with pytest.raises(SystemExit, match="validation scenes are"):
+        gate()
+    with pytest.raises(SystemExit, match="validation scenes are"):
+        mt.main(["select", str(val), "--prereg", str(prereg), "--out", str(sel)])
+    _write_record(val, b, git=clean, config=dict(VAL_CFG, val_scenes="configs/replica_test.json"))
+    with pytest.raises(SystemExit, match="betas must be fit on the evaluated"):
+        gate()
+    # ... and of the code in the tree: a commit, no uncommitted change, same scripts/
     _write_record(val, b)
+    with pytest.raises(SystemExit, match="no git commit"):
+        gate()
+    _write_record(val, b, git=dict(clean, dirty=True, dirty_tracked=True))
+    with pytest.raises(SystemExit, match="uncommitted changes"):
+        gate()
+    _write_record(val, b, git=clean)
     with pytest.raises(SystemExit, match="no validation selection"):
         gate()
     mt.main(["select", str(val), "--prereg", str(prereg), "--out", str(sel)])
@@ -159,8 +226,26 @@ def test_select_and_check_test(tmp_path):
     assert s["chosen"] == {"@p1": "ours_P1_c1", "@p4": "ours_P4_a1_s1", "@ours_v2": "ours_P2p1"}
     assert s["prereg"]["sha256"] == mt.sha256_file(prereg) and s["validation"]["run_id"] == "r1"
     assert gate() == s["chosen"]
-    _write_record(test, {}, status="failed")                    # a crashed test run: rerun
+    (repo / "scripts" / "x.py").write_text("x = 2\n")          # code changed after validation
+    with pytest.raises(SystemExit, match="differ from the validation commit"):
+        gate()
+    _git(repo, "commit", "-qam", "change")
+    with pytest.raises(SystemExit, match="differ from the validation commit"):
+        gate()
+    _git(repo, "reset", "-q", "--hard", clean["commit"])
     assert gate() == s["chosen"]
+    _write_record(test, {}, status="failed")                    # a crashed test run: rerun
+    lk = dict(look=2, chosen=s["chosen"], validation_sha256=s["validation"]["sha256"],
+              prereg_sha256=s["prereg"]["sha256"], attempts=[{}])
+    look.write_text(json.dumps(lk))
+    assert gate() == s["chosen"]                                # ... with the same selection
+    look.write_text(json.dumps(dict(lk, chosen=dict(s["chosen"], **{"@p4": "ours_P4_a1_s2"}))))
+    with pytest.raises(SystemExit, match="started before with another selection"):
+        gate()
+    look.write_text(json.dumps(dict(lk, validation_sha256="0" * 64)))
+    with pytest.raises(SystemExit, match="started before with another selection"):
+        gate()
+    look.unlink()
     _write_record(test, {}, status="ok")
     with pytest.raises(SystemExit, match="finished v2 test run"):
         gate()
@@ -168,7 +253,7 @@ def test_select_and_check_test(tmp_path):
     val.write_text(val.read_text() + " ")                       # validation changed afterwards
     with pytest.raises(SystemExit, match="changed after the selection"):
         gate()
-    _write_record(val, b)
+    _write_record(val, b, git=clean)
     prereg.write_text(prereg.read_text().replace('"tol": 0.0001', '"tol": 0.01'))
     with pytest.raises(SystemExit, match="changed after the selection"):
         gate()
@@ -235,9 +320,13 @@ def test_eval_seg_v2_rows(tmp_path):
 
 
 # --------------------------------------------------------------------- pipeline script
-def _fake_repo(root):
-    """A git repository with the v2 pipeline, the real eval_seg / make_tables / usplat and a
-    gpu_gate.sh stub that runs the command (no GPU)."""
+TOY_PREREG = "configs/tab1_v2_prereg_toy.json"
+
+
+def _fake_repo(root, toy):
+    """A git repository with the v2 pipeline, the real eval_seg / make_tables / usplat, a
+    gpu_gate.sh stub that runs the command (no GPU), and a toy prereg (the real one with the
+    toy scene files: validation 'toy', test 'toy_test', the same saved field)."""
     (root / "scripts").mkdir(parents=True)
     (root / "configs").mkdir()
     for f in ("replica_tab1_v2.sh", "make_tables.py", "eval_seg.py"):
@@ -247,9 +336,13 @@ def _fake_repo(root):
     shutil.copytree(REPO / "usplat", root / "usplat",
                     ignore=shutil.ignore_patterns("__pycache__"))
     shutil.copy(PREREG, root / "configs" / "tab1_v2_prereg.json")
-    git = lambda *a: subprocess.run(["git", "-C", str(root), "-c", "user.name=t",
-                                     "-c", "user.email=t@example.com", *a],
-                                    check=True, capture_output=True)
+    sc = json.loads((toy / "scenes.json").read_text())
+    (root / "configs" / "toy_val.json").write_text(json.dumps(sc))
+    (root / "configs" / "toy_test.json").write_text(json.dumps([dict(sc[0], name="toy_test")]))
+    p = json.loads(PREREG.read_text())
+    p["scenes"] = dict(validation="configs/toy_val.json", test="configs/toy_test.json")
+    (root / TOY_PREREG).write_text(json.dumps(p, indent=1))
+    git = lambda *a: _git(root, *a)
     git("init", "-q")
     git("add", "-A")
     git("commit", "-qm", "init")
@@ -264,14 +357,15 @@ def test_replica_tab1_v2_script(tmp_path):
     toy.mkdir()
     t._cli_toy(toy)
     repo = tmp_path / "repo"
-    git = _fake_repo(repo)
+    git = _fake_repo(repo, toy)
     out = tmp_path / "out"
-    env = dict(os.environ, OUT=str(out), SCENES=str(toy / "scenes.json"),
+    env = dict(os.environ, OUT=str(out), PREREG=TOY_PREREG,
                VOCAB=str(toy / "vocab.json"), DATASET="7scenes", STRIDE="1",
                EXTRACTOR="clearclip", ROW_FACTORY="", TEXT_CACHE=str(toy / "text.pt"),
                WITH_2D="0", BACKEND="mock", DEVICE="cpu", DOWNSCALE="16",
                EVAL_EXTRA="--clip-model m --clip-pretrained p")
-    env.pop("PRIOR_LOOK", None)
+    for k in ("PRIOR_LOOK", "SCENES"):
+        env.pop(k, None)
 
     def run(stage, **kw):
         e = dict(env, STAGE=stage, **kw)
@@ -285,32 +379,68 @@ def test_replica_tab1_v2_script(tmp_path):
     assert refused(r, "refused: no validation record"), r.stdout + r.stderr
     r = run("val", OUT="/home/thanhnc/gauss_ws/data/uags_results/tab1")
     assert refused(r, "v1 result directory"), r.stdout + r.stderr
-    prereg = repo / "configs" / "tab1_v2_prereg.json"
+    r = run("val", OUT="")                                      # another prereg: its own OUT
+    assert refused(r, "set OUT"), r.stdout + r.stderr
+    r = run("val", SCENES="configs/toy_test.json")              # never select on test scenes
+    assert refused(r, "validation scenes are ['toy']"), r.stdout + r.stderr
+    r = run("val", EVAL_EXTRA="--clip-model m --clip-pretrained p --scenes configs/toy_test.json")
+    assert refused(r, "EVAL_EXTRA option '--scenes'"), r.stdout + r.stderr
+    prereg = repo / TOY_PREREG
     prereg.write_text(prereg.read_text().replace("2026-10-10", "2026-10-11"))
     r = run("val")
     assert refused(r, "is not committed"), r.stdout + r.stderr
-    git("checkout", "--", "configs/tab1_v2_prereg.json")
+    git("checkout", "--", TOY_PREREG)
+    pp = repo / "usplat" / "predictive.py"                      # validation names a commit
+    pp.write_text(pp.read_text() + "\n# local edit\n")
+    r = run("val")
+    assert refused(r, "uncommitted changes to tracked files"), r.stdout + r.stderr
+    git("checkout", "--", "usplat/predictive.py")
     r = run("val")
     assert r.returncode == 0, r.stdout[-3000:] + r.stderr[-3000:]
     sel = json.loads((out / "selection_val.json").read_text())
     assert sel["status"] == "ok" and set(sel["metrics"]["selection"]["chosen"]) == set(mt.V2_KEYS)
+    assert sel["metrics"]["selection"]["validation"]["scenes"] == ["toy"]
     val = json.loads((out / "eval_val.json").read_text())
     assert val["status"] == "ok" and "ours_P4_inf" in val["metrics"]["betas"]
-    assert "--v2-rows" in val["argv"]
-    # the test stage refuses a dirty tree
+    assert "--v2-rows" in val["argv"] and val["git"]["dirty_tracked"] is False
+    # the test stage refuses a dirty tree, test scenes other than the prereg's, the
+    # validation scenes, gated options in EVAL_EXTRA, and code committed after validation
     mtp = repo / "scripts" / "make_tables.py"
     mtp.write_text(mtp.read_text() + "\n# local edit\n")
     r = run("test")
     assert refused(r, "uncommitted changes"), r.stdout + r.stderr
     git("checkout", "--", "scripts/make_tables.py")
+    r = run("test", SCENES="configs/toy_val.json")
+    assert refused(r, "test scenes are ['toy_test']"), r.stdout + r.stderr
+    r = run("test", EVAL_EXTRA="--clip-model m --clip-pretrained p --out " + str(out / "x.json"))
+    assert refused(r, "EVAL_EXTRA option '--out'"), r.stdout + r.stderr
+    rp = repo / "usplat" / "rows.py"
+    rp.write_text(rp.read_text() + "\n# a later commit\n")
+    git("commit", "-qam", "later")
     r = run("test")
+    assert refused(r, "differ from the validation commit"), r.stdout + r.stderr
+    git("reset", "-q", "--hard", "HEAD~1")
+    assert not (out / "look_test.json").exists() and not (out / "eval_test.json").exists()
+    # a crashed test attempt (unreadable field): the look record holds it, validation is closed
+    field = pathlib.Path(json.loads((repo / "configs" / "toy_test.json").read_text())[0]["field"])
+    good = field.read_bytes()
+    field.write_bytes(b"not a checkpoint")
+    r = run("test")
+    assert r.returncode == 1 and "SECOND LOOK" in r.stdout, r.stdout + r.stderr
+    field.write_bytes(good)
+    assert json.loads((out / "eval_test.json").read_text())["status"] == "failed"
+    assert len(json.loads((out / "look_test.json").read_text())["attempts"]) == 1
+    r = run("val")
+    assert refused(r, "the test stage has started"), r.stdout + r.stderr
+    r = run("test")                                             # rerun after the crash
     assert r.returncode == 0, r.stdout[-3000:] + r.stderr[-3000:]
     assert "SECOND LOOK" in r.stdout and "224fe1e" in r.stdout
     look = json.loads((out / "look_test.json").read_text())
     assert look["look"] == 2 and look["prior_looks"] == ["224fe1e"]
-    assert look["chosen"] == sel["metrics"]["selection"]["chosen"]
+    assert look["chosen"] == sel["metrics"]["selection"]["chosen"] and len(look["attempts"]) == 2
     test = json.loads((out / "eval_test.json").read_text())
     assert test["status"] == "ok" and "--betas" in test["argv"]
+    assert list(test["metrics"]["scenes"]) == ["toy_test"]
     assert test["metrics"]["betas"] == val["metrics"]["betas"]
     assert "Ours P4 (vote predictive)" in (out / "table1_v2_rows.tex").read_text()
     # once: a second test run and a later validation run are refused

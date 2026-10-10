@@ -27,8 +27,12 @@ prereg's tie tolerance go to the candidate listed first. All candidates are repo
     python3 scripts/make_tables.py choose <eval_val.json> --key ours_v2
     python3 scripts/make_tables.py select <eval_val.json> --out selection_val.json
         the v2 selection as a run record (prereg and validation record sha256, every value)
+    python3 scripts/make_tables.py check-scenes <scenes.json> --split validation
+        exit 1 unless the scenes file holds exactly the prereg's scenes of that split
     python3 scripts/make_tables.py check-test <eval_val.json> --selection selection_val.json \\
-        --test-record eval_test.json      exit 1 unless the v2 test stage may run
+        --test-record eval_test.json --look look_test.json   exit 1 unless the v2 test stage
+        may run (the validation record is of the prereg's validation scenes and of the code
+        now in scripts/ usplat/ configs/; the selection is that of any earlier test attempt)
     python3 scripts/make_tables.py tab1 <eval_test.json> --val <eval_val.json> --v2
         Table I with the v2 rows after ours P2
 """
@@ -38,6 +42,7 @@ import hashlib
 import json
 import math
 import os
+import subprocess
 import sys
 
 # (label, row name or a choice key, own-uncertainty signal or None, predictive cells)
@@ -101,9 +106,11 @@ def choose(val_summary, key, variant="all"):
 
 
 # ---- Table I v2: pre-registered selection on validation (configs/tab1_v2_prereg.json)
-PREREG = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                      "configs", "tab1_v2_prereg.json")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PREREG = os.path.join(ROOT, "configs", "tab1_v2_prereg.json")
 V2_KEYS = ("@p1", "@p4", "@ours_v2")
+# the code of a v2 evaluation (as the shell gates): the test stage runs the validation code
+CODE_DIRS = ("scripts", "usplat", "configs")
 
 
 def load_prereg(path=None):
@@ -120,6 +127,78 @@ def prereg_rows(prereg):
     """Every row the v2 rules name (the candidates of all choices and the ablations)."""
     rows = [r for c in prereg["choices"].values() for r in c["rows"] if not r.startswith("@")]
     return sorted(set(rows) | set(prereg.get("ablations", [])))
+
+
+def scene_names(path):
+    """Sorted scene names of a scenes file (eval_seg.py: a JSON or YAML list of {name, ...})."""
+    with open(path) as f:
+        text = f.read()
+    try:
+        sc = json.loads(text)
+    except json.JSONDecodeError:
+        import yaml
+        sc = yaml.safe_load(text)
+    return sorted(s["name"] for s in sc)
+
+
+def prereg_scenes(prereg, split, root=None):
+    """Scene names of the prereg's `split` ('validation' | 'test'), read from the scene files
+    it names (a relative path is from the repository root); the two splits are disjoint."""
+    names = {}
+    for k in ("validation", "test"):
+        f = prereg["scenes"][k]
+        names[k] = scene_names(f if os.path.isabs(f) else os.path.join(root or ROOT, f))
+    both = sorted(set(names["validation"]) & set(names["test"]))
+    if both:
+        raise SystemExit(f"refused: the prereg's validation and test scenes overlap: {both}")
+    return names[split]
+
+
+def check_scenes(path, split, prereg, root=None):
+    """Refuse a scenes file that does not hold exactly the prereg's `split` (by scene name)."""
+    got, want = scene_names(path), prereg_scenes(prereg, split, root)
+    if got != want:
+        raise SystemExit(f"refused: {path} holds the scenes {got}; the prereg's {split} scenes "
+                         f"are {want} (another dataset needs its own prereg)")
+    return got
+
+
+def check_validation_record(raw, val_body, prereg, path="", root=None):
+    """Refuse a validation record not made on the prereg's validation scenes: it evaluates
+    exactly those, with the betas fit on the same scene file (--val-scenes = --scenes, as
+    STAGE=val runs eval_seg.py), so neither a temperature nor a choice saw a test label."""
+    got, want = sorted(val_body.get("scenes") or {}), prereg_scenes(prereg, "validation", root)
+    if got != want:
+        raise SystemExit(f"refused: {path} evaluates the scenes {got}; the prereg's validation "
+                         f"scenes are {want}")
+    cfg = raw.get("config") or {}
+    if not cfg.get("val_scenes") or cfg["val_scenes"] != cfg.get("scenes"):
+        raise SystemExit(f"refused: {path}: the betas must be fit on the evaluated validation "
+                         f"scenes (--val-scenes {cfg.get('val_scenes')!r}, --scenes "
+                         f"{cfg.get('scenes')!r})")
+
+
+def check_code(raw, path="", root=None):
+    """Refuse unless the working tree runs the code of the validation run: every v2 row is a
+    read-out at evaluation time, so a selection holds only for the code that made it. The
+    record (usplat.runlog git state) names a commit and had no uncommitted tracked change
+    (dirty_tracked), and `git diff <commit> -- scripts usplat configs` (bytecode aside) is
+    empty, staged or not."""
+    g = raw.get("git") or {}
+    if g.get("error") or not g.get("commit"):
+        raise SystemExit(f"refused: {path} records no git commit "
+                         f"({g.get('error', 'no git state')})")
+    if g.get("dirty_tracked", g.get("dirty", True)):
+        raise SystemExit(f"refused: {path} was made with uncommitted changes (git diff sha256 "
+                         f"{str(g.get('diff_sha256'))[:12]}); rerun STAGE=val on a committed tree")
+    r = subprocess.run(["git", "-C", root or ROOT, "diff", "--quiet", g["commit"], "--",
+                        *CODE_DIRS, ":(exclude,glob)**/*.pyc"], capture_output=True, text=True)
+    if r.returncode == 1:
+        raise SystemExit(f"refused: {' '.join(CODE_DIRS)} differ from the validation commit "
+                         f"{g['commit'][:12]} of {path}; rerun STAGE=val with this code")
+    if r.returncode != 0:
+        raise SystemExit(f"refused: cannot compare the code with the validation commit "
+                         f"{g['commit'][:12]}: {r.stderr.strip()}")
 
 
 def pooled(val_body, row, crit="nll", variant="all"):
@@ -160,12 +239,14 @@ def choose_v2(val_body, key, prereg=None):
     return vals[first][0], vals
 
 
-def selection(val_path, prereg_path=None):
-    """The v2 selection and what it depends on (written by `select`, read by `check-test`)."""
+def selection(val_path, prereg_path=None, root=None):
+    """The v2 selection and what it depends on (written by `select`, read by `check-test`);
+    refuses a validation record not made on the prereg's validation scenes."""
     prereg_path = os.path.abspath(prereg_path or PREREG)
     p = load_prereg(prereg_path)
     raw = json.load(open(val_path))
     b = body(val_path)
+    check_validation_record(raw, b, p, val_path, root)
     ch = {}
     for k in V2_KEYS:
         row, vals = choose_v2(b, k, p)
@@ -184,11 +265,14 @@ def _finished(path):
     return d.get("status", "ok") == "ok", d
 
 
-def check_test(val_path, sel_path, test_path, prereg_path=None):
+def check_test(val_path, sel_path, test_path, prereg_path=None, look_path=None, root=None):
     """Refuse (SystemExit "refused: ...") unless the v2 test stage may run: a finished
-    validation record with a beta for every prereg row; a finished selection record of THIS
-    validation record and THIS prereg file, which the rule reproduces; and no finished test
-    record (the test split is evaluated once per version). Returns the chosen rows."""
+    validation record with a beta for every prereg row, of the prereg's validation scenes
+    (check_validation_record) and of the code in the tree (check_code); a finished selection
+    record of THIS validation record and THIS prereg file, which the rule reproduces; the
+    selection of every earlier test attempt (look_path, written when the test stage starts:
+    the selection is final from then on); and no finished test record (the test split is
+    evaluated once per version). Returns the chosen rows."""
     prereg_path = os.path.abspath(prereg_path or PREREG)
     p = load_prereg(prereg_path)
     if not os.path.exists(val_path):
@@ -202,6 +286,8 @@ def check_test(val_path, sel_path, test_path, prereg_path=None):
     if miss:
         raise SystemExit(f"refused: {val_path} has no fitted beta for the v2 rows {miss} "
                          f"(run eval_seg.py with --v2-rows)")
+    check_validation_record(d, b, p, val_path, root)
+    check_code(d, val_path, root)
     if not os.path.exists(sel_path):
         raise SystemExit(f"refused: no validation selection {sel_path}")
     ok, s = _finished(sel_path)
@@ -215,6 +301,14 @@ def check_test(val_path, sel_path, test_path, prereg_path=None):
     again = {k: choose_v2(b, k, p)[0] for k in V2_KEYS}
     if again != sel["chosen"]:
         raise SystemExit(f"refused: the rule gives {again}, the selection record {sel['chosen']}")
+    if look_path and os.path.exists(look_path):  # an earlier test attempt (crashed or killed)
+        lk = json.load(open(look_path))
+        now = dict(chosen=sel["chosen"], validation_sha256=sel["validation"]["sha256"],
+                   prereg_sha256=sel["prereg"]["sha256"])
+        if {k: lk.get(k) for k in now} != now:
+            raise SystemExit(f"refused: the test stage started before with another selection "
+                             f"({look_path}: {len(lk.get('attempts') or [])} attempt(s), chosen "
+                             f"{lk.get('chosen')}); the selection is final")
     if os.path.exists(test_path) and _finished(test_path)[0]:
         raise SystemExit(f"refused: {test_path} holds a finished v2 test run (the test split "
                          f"is evaluated once per version)")
@@ -268,7 +362,7 @@ def tab1(path, variant="all", val=None, v2=False, prereg=None):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("table", choices=["tab1", "choose", "select", "check-test"])
+    ap.add_argument("table", choices=["tab1", "choose", "select", "check-test", "check-scenes"])
     ap.add_argument("--key", default="legs", choices=["css", "p3", "legs", "p1", "p4", "ours_v2"])
     ap.add_argument("path")
     ap.add_argument("--val", default="", help="validation eval_seg JSON (row choices)")
@@ -278,6 +372,9 @@ def main(argv=None):
     ap.add_argument("--out", default="", help="select: write the selection as a run record")
     ap.add_argument("--selection", default="", help="check-test: the v2 selection record")
     ap.add_argument("--test-record", default="", help="check-test: the v2 test record path")
+    ap.add_argument("--look", default="", help="check-test: the look record of the test stage")
+    ap.add_argument("--split", default="validation", choices=["validation", "test"],
+                    help="check-scenes: the prereg split the scenes file must hold")
     a = ap.parse_args(argv)
     if a.table == "choose":                      # the validation choice of one row family
         if "@" + a.key in V2_KEYS:
@@ -287,7 +384,7 @@ def main(argv=None):
     elif a.table == "select":                    # the v2 selection, recorded
         sel = selection(a.path, a.prereg)
         if a.out:
-            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            sys.path.insert(0, ROOT)
             from usplat.runlog import RunRecord
             with RunRecord(a.out, config=vars(a), name="tab1_v2_select",
                            argv=[sys.argv[0]] + list(argv if argv is not None
@@ -299,7 +396,10 @@ def main(argv=None):
     elif a.table == "check-test":                # gate of the v2 test stage
         if not (a.selection and a.test_record):
             raise SystemExit("check-test needs --selection and --test-record")
-        print(f"validation selection: {check_test(a.path, a.selection, a.test_record, a.prereg)}")
+        chosen = check_test(a.path, a.selection, a.test_record, a.prereg, a.look or None)
+        print(f"validation selection: {chosen}")
+    elif a.table == "check-scenes":              # the scenes of a v2 stage: the prereg's
+        print(f"{a.split} scenes: {check_scenes(a.path, a.split, load_prereg(a.prereg))}")
     else:
         print(tab1(a.path, a.variant, a.val or None, a.v2, a.prereg))
 

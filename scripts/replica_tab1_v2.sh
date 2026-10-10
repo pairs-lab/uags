@@ -6,25 +6,37 @@
 # that file has uncommitted changes) and are applied by scripts/make_tables.py.
 #   STAGE=val  : fit one temperature per row (v1 rows and v2 rows) on the validation scenes,
 #                evaluate them -> $OUT/eval_val.json, then the selection (@p1, @p4, @ours_v2:
-#                lowest pooled validation NLL) -> $OUT/selection_val.json. Refused once a
-#                finished v2 test record exists (the selection is then final).
+#                lowest pooled validation NLL) -> $OUT/selection_val.json. Refused once the
+#                test stage has started ($OUT/look_test.json exists, even after a crash: the
+#                selection is then final) and with uncommitted changes to tracked files (the
+#                record must name a commit: check-test refuses a dirty validation record).
 #   STAGE=test : the SECOND look at the Replica test split (the first: Table I v1, code
-#                224fe1e). Refused with uncommitted changes in scripts/ usplat/ configs/, and
-#                (make_tables.py check-test) without a finished v2 validation record holding
-#                a beta for every v2 row and a finished selection of that record under the
-#                current prereg file, or when $OUT/eval_test.json holds a finished run (no
-#                override: a crashed run leaves status "running"/"failed" and may be rerun).
-#                Writes $OUT/look_test.json (look number, selection, git state) before the
-#                evaluation, then $OUT/eval_test.json and $OUT/table1_v2_rows.tex.
+#                224fe1e, the prereg's v1.test_commit). Refused with uncommitted changes in
+#                scripts/ usplat/ configs/, and (make_tables.py check-test) without a finished
+#                v2 validation record of the prereg's validation scenes holding a beta for
+#                every v2 row, made at a commit whose scripts/ usplat/ configs/ are the ones in
+#                the tree; without a finished selection of that record under the current
+#                prereg file; with another selection than an earlier test attempt; or when
+#                $OUT/eval_test.json holds a finished run (no override: a crashed run leaves
+#                status "running"/"failed" and may be rerun, with the same selection).
+#                Appends the attempt to $OUT/look_test.json (look number, selection, git
+#                state) before the evaluation, then writes $OUT/eval_test.json and
+#                $OUT/table1_v2_rows.tex.
+# Scenes: the files the prereg names (scenes.validation, scenes.test; disjoint). SCENES may
+# point at another file (e.g. moved fields) with the same scene names (make_tables.py
+# check-scenes). Another dataset later, same rules: commit its own prereg (a copy naming its
+# scene files; v1.test_commit only if its test split was looked at before) and run with
+# PREREG=<that file> and its own OUT.
 # Every GPU step goes through scripts/gpu_gate.sh (never beside a USGLoc job, poll every 5 s).
 # GPU memory: the v1 evaluation peaked at 2.5 GB allocated (6.6 GB reserved) for 1M
 # Gaussians; the v2 rows add ~2.2 GB of frozen buffers (10 P4 rows (N, K) and 4 new P1 rows
 # (N, 64) in float32), hence EVAL_NEED 10000 MiB. The P4 Monte Carlo runs on the CPU while the
 # rows are frozen (eval_seg keeps the field there): ~17 s per lambda and scene load for 1M
 # Gaussians on 4 threads (3 lambdas; validation loads each scene twice: fit, then evaluate).
-# Overrides (another dataset later, same rules): SCENES (scene file of this STAGE), VOCAB,
-# DATASET, STRIDE, EXTRACTOR, ROW_FACTORY, TEXT_CACHE, WITH_2D=0, PRIOR_LOOK (the earlier test
-# look of these scenes; empty = first look), BACKEND/DEVICE (mock/cpu: smoke runs), EVAL_EXTRA.
+# Overrides: PREREG (needs OUT), SCENES, VOCAB, DATASET, STRIDE, EXTRACTOR, ROW_FACTORY,
+# TEXT_CACHE, WITH_2D=0, BACKEND/DEVICE (mock/cpu: smoke runs), EVAL_EXTRA (only --clip-model,
+# --clip-pretrained, --clip-device, --channel-chunk: every option that decides what is fit,
+# evaluated or written is set here, and placed after EVAL_EXTRA).
 # Logs: $OUT/eval_<stage>.<timestamp>.log (never overwritten).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -33,12 +45,16 @@ export UAGS_GPU_USGLOC_EXTRA_MIB=${UAGS_GPU_USGLOC_EXTRA_MIB:-99999}   # never b
 export UAGS_GPU_POLL_S=${UAGS_GPU_POLL_S:-5}
 FIELDS=/home/thanhnc/gauss_ws/data/uags_fields
 V1_OUT=/home/thanhnc/gauss_ws/data/uags_results/tab1
+PREREG_REPLICA=configs/tab1_v2_prereg.json
+PREREG=${PREREG:-$PREREG_REPLICA}
+if [ -z "${OUT:-}" ] && [ "$(realpath -m "$PREREG")" != "$(realpath -m "$PREREG_REPLICA")" ]; then
+  echo "refused: PREREG=$PREREG is not the Replica prereg; set OUT for its records"; exit 1
+fi
 OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/tab1_v2}
 STAGE=${STAGE:-val}
 DOWNSCALE=${DOWNSCALE:-2}
 TAU_COV=${TAU_COV:-0.5}          # coverage rule of v1, unchanged
 EVAL_NEED=${EVAL_NEED:-10000}
-PREREG=configs/tab1_v2_prereg.json
 VOCAB=${VOCAB:-configs/vocab_replica.json}
 DATASET=${DATASET:-replica_semnerf}
 STRIDE=${STRIDE:-10}
@@ -46,13 +62,13 @@ EXTRACTOR=${EXTRACTOR:-lseg}
 ROW_FACTORY=${ROW_FACTORY-usplat.baselines:row_factory,usplat.distill:row_factory}
 TEXT_CACHE=${TEXT_CACHE:-$FIELDS/text_cache_lseg.pt}
 WITH_2D=${WITH_2D:-1}
-PRIOR_LOOK=${PRIOR_LOOK-224fe1e}
 BACKEND=${BACKEND:-gsplat}
 DEVICE=${DEVICE:-cuda}
 TS=$(date +%Y%m%d-%H%M%S)
 case "$STAGE" in
-  val|test) SCENES=${SCENES:-configs/replica_${STAGE}.json} ;;
-  *)        echo "STAGE must be val or test (got '$STAGE')"; exit 2 ;;
+  val)  SPLIT=validation ;;
+  test) SPLIT=test ;;
+  *)    echo "STAGE must be val or test (got '$STAGE')"; exit 2 ;;
 esac
 if [ "$(realpath -m "$OUT")" = "$(realpath -m "$V1_OUT")" ]; then
   echo "refused: OUT is the v1 result directory $V1_OUT (v1 outputs are never touched)"; exit 1
@@ -61,8 +77,20 @@ if ! git ls-files --error-unmatch "$PREREG" > /dev/null 2>&1 || \
    [ -n "$(git status --porcelain -- "$PREREG")" ]; then
   echo "refused: $PREREG is not committed (the v2 rules must be fixed before any run)"; exit 1
 fi
+# the scenes of this stage are the prereg's; an earlier test look is the prereg's v1 entry
+SCENES=${SCENES:-$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['scenes'][sys.argv[2]])" "$PREREG" "$SPLIT")} || exit 1
+PRIOR_LOOK=$(python3 -c "import json,sys; print((json.load(open(sys.argv[1])).get('v1') or {}).get('test_commit') or '')" "$PREREG") || exit 1
+python3 scripts/make_tables.py check-scenes "$SCENES" --split "$SPLIT" --prereg "$PREREG" || exit 1
+read -r -a EXTRA <<< "${EVAL_EXTRA:-}"
+for a in ${EXTRA[@]+"${EXTRA[@]}"}; do   # resources and the text encoder only
+  case "$a" in
+    --clip-model|--clip-pretrained|--clip-device|--channel-chunk) ;;
+    --clip-model=*|--clip-pretrained=*|--clip-device=*|--channel-chunk=*) ;;
+    -*) echo "refused: EVAL_EXTRA option '$a' (allowed: --clip-model --clip-pretrained --clip-device --channel-chunk)"; exit 1 ;;
+  esac
+done
 mkdir -p "$OUT"
-echo "[v2 $STAGE] $TS git $(git rev-parse --short HEAD) dirty: $(git status --porcelain --untracked-files=no -- scripts usplat configs | wc -l) files; scenes $SCENES; prereg sha256 $(sha256sum "$PREREG" | cut -c1-12)"
+echo "[v2 $STAGE] $TS git $(git rev-parse --short HEAD) dirty: $(git status --porcelain --untracked-files=no -- scripts usplat configs | wc -l) files; scenes $SCENES; prereg $PREREG sha256 $(sha256sum "$PREREG" | cut -c1-12)"
 # the existing fields only: v2 never maps (build them with scripts/replica_tab1.sh EVAL=0)
 python3 - "$SCENES" <<'PY' || exit 1
 import json, os, sys
@@ -75,10 +103,20 @@ print(f"scenes: {[s['name'] for s in sc]}")
 PY
 
 VAL="$OUT/eval_val.json"; SEL="$OUT/selection_val.json"; TEST="$OUT/eval_test.json"
+LOOK="$OUT/look_test.json"
+L="$OUT/eval_${STAGE}.$TS.log"
 finished() { [ -f "$1" ] && python3 -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get('status','ok') == 'ok' else 1)" "$1"; }
 if [ "$STAGE" = val ]; then
+  if [ -e "$LOOK" ]; then
+    echo "refused: $LOOK exists: the test stage has started, the validation selection is final"; exit 1
+  fi
   if finished "$TEST"; then
     echo "refused: $TEST holds a finished v2 test run; the validation selection is final"; exit 1
+  fi
+  # the record's git state (usplat.runlog) must be clean: make_tables.py check-test reads it
+  if ! python3 -c "import sys; from usplat.runlog import git_state; g = git_state('.'); sys.exit(1 if g.get('error') or g['dirty_tracked'] else 0)"; then
+    git status --short --untracked-files=no
+    echo "refused: uncommitted changes to tracked files outside docs/ papers/ outputs/ (the validation run must name a commit)"; exit 1
   fi
   ARGS=(--val-scenes "$SCENES" --scenes "$SCENES" --out "$VAL")
 else
@@ -86,24 +124,33 @@ else
     echo "refused: uncommitted changes in scripts/ usplat/ configs/ (the test run must name a commit)"; exit 1
   fi
   python3 scripts/make_tables.py check-test "$VAL" --selection "$SEL" --test-record "$TEST" \
-    --prereg "$PREREG" || exit 1
+    --look "$LOOK" --prereg "$PREREG" || exit 1
   if [ -n "$PRIOR_LOOK" ]; then
     echo "SECOND LOOK at the test split $SCENES: the first was Table I v1 (code $PRIOR_LOOK); the v2 choices were fixed on validation ($SEL) before this run"
   else
     echo "FIRST look at the test split $SCENES; choices fixed on validation ($SEL)"
   fi
-  python3 - "$SEL" "$OUT/look_test.json" "$PRIOR_LOOK" "$SCENES" "$TS" <<'PY' || exit 1
-import json, subprocess, sys
-sel_path, out, prior, scenes, ts = sys.argv[1:]
+  # one look record per OUT, one entry per attempt (check-test held each to the same selection)
+  python3 - "$SEL" "$LOOK" "$PRIOR_LOOK" "$SCENES" "$TS" "$L" <<'PY' || exit 1
+import json, os, subprocess, sys
+sel_path, out, prior, scenes, ts, log = sys.argv[1:]
 s = json.load(open(sel_path))
 sel = (s["metrics"] if isinstance(s.get("metrics"), dict) else s)["selection"]
 git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True).stdout.strip()
-rec = dict(look=2 if prior else 1, prior_looks=[prior] if prior else [], scenes=scenes,
-           started=ts, git=dict(commit=git("rev-parse", "HEAD"), branch=git("rev-parse",
-           "--abbrev-ref", "HEAD")), selection_record=sel_path, chosen=sel["chosen"],
-           prereg_sha256=sel["prereg"]["sha256"], validation_sha256=sel["validation"]["sha256"])
-json.dump(rec, open(out, "w"), indent=1)
-print(f"look record {out}: chosen on validation {sel['chosen']}")
+attempt = dict(started=ts, log=log, scenes=scenes, git=dict(commit=git("rev-parse", "HEAD"),
+               branch=git("rev-parse", "--abbrev-ref", "HEAD")))
+if os.path.exists(out):                  # an earlier attempt crashed or was killed
+    rec = json.load(open(out))
+else:
+    rec = dict(look=2 if prior else 1, prior_looks=[prior] if prior else [], scenes=scenes,
+               selection_record=sel_path, chosen=sel["chosen"],
+               prereg_sha256=sel["prereg"]["sha256"],
+               validation_sha256=sel["validation"]["sha256"], attempts=[])
+rec.setdefault("attempts", []).append(attempt)
+with open(out + ".tmp", "w") as f:
+    json.dump(rec, f, indent=1)
+os.replace(out + ".tmp", out)
+print(f"look record {out}: attempt {len(rec['attempts'])}, chosen on validation {sel['chosen']}")
 PY
   ARGS=(--betas "$VAL" --scenes "$SCENES" --out "$TEST")
 fi
@@ -113,12 +160,10 @@ COMMON=(--vocab "$VOCAB" --extractor "$EXTRACTOR" --dataset "$DATASET" --stride 
         --backend "$BACKEND" --device "$DEVICE" --v2-rows)
 [ -n "$ROW_FACTORY" ] && COMMON+=(--row-factory "$ROW_FACTORY")
 [ "$WITH_2D" = 1 ] && COMMON+=(--with-2d)
-read -r -a EXTRA <<< "${EVAL_EXTRA:-}"
-L="$OUT/eval_${STAGE}.$TS.log"
 ok=0
 for try in 1 2 3; do                     # retried only after a crash (no finished record)
-  scripts/gpu_gate.sh "$EVAL_NEED" python3 scripts/eval_seg.py "${COMMON[@]}" "${ARGS[@]}" \
-    ${EXTRA[@]+"${EXTRA[@]}"} >> "$L" 2>&1 && { ok=1; break; }
+  scripts/gpu_gate.sh "$EVAL_NEED" python3 scripts/eval_seg.py ${EXTRA[@]+"${EXTRA[@]}"} \
+    "${COMMON[@]}" "${ARGS[@]}" >> "$L" 2>&1 && { ok=1; break; }
   echo "eval v2 $STAGE: attempt $try failed ($(grep -oE 'CUDA error: [^.]*|Error: [^.]*' "$L" | tail -1)); retrying"
 done
 [ "$ok" = 1 ] || { tail -30 "$L"; exit 1; }
@@ -127,7 +172,9 @@ if [ "$STAGE" = val ]; then
   python3 scripts/make_tables.py select "$VAL" --prereg "$PREREG" --out "$SEL"
   echo "selection on validation -> $SEL"
 else
-  python3 scripts/make_tables.py tab1 "$TEST" --val "$VAL" --v2 --prereg "$PREREG" > "$OUT/table1_v2_rows.tex"
+  python3 scripts/make_tables.py tab1 "$TEST" --val "$VAL" --v2 --prereg "$PREREG" \
+    > "$OUT/table1_v2_rows.tex.tmp"
+  mv "$OUT/table1_v2_rows.tex.tmp" "$OUT/table1_v2_rows.tex"
   echo "Table I v2 rows -> $OUT/table1_v2_rows.tex"
 fi
 echo "done: v2 $STAGE -> $OUT (log $L)"

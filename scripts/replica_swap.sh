@@ -31,6 +31,9 @@
 # banks, fields and ground truth go to $SWAP, records and logs to $OUT. Every GPU step goes
 # through scripts/gpu_gate.sh. Existing banks/fields/GT are reused. DRY_RUN=1 prints each
 # step (shell-quoted) instead of running it; the refusal rules still run.
+# Disk: each mapping step is refused unless DISK_FACTOR (1.5) x its field size (N of the map x
+# 1.3 KB reset / 1.0 KB no-reset per Gaussian, scripts/disk_guard.py) is free in $SWAP: about
+# 3.6 GB for the val fields and 11 GB for the test fields, plus banks and ground truth.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
@@ -46,6 +49,7 @@ DRY_RUN=${DRY_RUN:-0}
 MAP_NEED=${MAP_NEED:-10000}      # as replica_static_fa.sh (mapping + baselines + residuals)
 BANK_NEED=${BANK_NEED:-5000}     # LSeg fp32 on the bank frames
 GT_NEED=${GT_NEED:-7000}         # one K-channel render per update frame
+DISK_FACTOR=${DISK_FACTOR:-1.5}  # free space needed / estimated field size (0: no check)
 TS=$(date +%Y%m%d-%H%M%S)
 case "$STAGE" in
   val|test) ;;
@@ -74,6 +78,10 @@ step() {
   if [ "$DRY_RUN" = 1 ]; then printf '+'; printf ' %q' "$@"; printf '\n'; return 0; fi
   "$@" > "$L" 2>&1 || { tail -20 "$L"; exit 1; }
   grep -vE "it/s|s/it|waiting" "$L" | tail -5
+}
+space() {      # space <dir> <map> <bytes per Gaussian>: refuse a step the disk cannot hold
+  [ "$DRY_RUN" = 1 ] && return 0
+  python3 scripts/disk_guard.py "$@" --factor "$DISK_FACTOR" || exit 1
 }
 finished() {   # finished <record>: status "ok" (a crashed run leaves "running"/"failed")
   [ -f "$1" ] && python3 -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get('status') == 'ok' else 1)" "$1"
@@ -132,10 +140,12 @@ for s in $SCENES; do
           --feat-dim 64 --pca-frames 20 --seed 0 --use-depth
           --update-data "$ROOT/$s/$USEQ" --update-stride "$USTRIDE"
           --feature-transform usplat.swap:swap_factory)
+  [ -f "$F" ] || space "$SWAP/fields" "$MAPS/${s}_seq1.pt" 1300
   [ -f "$F" ] || step "$OUT/map_${s}.$TS.log" scripts/gpu_gate.sh "$MAP_NEED" \
     python3 scripts/run_mapping.py "${COMMON[@]}" --baselines --change-baselines --oracle-depth \
     --feature-transform-arg "bank=$BANK,spec=$SPEC,scene=$s,log=$SWAP/fields/${s}_swap.frames.json" \
     --out "$F"
+  [ -f "$F0" ] || space "$SWAP/fields" "$MAPS/${s}_seq1.pt" 1000
   [ -f "$F0" ] || step "$OUT/map_${s}_noreset.$TS.log" scripts/gpu_gate.sh "$MAP_NEED" \
     python3 scripts/run_mapping.py "${COMMON[@]}" \
     --feature-transform-arg "bank=$BANK,spec=$SPEC,scene=$s,log=$SWAP/fields/${s}_swap_noreset.frames.json" \

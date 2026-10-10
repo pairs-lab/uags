@@ -91,6 +91,10 @@
 #                     prereg has no css_full choice, so a test number would have no recorded
 #                     validation choice
 #   DRY_RUN=1         print the GPU and data steps instead of running them; the checks run
+#   DISK_FACTOR=<f>   each field mapping is refused unless f (1.5) x its size (N of the map x
+#                     1.6 KB, scripts/disk_guard.py) is free in $FIELDS; 0: no check. Budget:
+#                     up to ~2.6 GB per validation scan and ~2.1 GB per test scan (field, CSS,
+#                     distilled baselines at the 1M-Gaussian cap), plus the prepared frames
 #   EVAL_NEED=<MiB>   evaluation GPU cap: 7000, or 10000 with --v2-rows (its frozen P1 and P4
 #                     buffers, as scripts/replica_tab1_v2.sh)
 # Every GPU step goes through scripts/gpu_gate.sh (never beside a USGLoc job, poll every 5 s).
@@ -119,6 +123,7 @@ DOWNSCALE=${DOWNSCALE:-2}
 TAU_COV=${TAU_COV:-0.5}          # coverage rule of Replica Table I
 V2_ROWS=${V2_ROWS:-auto}
 MAP_EXTRA=${MAP_EXTRA:-}
+DISK_FACTOR=${DISK_FACTOR:-1.5}
 case " $MAP_EXTRA " in         # argparse also takes a unique prefix (--css-full, --css-f)
   *" --css-f"*) echo "refused: MAP_EXTRA $MAP_EXTRA: css_full is a validation-only control (usplat/baselines.py CSS_FULL_RULE); configs/scannet_v2_prereg.json registers no css_full choice"; exit 1 ;;
 esac
@@ -465,6 +470,8 @@ if got != want:
              f"(move it aside to map it again, or use its MAP_EXTRA)")
 PY
   else
+    [ "$DRY_RUN" = 1 ] || python3 scripts/disk_guard.py "$FIELDS" "$MAPS/$s.pt" 1600 \
+      --factor "$DISK_FACTOR" || exit 1
     L="$OUT/map_${s}.$TS.log"
     # shellcheck disable=SC2086          # MAP_EXTRA: word-split on purpose
     step "$L" scripts/gpu_gate.sh "$MAP_NEED" python3 scripts/run_mapping.py --backend gsplat \

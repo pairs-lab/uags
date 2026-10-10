@@ -242,6 +242,11 @@ def test_no_save_field_leaves_existing_field(tmp_path):
     assert RM.save_field(str(out), build) is True and built == [1]
     assert torch.load(out)["field"] == "new"
     assert sorted(p.name for p in out.parent.iterdir()) == [out.name]    # no temp file left
+    bad = lambda: dict(field=lambda: 0, code=dict(mapping_code_sha256="cd" * 32))  # unpicklable
+    with pytest.raises(Exception):
+        RM.save_field(str(out), bad)
+    assert sorted(p.name for p in out.parent.iterdir()) == [out.name]    # failed: no temp file
+    assert torch.load(out)["field"] == "new"
 
 
 def test_feature_transform_loader(tmp_path, monkeypatch):

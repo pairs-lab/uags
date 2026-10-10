@@ -58,8 +58,13 @@ def run(args, rec=None, extractor=None):
                          extractor_name=ext_name)
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     tmp = f"{args.out}.tmp{os.getpid()}"
-    torch.save(bank, tmp)
-    os.replace(tmp, args.out)
+    try:
+        torch.save(bank, tmp)
+        os.replace(tmp, args.out)
+    except BaseException:                    # a full disk: no stray temp file
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
     n_seg = {int(b): len(v) for b, v in bank["segments"].items()}
     print(f"{args.scene}: bank of {sum(n_seg.values())} segments {n_seg} -> {args.out}")
     if rec is not None:

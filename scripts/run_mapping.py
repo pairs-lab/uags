@@ -727,8 +727,13 @@ def save_field(path, build, no_save=False):
     out = build()
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     tmp = f"{path}.tmp{os.getpid()}"                          # atomic: never a truncated field
-    torch.save(out, tmp)
-    os.replace(tmp, path)
+    try:
+        torch.save(out, tmp)
+        os.replace(tmp, path)
+    except BaseException:                    # a full disk or a failed pickle: no stray temp file
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
     print(f"saved field -> {path} (mapping code {out['code']['mapping_code_sha256'][:12]})")
     return True
 

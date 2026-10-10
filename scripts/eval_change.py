@@ -470,8 +470,13 @@ def run_gt_swap(args, rec=None):
 def _save(obj, path):
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     tmp = f"{path}.tmp{os.getpid()}"
-    torch.save(obj, tmp)
-    os.replace(tmp, path)
+    try:
+        torch.save(obj, tmp)
+        os.replace(tmp, path)
+    except BaseException:                    # a full disk: no stray temp file
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
 
 
 # --------------------------------------------------------------------------- gt-rio10

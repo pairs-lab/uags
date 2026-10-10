@@ -4,7 +4,11 @@
    1/d at kappa = 0;
  * (i) the tangent-Gaussian Monte Carlo vote fractions match an exact vMF sampler (Wood's
    rejection algorithm) on 2- and 3-class geometries in d = 64 for several kappa, within
-   the Monte Carlo error;
+   the Monte Carlo error, and on non-unit texts sharing a component within the documented
+   error of its fixed radial part (0.075 at kappa <= 10 ... 0.008 at kappa >= 100);
+ * the vote concentration: the kish kappa is unbiased at 2..16 views of one vMF pixel each
+   (the plug-in rbar kappa, the ablation P4_rbar, is biased upward); a Gaussian with one
+   effective view takes the median kappa of the defined ones;
  * (ii) kappa -> inf (rho -> 1) gives the one-hot argmax (= the zero-noise row P4_inf);
    rho -> 0 gives near-equal votes for texts placed symmetrically around mu*;
  * (iii) the same output twice, the same output for any chunk size, and permuting the
@@ -28,7 +32,7 @@ import usplat.seg_eval as seg_eval
 from usplat.predictive import (argmax_votes, posterior_mean, tangent_noise, vote_fractions,
                                vote_kappa, vote_predictive, gaussian_buffer)
 from usplat.rows import (FieldRow, FieldVoteRow, VoteCache, freeze, p1_prior_rows, p4_rows,
-                         v2_rows, P1_C0S, P4_ALPHA0S, P4_LAMBDAS, P4_INF_ALPHA0)
+                         v2_rows, P1_C0S, P4_ALPHA0S, P4_LAMBDAS, P4_INF_ALPHA0, P4_RBAR)
 from usplat.vmf_field import DirectionalSemanticField, FieldConfig
 from usplat.vmf_math import a_d_inv, a_d_scalar, tangent_var
 
@@ -129,6 +133,76 @@ def test_votes_match_exact_vmf_sampler(name, angles):
           f"{kappas.tolist()}")
 
 
+def test_votes_within_the_documented_error_on_shared_texts():
+    """(i) realistic texts: norms 0.4-0.9, a common component (pairwise cosine ~ 0.8 of the
+    directions), mu near one class: the tangent approximation (S = 8192) against Wood's
+    sampler (n = 100000) is within 4 standard errors plus the error documented for its fixed
+    radial part in vote_fractions (0.075 at kappa <= 10, 0.04 at 20, 0.02 at 60, 0.008 at 200)."""
+    torch.manual_seed(3)
+    g = torch.Generator().manual_seed(7)
+    d, K = 64, 3
+    c = Fn.normalize(torch.randn(d, generator=g), dim=0)
+    dl = torch.randn(K, d, generator=g)
+    dl = Fn.normalize(dl - (dl @ c)[:, None] * c, dim=-1)
+    th = Fn.normalize(math.sqrt(0.8) * c + math.sqrt(0.2) * dl, dim=-1)
+    t = (0.4 + 0.5 * torch.rand(K, generator=g))[:, None] * th
+    xi = torch.randn(d, generator=g)
+    xi = Fn.normalize(xi - (xi @ th[0]) * th[0], dim=0)
+    mu = Fn.normalize(0.75 * th[0] + 0.66 * xi, dim=0)
+    bound = {5.0: 0.075, 20.0: 0.04, 60.0: 0.02, 200.0: 0.008}
+    kappas = torch.tensor(list(bound))
+    S, n = 8192, 100_000
+    v = vote_fractions(mu.expand(len(kappas), d), kappas, t, lam=1.0, n_samples=S)
+    worst = {}
+    for i, kap in enumerate(kappas.tolist()):
+        z = wood_vmf(mu, kap, n)
+        ve = torch.bincount((z @ t.double().t()).argmax(-1), minlength=K).double() / n
+        p = ve.clamp(1e-3, 1 - 1e-3)
+        tol = 4.0 * torch.sqrt(p * (1 - p) * (1.0 / S + 1.0 / n)) + bound[kap]
+        diff = (v[i].double() - ve).abs()
+        assert (diff <= tol).all(), (kap, v[i].tolist(), ve.tolist(), tol.tolist())
+        worst[kap] = round(float(diff.max()), 4)
+    print(f"PASS votes vs exact vMF on shared non-unit texts: max |MC - Wood| per kappa {worst}")
+
+
+def test_vote_kappa_unbiased_at_few_views():
+    """The kish kappa of P4 (vote_kappa default) through the field: Gaussians seen in n views,
+    one pixel z ~ vMF(mu, kappa) per view, 3 px of mass per view at 320 x 240: its median is
+    within 10% of kappa at n = 2, 4, 16, where the plug-in rbar kappa (P4_rbar) is 1.3-5x too
+    large; one view leaves kish undefined and those Gaussians get the median kappa of the
+    defined ones, not rbar's 1e7 (one-hot votes)."""
+    d, G, ns = 64, 400, (1, 2, 4, 16)
+    mu = torch.zeros(d)
+    mu[0] = 1.0
+    for kt in (20.0, 200.0):
+        torch.manual_seed(int(kt))
+        f = DirectionalSemanticField(G * len(ns), d, FieldConfig(change_test=False))
+        for v in range(max(ns)):
+            ids = torch.cat([torch.arange(i * G, (i + 1) * G) for i, n in enumerate(ns) if v < n])
+            z = wood_vmf(mu, kt, ids.numel()).float()
+            f.update_sparse(ids, torch.full((ids.numel(),), 3.0), z, num_pixels=320 * 240)
+        kk, kr = vote_kappa(f), vote_kappa(f, "rbar")
+        assert torch.equal(vote_kappa(f, "kish"), kk)
+        defined = torch.isfinite(f.raw.agreement("kish", f.cfg.c0))
+        for i, n in enumerate(ns):
+            sl = slice(i * G, (i + 1) * G)
+            if n == 1:
+                assert not defined[sl].any()
+                assert torch.equal(kk[sl], torch.full((G,), float(kk[defined].median())))
+                assert float(kr[sl].median()) > 1e6                 # rbar: one-hot votes
+                continue
+            assert defined[sl].all()
+            med = float(kk[sl].median())
+            assert abs(med / kt - 1) < 0.1, (kt, n, med)
+            if n <= 4:
+                assert float(kr[sl].median()) > 1.3 * kt, (kt, n, float(kr[sl].median()))
+    empty = DirectionalSemanticField(3, d, FieldConfig(change_test=False))
+    assert torch.equal(vote_kappa(empty), torch.zeros(3))      # nothing defined: kappa 0
+    with pytest.raises(ValueError, match="kappa estimator"):
+        vote_kappa(empty, "plugin")
+    print("PASS kish vote kappa unbiased at 2..16 views; one view: the field's median kappa")
+
+
 def test_kappa_limits():
     """(ii) rho -> 1: kappa = A_d^{-1}(1 - 1e-6) gives the one-hot argmax; rho = 0
     (kappa = 0): near-equal votes for texts placed symmetrically around mu."""
@@ -206,6 +280,8 @@ def test_alpha0_limits():
         FieldVoteRow("x", "feature", field=f, text=text)
     with pytest.raises(ValueError, match="lam"):
         FieldVoteRow("x", "probs", field=f, text=text, lam=-1.0)
+    with pytest.raises(ValueError, match="kappa_estimator"):
+        FieldVoteRow("x", "probs", field=f, text=text, kappa_estimator="plugin")
     print("PASS alpha0 limits and unseen Gaussians")
 
 
@@ -213,15 +289,19 @@ def test_alpha0_limits():
 def test_p4_rows_cache_and_mixture():
     f, text = _field()
     rows = p4_rows(f, text)
-    want = [f"ours_P4_a{a:g}_s{lam:g}" for lam in P4_LAMBDAS for a in P4_ALPHA0S] + ["ours_P4_inf"]
+    want = [f"ours_P4_a{a:g}_s{lam:g}" for lam in P4_LAMBDAS for a in P4_ALPHA0S] + [
+        "ours_P4_inf", "ours_P4_rbar"]
     assert [r.name for r in rows] == want
+    assert rows[-1].cache is None and rows[-1].kappa_estimator == "rbar"
     cache = rows[0].cache
     fr = {r.name: freeze(r) for r in rows}
     assert cache.runs == len(P4_LAMBDAS)                        # one Monte Carlo per lam
     W1 = f.n_eff
-    for r in rows[:-1]:                                         # the row is the formula
+    for r in rows[:-2]:                                         # the row is the formula
         v = vote_fractions(f.mu_post(), vote_kappa(f), text, r.lam)
         assert torch.equal(fr[r.name].buf, vote_predictive(v, W1, r.alpha0)), r.name
+    vr = vote_fractions(f.mu_post(), vote_kappa(f, "rbar"), text, P4_RBAR[1])
+    assert torch.equal(fr["ours_P4_rbar"].buf, vote_predictive(vr, W1, P4_RBAR[0]))
     inf = fr["ours_P4_inf"].buf
     assert torch.equal(inf, vote_predictive(argmax_votes(f.mu_post(), text), W1, P4_INF_ALPHA0))
     unseen = W1 == 0
@@ -231,10 +311,11 @@ def test_p4_rows_cache_and_mixture():
         assert torch.allclose(r.buf.sum(-1), torch.ones(f.N), atol=1e-6)
         assert set(r.unc) == {"u_epi", "u_ale"}
         assert torch.equal(r.unc["u_epi"], f.epistemic())
-    # a seen Gaussian votes mostly for its own class
+    # a seen Gaussian votes mostly for its own class (the toy's kish kappa is ~4-12 in d = 16:
+    # a wide spread, so the top vote is not always the mode's class, which P4_inf votes for)
     lab = torch.arange(f.N) % text.shape[0]
-    q = fr["ours_P4_a0.01_s1"].buf
-    assert (q[~unseen].argmax(-1) == lab[~unseen]).float().mean() > 0.9
+    acc = lambda q: float((q[~unseen].argmax(-1) == lab[~unseen]).float().mean())
+    assert acc(fr["ours_P4_a0.01_s1"].buf) > 0.8 and acc(fr["ours_P4_inf"].buf) > 0.9
     # an update of the field invalidates the shared votes
     f.update_sparse(torch.arange(3), torch.ones(3), Fn.normalize(torch.randn(3, f.d), dim=-1),
                     num_pixels=100)
@@ -295,7 +376,7 @@ def test_v2_rows():
     f, text = _field()
     rows = v2_rows(f, text)
     names = [r.name for r in rows]
-    assert names[0] == "ours_P2p1" and len(names) == len(set(names)) == 1 + 5 + 9 + 1
+    assert names[0] == "ours_P2p1" and len(names) == len(set(names)) == 1 + 5 + 9 + 1 + 1
     p2 = rows[0]
     assert p2.adaptive and p2.mode == "P1" and p2.kind == "feature"
     assert torch.equal(p2.buffer(), f.mean_direction())

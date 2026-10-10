@@ -34,10 +34,11 @@
 # is given); a TEXT_CACHE inside $FIELDS is refused.
 # Every GPU step goes through scripts/gpu_gate.sh (never beside a USGLoc job, poll every 5 s).
 # GPU memory: the v1 evaluation peaked at 2.5 GB allocated (6.6 GB reserved) for 1M
-# Gaussians; the v2 rows add ~2.2 GB of frozen buffers (10 P4 rows (N, K) and 4 new P1 rows
+# Gaussians; the v2 rows add ~2.3 GB of frozen buffers (11 P4 rows (N, K) and 4 new P1 rows
 # (N, 64) in float32), hence EVAL_NEED 10000 MiB. The P4 Monte Carlo runs on the CPU while the
-# rows are frozen (eval_seg keeps the field there): ~17 s per lambda and scene load for 1M
-# Gaussians on 4 threads (3 lambdas; validation loads each scene twice: fit, then evaluate).
+# rows are frozen (eval_seg keeps the field there): ~17 s per run and scene load for 1M
+# Gaussians on 4 threads (3 lambdas + the P4_rbar ablation; validation loads each scene twice:
+# fit, then evaluate).
 # Overrides: PREREG (needs OUT), SCENES, VOCAB, DATASET, STRIDE, EXTRACTOR, ROW_FACTORY,
 # TEXT_CACHE, WITH_2D=0, BACKEND/DEVICE (mock/cpu: smoke runs), EVAL_EXTRA (only --clip-model,
 # --clip-pretrained, --clip-device, --channel-chunk: every option that decides what is fit,

@@ -378,7 +378,7 @@ def frozen_on(rows, device):
 def candidate_rows(field, ckpt, device, args, class_ids=None, text=None):
     """The rows of one scene. --v2-rows adds the Table I v2 candidates (usplat.rows.v2_rows:
     ours_P2p1, ours_P1_c<c0>, and with the scene's text ours_P4_a<alpha0>_s<lam>,
-    ours_P4_inf), read-outs of the same saved field; default off: the v1 rows only."""
+    ours_P4_inf, ours_P4_rbar), read-outs of the same saved field; default off: the v1 rows only."""
     rows = field_rows(field, "ours")
     rows.append(FieldRow("ours_scalar", "feature", field=field, mode="P0", channels=("spread",)))
     if text is not None and not getattr(args, "no_p3", False):

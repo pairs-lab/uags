@@ -16,10 +16,15 @@ for a per-Gaussian buffer f:
                a read-out of the saved statistics, field.cfg is not touched
 The class predictive per Gaussian, rendered as a mixture (probs rows, usplat.rows):
   P4 votes     the directional counterpart of CSS's Dirichlet vote counts. A pixel of
-               Gaussian n is z ~ vMF(mu*_n, kappa_n), kappa_n = A_d^{-1}(rho_n),
-               rho_n = ||R_n||/W1_n (raw channel: the pixel-level mean resultant length, which
-               already holds within-view coherence and across-view agreement), clamped to
-               [0, 1 - 1e-6]. Its vote fractions over the QUERIED texts t (K, d)
+               Gaussian n is z ~ vMF(mu*_n, kappa_n), kappa_n = A_d^{-1}(rho_n) with
+               rho_n^2 = (||R_n||^2 - Q_n)/(W1_n^2 - W2_n) of the raw channel (the field's
+               bias-corrected "kish" agreement: unbiased for ||E u||^2 = A_d(kappa_pix)^2 under
+               independent views, whatever their number), clamped to [0, 1 - 1e-6]; a Gaussian
+               with one effective view (W1^2 ~ W2: no spread information) gets the median
+               kappa of the field's defined Gaussians (vote_kappa). The plug-in
+               rho_n = ||R_n||/W1_n is the ablation P4_rbar: it is biased upward at few views
+               (one view: rho = that view's coherence, one-hot votes). Its vote fractions over
+               the QUERIED texts t (K, d)
                    v_n(c) = P[argmax_k z . t_k = c]                       (vote_fractions)
                enter a Dirichlet posterior predictive with W1_n expected votes
                    q_n(c) = (alpha0 + W1_n v_n(c)) / (K alpha0 + W1_n)    (vote_predictive)
@@ -82,11 +87,33 @@ def posterior_mean(field, c0=None):
 RHO_MAX = 1.0 - 1e-6                 # rho clamp of the vote concentration (kappa finite)
 
 
-def vote_kappa(field):
-    """kappa_n = A_d^{-1}(rho_n), rho_n = ||R_n||/W1_n of the raw channel clamped to
-    [0, 1 - 1e-6] (0 for an unseen Gaussian): the concentration of ONE pixel observation."""
-    rho = field.mean_resultant_length("raw").clamp(0.0, RHO_MAX)
-    return a_d_inv(field.d, rho)
+KAPPA_ESTIMATORS = ("kish", "rbar")
+
+
+def vote_kappa(field, estimator="kish"):
+    """kappa_n = A_d^{-1}(rho_n), rho_n of the raw channel clamped to [0, 1 - 1e-6]: the
+    concentration of one pixel observation of Gaussian n.
+      "kish" (P4): rho_n^2 = (||R||^2 - Q)/(W1^2 - W2) clamped to [0, 1] (the field's agreement
+              estimator, _Channel.agreement): unbiased for ||E u||^2 = A_d(kappa_pix)^2 under
+              independent views at any number of views. Undefined with one effective view
+              (W1^2 - W2 ~ 0: one view, or an unseen Gaussian), where the data hold no spread
+              information: those Gaussians get the (lower) median kappa of the defined
+              Gaussians of the field (empirical Bayes; 0 when none is defined).
+      "rbar" (ablation P4_rbar): the plug-in rho_n = ||R||/W1 (0 for an unseen Gaussian). Its
+              square has expectation A^2 + (1 - A^2)/n_eff, so kappa is biased upward at few
+              views; one view gives rho = that view's coherence (1 for a footprint of one
+              pixel) and one-hot votes."""
+    if estimator == "rbar":
+        rho = field.mean_resultant_length("raw").clamp(0.0, RHO_MAX)
+        return a_d_inv(field.d, rho)
+    if estimator != "kish":
+        raise ValueError(f"kappa estimator {estimator!r} not in {KAPPA_ESTIMATORS}")
+    rho = field.raw.agreement("kish", field.cfg.c0)
+    ok = torch.isfinite(rho)
+    kap = a_d_inv(field.d, torch.where(ok, rho, torch.zeros_like(rho)).clamp(0.0, RHO_MAX))
+    fill = kap[ok].median() if bool(ok.any()) else torch.zeros((), dtype=kap.dtype,
+                                                                  device=kap.device)
+    return torch.where(ok, kap, fill)
 
 
 def tangent_noise(d, n_samples, seed=0):
@@ -105,13 +132,17 @@ def vote_fractions(mu, kappa, text, lam=1.0, n_samples=256, seed=0, chunk=4096):
     tangent-Gaussian Monte Carlo with S = n_samples shared antithetic draws eps_s:
         z_ns = A_n mu_n + sigma_n (I - mu_n mu_n^T) eps_s,   A_n = A_d(kappa_n),
         sigma_n = lam sqrt(A_n/kappa_n)       (lam = 1 matches the vMF tangent variance,
-                                               vmf_math.tangent_var; the radial part is fixed
-                                               at its mean A_n: in d = 64 a vote fraction
-                                               stays within ~0.03 of an exact vMF sampler,
-                                               tests/test_vote_predictive.py; the gap grows
-                                               below kappa ~ 10 for texts that share a
-                                               component along mu_n (< 0.01 above), and lam
-                                               partly absorbs it)
+                                               vmf_math.tangent_var)
+    The radial part mu_n . z is fixed at its mean A_n, which drops its variance
+    1 - A^2 - (d-1) A/kappa (relative to A^2: 2.6, 0.63, 0.15, 0.02 at kappa = 5, 10, 20, 50 in
+    d = 64), so the votes are too peaked at small kappa. Against an exact vMF sampler in
+    d = 64 with realistic texts (norms 0.4-0.9 sharing a component, pairwise cosine 0.5-0.8,
+    K = 3-30; cross-track review 2026-10-10) the largest error of a vote fraction of the
+    approximation (S -> inf) was 0.07 at kappa <= 10, 0.036 at 20, 0.017 at 50 and below 0.006
+    at kappa >= 100 (tests/test_vote_predictive.py checks these bounds); lam partly absorbs it.
+    With S = 256 samples the Monte Carlo adds a standard error of up to 0.031 per vote
+    fraction and Gaussian (the same samples for every Gaussian, so it does not average out
+    within a pixel).
     With m_nk = mu_n . t_k, ET = E T^T (S, K) and e_ns = mu_n . eps_s,
         z_ns . t_k = A_n m_nk + sigma_n (ET_sk - e_ns m_nk),
     and since sigma_n > 0 the argmax is that of (A_n/sigma_n - e_ns) m_nk + ET_sk: one fused

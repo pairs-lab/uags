@@ -68,6 +68,7 @@ TAB1_V2 = [
     ("Ours P1, prior $c_0$ chosen on val", "@p1", "u_ale", "all"),
     ("Ours P4 (vote predictive)", "@p4", "u_ale", "all"),
     ("Ours P4, zero noise (argmax votes)", "ours_P4_inf", "u_ale", "all"),
+    ("Ours P4, plug-in $\\kappa$ ($\\bar r$)", "ours_P4_rbar", "u_ale", "all"),
 ]
 COLS = [("miou", 100.0), ("acc", 100.0), ("ece", 100.0), ("nll", 1.0), ("brier", 100.0),
         ("aurc", 100.0)]

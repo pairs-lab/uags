@@ -2,6 +2,7 @@
  "name": "Table I v2 (ScanNet): read-out-only predictives selected on validation",
  "registered": "2026-10-10",
  "status": "registered before any ScanNet run (validation or test); scripts/scannet_tab1.sh refuses to make a v2 selection while this file has uncommitted changes, and its test stage refuses when the file differs from the one the selection was made with",
+ "amended": "2026-10-10, cross-track review, before any v2 run: P4's kappa comes from the bias-corrected (kish) agreement (grids.p4_kappa); the plug-in ||R||/W1, which overstates kappa at few views (one view: one-hot votes), became the ablation ours_P4_rbar (grids.p4_rbar)",
  "rules_from": "configs/tab1_v2_prereg.json (Table I v2 on Replica, wip/t4a-predict 29fadfb, registered 2026-10-10): grids, metric, tie, choices and ablations copied unchanged, scenes replaced by the ScanNet scene files (the copy its scripts/replica_tab1_v2.sh prescribes for another dataset); tests/test_scannet_loader.py checks that the copied entries equal that file's",
  "maps": "the ScanNet maps and fields of scripts/scannet_tab1.sh (one 3DGS fit and one semantic field per scan, shared by the v1 and the v2 rows): every v2 row is a read-out of the saved field statistics",
  "pipeline": "scripts/scannet_tab1.sh: STAGE=val (fit one temperature per row on the validation scans, evaluate them with --v2-rows, write the selection), then STAGE=test once",
@@ -16,7 +17,9 @@
   "p4_lambda": [0.5, 1, 2],
   "p4_samples": 256,
   "p4_seed": 0,
-  "p4_inf_alpha0": 0.01
+  "p4_inf_alpha0": 0.01,
+  "p4_kappa": "kish: kappa_n = A_d^{-1}(rho_n), rho_n^2 = (||R_n||^2 - Q_n)/(W1_n^2 - W2_n) of the raw channel clamped to [0, 1], rho_n then clamped to [0, 1 - 1e-6]; a Gaussian with one effective view (W1^2 - W2 ~ 0: undefined) takes the lower median kappa of the field's defined Gaussians (usplat.predictive.vote_kappa)",
+  "p4_rbar": {"alpha0": 1, "lambda": 1, "kappa": "rbar: the plug-in rho_n = ||R_n||/W1_n (the ablation ours_P4_rbar)"}
  },
  "metric": {
   "name": "nll",
@@ -41,9 +44,9 @@
    "rows": ["ours_P2", "ours_P2p1", "@p1", "@p4"]
   }
  },
- "ablations": ["ours_P4_inf"],
+ "ablations": ["ours_P4_inf", "ours_P4_rbar"],
  "reporting": [
-  "Every candidate (ours_P2, ours_P2p1, the P1 c0 grid, the P4 grid) and the ablation ours_P4_inf is evaluated on the ScanNet validation and test scans and reported, selected or not; test numbers of rows not selected are labelled 'not selected'.",
+  "Every candidate (ours_P2, ours_P2p1, the P1 c0 grid, the P4 grid) and the ablations ours_P4_inf and ours_P4_rbar are evaluated on the ScanNet validation and test scans and reported, selected or not; test numbers of rows not selected are labelled 'not selected'.",
   "@ours_v2 is the open-vocabulary predictive of the ScanNet Table I v2; if it is ours_P2, the table keeps P2 and the v2 rows are reported as not better on validation.",
   "The selection is final once STAGE=test starts: test numbers never change a choice, a grid, a tie rule or this file.",
   "The ScanNet numbers are 2D per-pixel scores on held-out frames of the mapped trajectories; they are not comparable with the 3D point-level mIoU that OpenGaussian and NormLift report on the same scans and classes."

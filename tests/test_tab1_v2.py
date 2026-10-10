@@ -35,7 +35,8 @@ import subprocess
 import pytest
 import torch
 
-from usplat.rows import v2_rows, P1_C0S, P4_ALPHA0S, P4_LAMBDAS, P4_INF_ALPHA0, P4_SAMPLES
+from usplat.rows import (v2_rows, P1_C0S, P4_ALPHA0S, P4_LAMBDAS, P4_INF_ALPHA0, P4_SAMPLES,
+                         P4_RBAR)
 from usplat.vmf_field import DirectionalSemanticField, FieldConfig
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
@@ -61,6 +62,8 @@ def test_prereg_matches_the_code():
     assert tuple(g["p1_c0"]) == P1_C0S and tuple(g["p4_alpha0"]) == P4_ALPHA0S
     assert tuple(g["p4_lambda"]) == P4_LAMBDAS and g["p4_inf_alpha0"] == P4_INF_ALPHA0
     assert g["p4_samples"] == P4_SAMPLES and g["p4_seed"] == 0
+    assert (g["p4_rbar"]["alpha0"], g["p4_rbar"]["lambda"]) == P4_RBAR
+    assert g["p4_kappa"].startswith("kish") and g["p4_rbar"]["kappa"].startswith("rbar")
     f = DirectionalSemanticField(5, 4, FieldConfig(change_test=False))
     names = [r.name for r in v2_rows(f, torch.eye(4)[:3])]
     assert set(mt.prereg_rows(p)) == set(names) | {"ours_P2"}
@@ -69,7 +72,7 @@ def test_prereg_matches_the_code():
     assert set(ch["@p4"]["rows"]) == {n for n in names if n.startswith("ours_P4_a")}
     assert ch["@ours_v2"]["rows"] == ["ours_P2", "ours_P2p1", "@p1", "@p4"]
     assert ch["@p1"]["rows"][0] == "ours_P1_c1" and ch["@p4"]["rows"][0] == "ours_P4_a1_s1"
-    assert p["ablations"] == ["ours_P4_inf"]
+    assert p["ablations"] == ["ours_P4_inf", "ours_P4_rbar"]
     assert p["metric"]["name"] == "nll" and p["metric"]["pooling"] == "pixels"
     assert p["metric"]["variant"] == "all" and 0 < p["tie"]["tol"] < 1e-2
     assert p["v1"]["test_commit"] == "224fe1e"

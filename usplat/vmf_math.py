@@ -10,7 +10,8 @@ It is the one special function the field needs:
     mean-field predictive uses to shrink poorly-supported Gaussians;
   * 1 - A_d(kappa) is the exact expected angular spread E[1 - cos].
   * A_d(kappa)/kappa is the variance of a vMF sample along each tangent direction
-    (tangent_var), which the vote predictive P4 moment-matches (usplat.predictive).
+    (tangent_var), which the vote predictive P4 moment-matches (usplat.predictive; its radial
+    part is fixed at the mean A_d, so it is not an exact vMF sampler at small kappa).
 
 The Bessel ratio is evaluated once per dimension d on a log-spaced kappa grid (float64)
 and then interpolated in torch, so the per-Gaussian calls stay on the GPU.

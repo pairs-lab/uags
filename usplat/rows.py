@@ -20,8 +20,9 @@ undefined]) with the rendered channels named in `p2_channels` (usplat.predictive
 Table I v2 candidates (v2_rows; read-outs of the saved field, no re-mapping; selected on
 validation by configs/tab1_v2_prereg.json): '<prefix>_P2p1' (P2 on the P1 base),
 '<prefix>_P1_c<c0>' (P1 with the joint-prior pseudo-count c0, FieldRow.c0) and the vote
-predictive P4 (FieldVoteRow: '<prefix>_P4_a<alpha0>_s<lam>' and the zero-noise
-'<prefix>_P4_inf'), all with the same uncertainty channels as the other field rows.
+predictive P4 (FieldVoteRow: '<prefix>_P4_a<alpha0>_s<lam>', the zero-noise '<prefix>_P4_inf'
+and the plug-in-kappa ablation '<prefix>_P4_rbar'), all with the same uncertainty channels as
+the other field rows.
 
 Baselines that need only the per-view sums subscribe to field.view_hooks; baselines that
 need other per-pixel targets (e.g. one-hot labels for CSS) run their own
@@ -193,6 +194,8 @@ P1_C0S = (0.01, 0.03, 0.1, 0.3, 1.0)  # joint-prior pseudo-count grid of P1 (1 =
 P4_ALPHA0S = (0.01, 0.1, 1.0)         # Dirichlet pseudo-count grid of P4
 P4_LAMBDAS = (0.5, 1.0, 2.0)          # tangent-noise scale grid of P4 (1 = vMF moment match)
 P4_INF_ALPHA0 = 0.01                  # alpha0 of the zero-noise ablation '<prefix>_P4_inf'
+P4_RBAR = (1.0, 1.0)                  # (alpha0, lam) of the plug-in-kappa ablation '_P4_rbar':
+                                      # the reference setting (first in the @p4 list)
 P4_SAMPLES = 256                      # Monte Carlo samples (antithetic pairs), seed 0
 
 
@@ -222,13 +225,16 @@ class VoteCache:
 class FieldVoteRow(Row):
     """P4: the per-Gaussian VOTE predictive, rendered as a mixture (kind "probs"), the
     directional counterpart of CSS's Dirichlet vote counts (usplat.predictive):
-        z ~ vMF(mu*_n, kappa_n),   kappa_n = A_d^{-1}(||R_n|| / W1_n)       one pixel of n
+        z ~ vMF(mu*_n, kappa_n),   kappa_n = A_d^{-1}(rho_n)                one pixel of n
         v_n(c) = P[argmax_k z . t_k = c]                 over the QUERIED texts t (K, d)
         q_n(c) = (alpha0 + W1_n v_n(c)) / (K alpha0 + W1_n)   (uniform where W1_n = 0)
-    W1_n v_n are the expected votes of the Gaussian's W1_n views of evidence. Where P3 sharpens
-    one softmax per Gaussian with a free beta_g, P4 takes the spread of the votes from the
-    Gaussian's own pixel-level concentration, and alpha0 from a validated grid: a coherent,
-    well-observed Gaussian votes for one class, a mixed or unseen one stays near uniform.
+    W1_n v_n are the expected votes of the Gaussian's W1_n views of evidence. rho_n is the
+    bias-corrected agreement (kappa_estimator "kish"; one effective view: the field's median
+    kappa) or the plug-in ||R_n||/W1_n ("rbar", the ablation P4_rbar), predictive.vote_kappa.
+    Where P3 sharpens one softmax per Gaussian with a free beta_g, P4 takes the spread of the
+    votes from the estimated pixel-level concentration, and alpha0 from a validated grid: a
+    coherent, well-observed Gaussian votes for one class, a mixed or unseen one stays near
+    uniform.
     lam scales the tangent noise of the Monte Carlo (1 = the vMF moment match); lam = 0 is
     the zero-noise limit (kappa -> inf): v_n = one-hot argmax_k mu*_n . t_k (mode-seeking
     ablation). The evaluator renders q_p = sum_n w q_n / alpha_p and fits its temperature on
@@ -242,11 +248,16 @@ class FieldVoteRow(Row):
     chunk: int = 4096
     channels: Sequence[str] = ("u_epi", "u_ale")
     cache: Optional[VoteCache] = None
+    kappa_estimator: str = "kish"
 
     def __post_init__(self):
         super().__post_init__()
+        from .predictive import KAPPA_ESTIMATORS
         if self.kind != "probs":
             raise ValueError(f"row {self.name!r}: P4 is a probs row")
+        if self.kappa_estimator not in KAPPA_ESTIMATORS:
+            raise ValueError(f"row {self.name!r}: kappa_estimator {self.kappa_estimator!r} not "
+                             f"in {KAPPA_ESTIMATORS}")
         if self.field is None or self.text is None:
             raise ValueError(f"row {self.name!r}: FieldVoteRow needs field and text")
         if not self.alpha0 > 0:                              # also rejects NaN
@@ -262,7 +273,7 @@ class FieldVoteRow(Row):
         t = self.text.to(mu.device, mu.dtype)
         if self.lam == 0:
             return argmax_votes(mu, t)
-        kappa = vote_kappa(self.field)
+        kappa = vote_kappa(self.field, self.kappa_estimator)
         run = lambda: vote_fractions(mu, kappa, t, self.lam, self.n_samples, self.seed,
                                      self.chunk)
         if self.cache is None:
@@ -281,9 +292,10 @@ class FieldVoteRow(Row):
 
 
 def p4_rows(field, text, prefix="ours", alpha0s=P4_ALPHA0S, lams=P4_LAMBDAS, inf=True,
-            n_samples=P4_SAMPLES, seed=0, chunk=4096):
+            n_samples=P4_SAMPLES, seed=0, chunk=4096, rbar=True):
     """'<prefix>_P4_a<alpha0>_s<lam>' rows for the queried text, sharing one VoteCache (one
-    Monte Carlo run per lam), and with inf=True the zero-noise '<prefix>_P4_inf'."""
+    Monte Carlo run per lam), with inf=True the zero-noise '<prefix>_P4_inf' and with rbar=True
+    the plug-in-kappa ablation '<prefix>_P4_rbar' at P4_RBAR (its own Monte Carlo run)."""
     cache = VoteCache()
     rows = [FieldVoteRow(f"{prefix}_P4_a{a:g}_s{lam:g}", "probs", field=field, text=text,
                          alpha0=float(a), lam=float(lam), n_samples=n_samples, seed=seed,
@@ -292,6 +304,10 @@ def p4_rows(field, text, prefix="ours", alpha0s=P4_ALPHA0S, lams=P4_LAMBDAS, inf
     if inf:
         rows.append(FieldVoteRow(f"{prefix}_P4_inf", "probs", field=field, text=text,
                                  alpha0=P4_INF_ALPHA0, lam=0.0))
+    if rbar:
+        rows.append(FieldVoteRow(f"{prefix}_P4_rbar", "probs", field=field, text=text,
+                                 alpha0=P4_RBAR[0], lam=P4_RBAR[1], n_samples=n_samples,
+                                 seed=seed, chunk=chunk, kappa_estimator="rbar"))
     return rows
 
 
@@ -304,8 +320,9 @@ def p1_prior_rows(field, prefix="ours", c0s=P1_C0S, channels=("u_epi", "u_ale"))
 
 def v2_rows(field, text=None, prefix="ours"):
     """The Table I v2 candidates: '<prefix>_P2p1' (field_rows' P2 on the P1 base), the P1 c0
-    grid and, given the queried text, the P4 grid and '<prefix>_P4_inf'. Frozen for N = 1e6,
-    K = 30 (float32): 10 P4 buffers (N, K) = 1.2 GB and 4 new P1 buffers (N, 64) = 1.0 GB;
+    grid and, given the queried text, the P4 grid, '<prefix>_P4_inf' and '<prefix>_P4_rbar'.
+    Frozen for N = 1e6, K = 30 (float32): 11 P4 buffers (N, K) = 1.3 GB and 4 new P1 buffers
+    (N, 64) = 1.0 GB;
     P1_c1 and P2p1 equal P1's buffer, which eval_seg.frozen_on stores once. While the rows
     are frozen the P4 VoteCache holds mu* and 3 vote tables (~0.6 GB) plus one Monte Carlo
     chunk (~0.14 GB)."""

@@ -18,11 +18,19 @@ fit with another --undef-frac is refused, another --tau-cov gives a warning.
 
 The vocabulary of Tab I is configs/vocab_replica.json (K8); Replica frames come from
 usplat.datasets "replica_semnerf" (Sequence_<k> folder as data), which carries the labels.
+The ScanNet held-out set (scripts/scannet_tab1.sh) uses configs/vocab_scannet.json and the
+"scannet" loader on the prepared scans (usplat.datasets.prepare_scannet), which carries them too.
 Scenes file (YAML or JSON): a list of
     {name, field, ply, data, dataset (default --dataset), stride (default --stride),
-     label_pattern}      label_pattern: "{root}/semantic_class/semantic_class_{idx}.png",
+     offset (default 0), label_pattern}
+                          offset: first dataset frame (then every stride-th), for loaders that
+                          take one: ScanNet evaluation frames 5, 25, 45, ... between the mapping
+                          frames 0, 10, 20, ... of the same scan (configs/scannet_*.json)
+                          label_pattern: "{root}/semantic_class/semantic_class_{idx}.png",
                           formatted with root = data and idx = dataset frame index
-(frames that already carry labels under "semantic"/"labels"/"semantic_class" use those).
+(frames that already carry labels under "semantic"/"labels"/"semantic_class" use those:
+Replica Semantic-NeRF class ids, ScanNet NYU40 ids from label-filt via
+scannetv2-labels.combined.tsv, see usplat.datasets.ScanNetDataset and configs/vocab_scannet.json).
 Vocabulary file (YAML or JSON):
     templates: ["a photo of a {}."]           (or template: "...")
     ignore: [0]                               raw ids never evaluated (or ignore_ids)
@@ -179,12 +187,12 @@ def load_frames(sc, vocab, args):
     """Poses, intrinsics (scaled by --downscale) and vocabulary-index labels per frame."""
     from usplat.datasets import make_dataset
     ds = make_dataset(sc.get("dataset", args.dataset), sc["data"],
-                      stride=int(sc.get("stride", args.stride)))
+                      stride=int(sc.get("stride", args.stride)), offset=int(sc.get("offset", 0)))
     frames, n_unknown, skipped = [], 0, 0
     n = len(ds) if args.max_views is None else min(len(ds), args.max_views)
     for i in range(n):
         fr = ds[i]
-        idx = int(fr.get("index", i * ds.stride))
+        idx = int(fr.get("index", getattr(ds, "offset", 0) + i * ds.stride))
         c2w = fr["c2w"]
         if not torch.isfinite(c2w).all():
             skipped += 1
@@ -192,7 +200,8 @@ def load_frames(sc, vocab, args):
         raw = next((fr[k] for k in LABEL_KEYS if fr.get(k) is not None), None)
         if raw is None:
             if not sc.get("label_pattern"):
-                raise ValueError(f"scene {sc['name']}: frames carry no labels; set label_pattern")
+                raise ValueError(f"scene {sc['name']}: frame {idx} carries no labels; set "
+                                 f"label_pattern")
             raw = _read_label(sc["label_pattern"].format(root=sc["data"], idx=idx))
         H, W = int(fr["image"].shape[0]), int(fr["image"].shape[1])
         f = max(1, int(args.downscale))

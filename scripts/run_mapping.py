@@ -280,8 +280,6 @@ def run_gsplat(args):
         css_text = pca.project_text(clip.text_embedding(prompts, templates=tuple(tpl)))
     full_ids, full_text = None, None
     if args.css_full_vocab:                                 # control: CSS over every class
-        if not (args.baselines and args.vocab):
-            raise SystemExit("--css-full-vocab needs --baselines and --vocab")
         full_ids, prompts, tpl = css_vocabulary(args, full=True)
         full_text = pca.project_text(clip.text_embedding(prompts, templates=tuple(tpl)))
     del clip                                                # its blocks stay in our cache
@@ -309,7 +307,8 @@ def run_gsplat(args):
             bs.append(B.full_vocab_css(field, full_text, full_ids))
             print(f"CSS full vocabulary: {len(full_ids)} classes of {args.vocab} (rows "
                   f"{B.CSS_FULL}*), counts {N} x {len(full_ids)} fp32 = "
-                  f"{N * len(full_ids) * 4 / 2 ** 20:.0f} MiB in memory, saved row-sparse")
+                  f"{N * len(full_ids) * 4 / 2 ** 20:.0f} MiB in memory, saved row-sparse "
+                  f"(dense if not smaller)")
     css = [b for b in bs if isinstance(b, B.CSS)]
 
     def run_sequence(seq, idx, toks, desc):
@@ -436,6 +435,8 @@ def main():
     if args.backend == "mock":
         run_mock(field_config=args.field_config, change_quantile=args.change_quantile)
     else:
+        if args.css_full_vocab and not (args.baselines and args.vocab):   # before extraction
+            raise SystemExit("--css-full-vocab needs --baselines and --vocab")
         if not (args.ply and args.data):
             raise SystemExit("--backend gsplat requires --ply and --data")
         run_gsplat(args)

@@ -16,12 +16,17 @@ read from configs/rio10_change.json, fixed before any method output exists.
   3RScan route (object_motion_from_transforms): removed / nonrigid lists and the rigid
   instance transform T: shift = ||T c - c|| with c the seqXX_01 centroid, rotation = angle
   of T's rotation; instances in no list are static.
-  Gaussian n with centre x_n (gaussian_stale_labels): j = the nearest seqXX_01 vertex; if
-  ||x_n - p_j|| <= d_near the Gaussian takes the status of object(j), else it is unjudged
-  ("far"). Gaussians that no update view observes, or that the new surface hides in every
-  update view, are unjudged too; observed / hidden are INPUT masks, made by
-  visibility_from_depth (centre projection into every update view and a depth test against
-  the rescan's depth, with a margin) and optionally an update-pass splat mass floor.
+  The 3RScan instance ids must be the ids of the RIO10 labels.ply (datasets_rio V10):
+  rscan_id_check refuses lists that name ids absent from it (else every object reads static).
+  Gaussian n with centre x_n (gaussian_stale_labels): j = the nearest ANNOTATED seqXX_01
+  vertex (ids in ignore_ids, 0 = unlabelled, are not searched); if ||x_n - p_j|| <= d_near
+  the Gaussian takes the status of object(j), else it is unjudged ("far"). Gaussians that no
+  update view observes, or that the new surface hides in every update view, are unjudged
+  too; observed / hidden are INPUT masks, made by visibility_from_depth (centre projection
+  into every update view and a depth test against the rescan's depth, with a margin) and
+  optionally an update-pass splat mass floor. The update views are the frames the field
+  ingests: select_keyframes repeats scripts/run_mapping.py's keyframe rule (finite pose, no
+  near-duplicate of the last kept frame), so the judged population is the update frusta.
   Categories are exclusive in the order unobserved > hidden > far > object unjudged, and
   their shares of all Gaussians are reported (the paper's "% unobserved, % hidden").
   Nearest neighbours: scipy cKDTree, exact; a tie at exactly equal distance goes to the
@@ -52,6 +57,13 @@ JUDGED Gaussians (label 1 stale / 0 static; -1 unjudged is left out):
            f_n = 0 or a tie at the top); accuracy on changed and on static Gaussians whose
            target class is known (target >= 0), unweighted and weighted by m.
 Every row that a checkpoint cannot provide stays in the record as "missing: <reason>".
+Residual rows (ncc, feature, depth) read ChangeBaselines state saved in the field checkpoint,
+which must cover the UPDATE pass only (the field's c is likewise cleared at calibration): the
+checkpoint holds ckpt["change_baselines"] = ChangeBaselines.state_dict() taken after a
+cb.reset() at the end of the mapping pass, or ckpt["change_scores"] = {"<residual>/<filter>":
+(N,)} of the update pass, AND ckpt["change_baselines_scope"] = "update". Without that marker
+the rows stay missing: a state that also saw the mapping pass mixes mapping residuals into
+kmin / max and is never read.
 
 A ground-truth file (torch.save of a dict, make_gt) holds: label (N,) int8, object_id (N,)
 int64 (-1 none), object_ids / object_labels (O,), mass (N,) or None, target (N,) int64 or
@@ -90,6 +102,21 @@ def load_config(path):
     with open(path) as f:
         cfg = json.load(f)
     return cfg, canonical_sha256(cfg)
+
+
+def split_scenes(cfg, split):
+    """The scene list of `split` in a frozen config ("scenes" or "splits"); the splits must
+    be disjoint (a scene in two splits would let test data in through validation)."""
+    sp = cfg.get("scenes") or cfg.get("splits") or {}
+    if split not in sp:
+        raise ValueError(f"config lists no scenes for split {split!r} (has {sorted(sp)})")
+    seen = {}
+    for k, lst in sp.items():
+        for sc in lst:
+            if sc in seen and seen[sc] != k:
+                raise ValueError(f"scene {sc!r} is in splits {seen[sc]!r} and {k!r}")
+            seen[sc] = k
+    return [str(x) for x in sp[split]]
 
 
 def rio10_thresholds(cfg):
@@ -216,6 +243,42 @@ def object_motion_from_transforms(changes, ref_pts, ref_ids, min_points=50, igno
     return out
 
 
+def rscan_id_check(changes, ref_ids, ignore_ids=(0,), max_absent_share=0.0):
+    """V10 of usplat.datasets_rio: the ids of the 3RScan removed / nonrigid / rigid lists
+    must exist in the RIO10 labels.ply of the reference scan (same id space). Refuses when
+    the share of listed ids absent from it exceeds max_absent_share; returns the counts."""
+    present = set(np.unique(np.asarray(ref_ids, np.int64)).tolist()) - set(ignore_ids)
+    listed = set(changes["removed"]) | set(changes["nonrigid"]) | set(changes["rigid"])
+    absent = sorted(listed - present)
+    out = dict(n_listed=len(listed), n_present=len(present), absent=absent,
+               absent_share=len(absent) / len(listed) if listed else 0.0)
+    if out["absent_share"] > max_absent_share:
+        raise ValueError(f"3RScan lists {len(absent)} of {len(listed)} instance ids that "
+                         f"labels.ply does not have ({absent[:10]}): the RIO10 and 3RScan ids "
+                         f"are not one id space (V10), so objects would read static")
+    return out
+
+
+def select_keyframes(c2ws, kf_trans=0.05, kf_rot=5.0):
+    """Indices of the frames scripts/run_mapping.py's select() feeds (update sequence: no
+    max_keyframes): finite pose, and not a near-duplicate of the last kept frame (translation
+    < kf_trans [m] AND rotation < kf_rot [deg]); _pose_gap's arithmetic on the frames' c2w."""
+    last, keep = None, []
+    for i, c2w in enumerate(c2ws):
+        c2w = torch.as_tensor(c2w)
+        if not torch.isfinite(c2w).all():
+            continue
+        if last is not None:
+            dt = (c2w[:3, 3] - last[:3, 3]).norm().item()
+            cos = ((c2w[:3, :3].t() @ last[:3, :3]).trace().item() - 1.0) / 2.0
+            dr = math.degrees(math.acos(max(-1.0, min(1.0, cos))))
+            if dt < kf_trans and dr < kf_rot:
+                continue
+        last = c2w
+        keep.append(i)
+    return keep
+
+
 def object_status(motion, d_move, r_deg, min_points=50):
     """{object: (STALE | STATIC | UNJUDGED, reason)} from object_motion_*."""
     out = {}
@@ -235,15 +298,21 @@ def object_status(motion, d_move, r_deg, min_points=50):
     return out
 
 
-def gaussian_stale_labels(means, ref_pts, ref_ids, status, d_near, observed=None, hidden=None):
+def gaussian_stale_labels(means, ref_pts, ref_ids, status, d_near, observed=None, hidden=None,
+                          ignore_ids=()):
     """Per-Gaussian stale GT (see the module docstring).
     means (N, 3); ref_pts (P, 3), ref_ids (P,) of seqXX_01; status from object_status;
-    observed / hidden (N,) bool (None: every Gaussian observed, none hidden).
+    observed / hidden (N,) bool (None: every Gaussian observed, none hidden); vertices with
+    an id in ignore_ids (unlabelled) are not annotated points and are not searched.
     returns dict(label (N,) int8, object_id (N,) int64, category (N,) int8, dist (N,), shares)."""
     x = torch.as_tensor(means).double().cpu().numpy()
     N = x.shape[0]
     ids = np.asarray(ref_ids, np.int64)
-    j, dist = nearest_within(x, ref_pts, d_near)
+    pts = np.asarray(ref_pts, np.float64).reshape(-1, 3)
+    if len(ignore_ids):
+        ann = ~np.isin(ids, list(ignore_ids))
+        pts, ids = pts[ann], ids[ann]
+    j, dist = nearest_within(x, pts, d_near)
     obj = np.where(j >= 0, ids[np.maximum(j, 0)], -1)
     code = status_codes(obj, status)
     obs = np.ones(N, bool) if observed is None else torch.as_tensor(observed).cpu().numpy().astype(bool)
@@ -546,6 +615,7 @@ RESIDUAL_ROWS = (                      # (row, ChangeBaselines residual names, i
 )
 CB_KEYS = ("change_baselines",)        # ChangeBaselines.state_dict() in the field checkpoint
 CB_SCORES_KEY = "change_scores"        # or {"<residual>/<filter>": (N,)} directly
+CB_SCOPE_KEY, CB_SCOPE = "change_baselines_scope", "update"   # both: update pass only
 
 
 def _row(score=None, fired=None, input="", oracle=False, status="ok", source=""):
@@ -577,25 +647,29 @@ def field_change_rows(field):
 
 
 def _cb_scores(ckpt, cb_key=None):
-    """{"<residual>/<filter>": (N,)} from the checkpoint, or None."""
+    """({"<residual>/<filter>": (N,)}, None) from the checkpoint, or (None, why not)."""
+    have = (CB_SCORES_KEY in ckpt and ckpt[CB_SCORES_KEY] is not None) or \
+        any(ckpt.get(k) is not None for k in ([cb_key] if cb_key else CB_KEYS))
+    if not have:
+        return None, "no ChangeBaselines in the checkpoint"
+    if ckpt.get(CB_SCOPE_KEY) != CB_SCOPE:              # mapping residuals would mix in
+        return None, (f"ChangeBaselines state not marked update-pass only "
+                      f"(ckpt[{CB_SCOPE_KEY!r}] = {ckpt.get(CB_SCOPE_KEY)!r}, need {CB_SCOPE!r})")
     if CB_SCORES_KEY in ckpt and ckpt[CB_SCORES_KEY] is not None:
-        return {k: torch.as_tensor(v).double() for k, v in ckpt[CB_SCORES_KEY].items()}
-    for k in ([cb_key] if cb_key else CB_KEYS):
-        if ckpt.get(k) is not None:
-            from .change_baselines import ChangeBaselines
-            cb = ChangeBaselines.from_state(ckpt[k], device="cpu")
-            return {n: v.double() for n, v in cb.scores().items()}
-    return None
+        return {k: torch.as_tensor(v).double() for k, v in ckpt[CB_SCORES_KEY].items()}, None
+    from .change_baselines import ChangeBaselines
+    k = next(k for k in ([cb_key] if cb_key else CB_KEYS) if ckpt.get(k) is not None)
+    cb = ChangeBaselines.from_state(ckpt[k], device="cpu")
+    return {n: v.double() for n, v in cb.scores().items()}, None
 
 
 def checkpoint_rows(ckpt, field, filt="kmin", cb_key=None):
     """Every Table II row this checkpoint can provide (missing ones say why)."""
     rows = field_change_rows(field)
-    cb = _cb_scores(ckpt, cb_key)
+    cb, why = _cb_scores(ckpt, cb_key)
     for name, residuals, inp, oracle in RESIDUAL_ROWS:
         if cb is None:
-            rows[name] = _row(input=inp, oracle=oracle,
-                              status="missing: no ChangeBaselines in the checkpoint")
+            rows[name] = _row(input=inp, oracle=oracle, status=f"missing: {why}")
             continue
         key = next((f"{r}/{filt}" for r in residuals if f"{r}/{filt}" in cb), None)
         rows[name] = (_row(cb[key], None, inp, oracle, source=f"change_baselines:{key}")

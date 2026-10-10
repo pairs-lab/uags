@@ -2,17 +2,25 @@
 
   geometry   nearest_within against brute force (inclusive radius, ties -> lowest index);
              ICP recovers a 30 deg turn; object status from point clouds (static, moved,
-             turned, removed, small move, few points, ignored id) and from 3RScan lists
+             turned, removed, small move, few points, ignored id) and from 3RScan lists;
+             3RScan ids absent from labels.ply refused; run_mapping's keyframe rule
   GT         per-Gaussian labels with the exclusive categories unobserved > hidden > far >
-             object unjudged; visibility from a rescan depth (visible, hidden, outside,
-             no depth, seen in one of two views); alignment check refuses d_move <= p95
+             object unjudged, nearest ANNOTATED vertex only; visibility from a rescan depth
+             (visible, hidden, outside, no depth, seen in one of two views); alignment check
+             refuses d_move <= p95
   metrics    AP / AUROC exactly equal to brute force (distinct thresholds; all pairs) with
              ties and NaN ranked last; object level against a hand computation; operating
              point, reset masses, the FA threshold and region accuracy by hand
   criterion  conditions per scene, NaN fails, wrong scene set refused
   CLI        eval on a synthetic field after an update pass (rows, missing rows, fused, oracle,
              label-free flags, thresholds, segmentation block, dumps -> thresholds ->
-             criterion) and gt-rio10 on a synthetic RIO10 layout
+             criterion -> test with the validation reference) and gt-rio10 on a synthetic
+             RIO10 layout (labels property, keyframes, mass floor)
+  protocol   a test scene never enters as validation; thresholds only from this config's
+             full validation set; the test split refuses a dirty tree, a missing or foreign
+             validation reference, missing thresholds and foreign code; a compare field must
+             have seen the field's features; residual state needs the update-only marker;
+             the RIO10 update frames must match the field run; G3 preconditions
 """
 import importlib.util
 import json
@@ -142,6 +150,30 @@ def test_object_status_from_points_and_transforms():
     st = CE.object_status(mt, 0.10, 10.0, 50)
     assert {o: s[1] for o, s in st.items()} == {1: "static", 2: "moved", 3: "static",
                                                  4: "removed", 5: "nonrigid", 6: "few_points"}
+    # V10: the 3RScan lists must index the labels.ply ids
+    assert CE.rscan_id_check(ch, ri)["absent"] == []
+    bad = dict(removed={4, 99}, nonrigid=set(), rigid={2: (2, T), 98: (98, T)})
+    with pytest.raises(ValueError, match="2 of 4 instance ids"):
+        CE.rscan_id_check(bad, ri)
+    assert CE.rscan_id_check(bad, ri, max_absent_share=0.5)["absent"] == [98, 99]
+    with pytest.raises(ValueError, match="V10"):                  # 0 is unlabelled, not an id
+        CE.rscan_id_check(dict(removed={0}, nonrigid=set(), rigid={}), ri)
+
+
+def test_select_keyframes_rule():
+    def pose(t=0.0, deg=0.0):
+        m = torch.eye(4)
+        m[:3, :3] = torch.tensor(_rot_z(deg), dtype=torch.float32)
+        m[0, 3] = t
+        return m
+    nan = torch.full((4, 4), float("nan"))
+    c2ws = [nan, pose(), pose(0.01), pose(0.06), pose(0.07, 2.0), pose(0.07, 7.5), nan,
+            pose(0.07, 7.5), pose(0.2, 7.5)]
+    # first finite pose kept; then a frame is dropped iff BOTH gaps to the last kept frame are
+    # below kf_trans [m] and kf_rot [deg]; non-finite poses never count
+    assert CE.select_keyframes(c2ws, 0.05, 5.0) == [1, 3, 5, 8]
+    assert CE.select_keyframes(c2ws, 0.0, 0.0) == [1, 2, 3, 4, 5, 7, 8]
+    assert CE.select_keyframes([nan, nan], 0.05, 5.0) == []
 
 
 def test_gaussian_labels_and_categories():
@@ -165,6 +197,16 @@ def test_gaussian_labels_and_categories():
     out = CE.gaussian_stale_labels(means[:1], ref, ids, status, 0.05,
                                    observed=torch.tensor([True]), hidden=torch.tensor([True]))
     assert out["label"].tolist() == [1]
+    # only ANNOTATED vertices are searched: an unlabelled vertex (id 0) next to a Gaussian
+    # neither labels it nor hides a labelled one within d_near
+    ref2 = np.concatenate([ref, [[1.0, 0.03, 0.0]]])
+    ids2 = np.concatenate([ids, [0]])
+    q = torch.tensor([[3.0, 0, 0], [1.0, 0.025, 0]])
+    a = CE.gaussian_stale_labels(q, ref2, ids2, status, 0.05)
+    b = CE.gaussian_stale_labels(q, ref2, ids2, status, 0.05, ignore_ids=(0,))
+    assert [CE.CAT_NAMES[int(c)] for c in a["category"]] == ["object_unjudged", "object_unjudged"]
+    assert [CE.CAT_NAMES[int(c)] for c in b["category"]] == ["far", "judged"]
+    assert b["label"].tolist() == [-1, 0] and b["object_id"].tolist() == [-1, 2]
 
 
 def test_visibility_from_depth():
@@ -346,8 +388,8 @@ def _save_case(tmp_path, with_cb=True):
     pca.basis = torch.eye(d)
     ckpt = dict(field=field.state_dict(), pca=pca.state_dict(), baselines=baselines_state(bs),
                 config=dict(feature_transform="", feature_transform_arg=""))
-    if with_cb:
-        ckpt["change_baselines"] = cb.state_dict()
+    if with_cb:                                           # update-pass state, marked as such
+        ckpt.update(change_baselines=cb.state_dict(), change_baselines_scope="update")
     torch.save(ckpt, tmp_path / "field.pt")
     label = torch.zeros(N, dtype=torch.int8)
     label[:20] = 1
@@ -357,9 +399,10 @@ def _save_case(tmp_path, with_cb=True):
                     target=new, classes=dict(ids=[11, 12, 13, 14], names=list("abcd")),
                     text_raw=protos)
     torch.save(gt, tmp_path / "gt.pt")
+    torch.save(dict(gt, scene="toy_t"), tmp_path / "gt_t.pt")     # the same case as a test scene
     cfg = dict(schema="toy", rows=dict(residual_filter="kmin", fused=["ours_c_max", "depth_residual"],
                                        common_rows=["ours_c_max", "feature_residual"]),
-               scenes=dict(val=["toy"], test=["toy"]),
+               scenes=dict(val=["toy"], test=["toy_t"]),
                criterion=dict(id="c", split="test", min_pass=1, conditions=[
                    dict(left="rows.ours_c_max.gaussian.ap", op=">", right=0.5)]))
     (tmp_path / "cfg.json").write_text(json.dumps(cfg))
@@ -401,18 +444,28 @@ def test_eval_cli_rows_and_record(tmp_path):
     assert seg["status"] == "ok" and set(seg["rows"]) == {"ours", "averaging", "ours_noreset"}
     assert seg["rows"]["ours"]["acc_changed"] > seg["rows"]["averaging"]["acc_changed"]
     assert m["gt"]["n_judged"] == 56 and len(rec["inputs"]) >= 3
-    # thresholds from the dump (validation), then applied
+    # thresholds from the dump (validation), then the validation criterion
     thr_path = tmp_path / "thr.json"
     cli.main(["thresholds", "--config", str(tmp_path / "cfg.json"), "--dumps",
               str(tmp_path / "dump_toy.pt"), "--target-fa", "0.05", "--out", str(thr_path)])
     thr = json.loads(thr_path.read_text())["metrics"]["thresholds"]
     assert "feature_residual" in thr and "ours_c_max" not in thr and "oracle_gt" not in thr
+    crv = tmp_path / "crit_val.json"
+    cli.main(["criterion", "--config", str(tmp_path / "cfg.json"), "--split", "val",
+              "--records", str(out), "--out", str(crv)])
+    cv = json.loads(crv.read_text())["metrics"]
+    assert not cv["criteria"]["c"]["binding"] and cv["mapping_codes"] == ["None|None"]
+    # the test scene, after validation and on a clean tree (git state stubbed here)
+    cli._dirty_tree = lambda: []
     out2 = tmp_path / "eval_t.json"
-    cli.main(["eval", "--field", str(tmp_path / "field.pt"), "--gt", str(tmp_path / "gt.pt"),
-              "--config", str(tmp_path / "cfg.json"), "--scene", "toy", "--split", "test",
-              "--thresholds", str(thr_path), "--out", str(out2)])
-    r2 = json.loads(out2.read_text())["metrics"]["rows"]["feature_residual"]["op"]
+    test = ["eval", "--field", str(tmp_path / "field.pt"), "--gt", str(tmp_path / "gt_t.pt"),
+            "--config", str(tmp_path / "cfg.json"), "--scene", "toy_t", "--split", "test",
+            "--thresholds", str(thr_path)]
+    cli.main(test + ["--reference", str(crv), "--out", str(out2)])
+    m2 = json.loads(out2.read_text())["metrics"]
+    r2 = m2["rows"]["feature_residual"]["op"]
     assert r2["source"] == "validation_threshold" and r2["fa"] <= 0.05 and r2["recall"] > 0.9
+    assert m2["reference"] == str(crv)
     # thresholds only from validation dumps
     torch.save(dict(torch.load(tmp_path / "dump_toy.pt", weights_only=False), split="test"),
                tmp_path / "dump_test.pt")
@@ -421,14 +474,8 @@ def test_eval_cli_rows_and_record(tmp_path):
                   str(tmp_path / "dump_test.pt"), "--out", str(tmp_path / "t2.json")])
     # a finished test record is never overwritten (the test split runs once)
     with pytest.raises(SystemExit, match="finished test record"):
-        cli.main(["eval", "--field", str(tmp_path / "field.pt"), "--gt", str(tmp_path / "gt.pt"),
-                  "--config", str(tmp_path / "cfg.json"), "--split", "test", "--out", str(out2)])
+        cli.main(test + ["--reference", str(crv), "--out", str(out2)])
     # criterion over the per-scene records of one split, same config: validation first
-    crv = tmp_path / "crit_val.json"
-    cli.main(["criterion", "--config", str(tmp_path / "cfg.json"), "--split", "val",
-              "--records", str(out), "--out", str(crv)])
-    cv = json.loads(crv.read_text())["metrics"]
-    assert not cv["criteria"]["c"]["binding"] and cv["mapping_codes"] == ["None|None"]
     cr = tmp_path / "crit.json"
     with pytest.raises(ValueError, match="needs --reference"):
         cli.main(["criterion", "--config", str(tmp_path / "cfg.json"), "--split", "test",
@@ -444,6 +491,203 @@ def test_eval_cli_rows_and_record(tmp_path):
         cli.main(["criterion", "--config", str(tmp_path / "cfg.json"), "--split", "test",
                   "--records", str(out), "--reference", str(crv), "--force-test",
                   "--out", str(tmp_path / "c2.json")])
+
+
+def test_protocol_refusals(tmp_path):
+    """The test split cannot leak in through validation, and test needs a finished,
+    matching validation selection on a clean tree."""
+    cli = _load_cli()
+    _save_case(tmp_path)
+    cfg = str(tmp_path / "cfg.json")
+    ev = lambda gt, split, *extra: ["eval", "--field", str(tmp_path / "field.pt"), "--gt",
+                                    str(tmp_path / gt), "--config", cfg, "--split", split,
+                                    "--plain-json", *extra]
+    # a test scene is never scored as validation (no dump, no thresholds from it)
+    with pytest.raises(ValueError, match="not a val scene"):
+        cli.main(ev("gt_t.pt", "val", "--dump-scores", str(tmp_path / "leak.pt"),
+                    "--out", str(tmp_path / "leak.json")))
+    assert not (tmp_path / "leak.pt").exists()
+    gt = torch.load(tmp_path / "gt.pt", weights_only=False)
+    torch.save(dict(gt, scene=None), tmp_path / "gt_noscene.pt")
+    with pytest.raises(ValueError, match="names no scene"):
+        cli.main(ev("gt_noscene.pt", "val", "--scene", "toy", "--out", str(tmp_path / "x.json")))
+    c = json.loads(open(cfg).read())
+    (tmp_path / "overlap.json").write_text(json.dumps(dict(c, scenes=dict(val=["toy"],
+                                                                          test=["toy", "b"]))))
+    with pytest.raises(ValueError, match="in splits"):
+        cli.main(["eval", "--field", str(tmp_path / "field.pt"), "--gt", str(tmp_path / "gt.pt"),
+                  "--config", str(tmp_path / "overlap.json"), "--split", "val", "--plain-json",
+                  "--out", str(tmp_path / "x.json")])
+    # thresholds: dumps of this config, of validation scenes only, all of them
+    cli.main(ev("gt.pt", "val", "--dump-scores", str(tmp_path / "d.pt"),
+                "--out", str(tmp_path / "v.json")))
+    d = torch.load(tmp_path / "d.pt", weights_only=False)
+    th = lambda *dumps: cli.main(["thresholds", "--config", cfg, "--plain-json", "--dumps",
+                                  *map(str, dumps), "--out", str(tmp_path / "thr.json")])
+    torch.save(dict(d, config_sha256="0" * 64), tmp_path / "d_cfg.pt")
+    with pytest.raises(ValueError, match="another config"):
+        th(tmp_path / "d_cfg.pt")
+    torch.save(dict(d, scene="toy_t"), tmp_path / "d_test.pt")
+    with pytest.raises(ValueError, match="not a validation scene"):
+        th(tmp_path / "d_test.pt")
+    (tmp_path / "two.json").write_text(json.dumps(dict(c, scenes=dict(val=["toy", "v2"],
+                                                                      test=["toy_t"]))))
+    torch.save(dict(d, config_sha256=CE.load_config(tmp_path / "two.json")[1]),
+               tmp_path / "d_two.pt")
+    with pytest.raises(ValueError, match="pool every validation scene"):
+        cli.main(["thresholds", "--config", str(tmp_path / "two.json"), "--plain-json",
+                  "--dumps", str(tmp_path / "d_two.pt"), "--out", str(tmp_path / "thr2.json")])
+    th(tmp_path / "d.pt")
+    # a thresholds record of another config / other scenes is refused at eval
+    t = json.loads((tmp_path / "thr.json").read_text())
+    (tmp_path / "thr_cfg.json").write_text(json.dumps(dict(t, config_sha256="0" * 64)))
+    with pytest.raises(ValueError, match="thresholds of another config"):
+        cli.main(ev("gt.pt", "val", "--thresholds", str(tmp_path / "thr_cfg.json"),
+                    "--out", str(tmp_path / "x.json")))
+    (tmp_path / "thr_sc.json").write_text(json.dumps(dict(t, scenes=["toy_t"])))
+    with pytest.raises(ValueError, match="not the validation scenes"):
+        cli.main(ev("gt.pt", "val", "--thresholds", str(tmp_path / "thr_sc.json"),
+                    "--out", str(tmp_path / "x.json")))
+    # the test split: clean tree, finished validation reference, its code versions
+    cli.main(["criterion", "--config", cfg, "--split", "val", "--plain-json", "--records",
+              str(tmp_path / "v.json"), "--out", str(tmp_path / "crv.json")])
+    t_out = str(tmp_path / "t.json")
+    cli._dirty_tree = lambda: [" M usplat/vmf_field.py"]
+    with pytest.raises(SystemExit, match="uncommitted changes"):
+        cli.main(ev("gt_t.pt", "test", "--reference", str(tmp_path / "crv.json"), "--out", t_out))
+    with pytest.raises(SystemExit, match="uncommitted changes"):
+        cli.main(["criterion", "--config", cfg, "--split", "test", "--plain-json", "--records",
+                  t_out, "--reference", str(tmp_path / "crv.json"), "--out", str(tmp_path / "c.json")])
+    cli._dirty_tree = lambda: []
+    with pytest.raises(SystemExit, match="--reference"):
+        cli.main(ev("gt_t.pt", "test", "--out", t_out))
+    with pytest.raises(SystemExit, match="not a finished validation criterion"):
+        cli.main(ev("gt_t.pt", "test", "--reference", str(tmp_path / "v.json"), "--out", t_out))
+    crv = json.loads((tmp_path / "crv.json").read_text())
+    (tmp_path / "crv_code.json").write_text(json.dumps(dict(crv, mapping_codes=["abc|None"])))
+    with pytest.raises(ValueError, match="not among the validation codes"):
+        cli.main(ev("gt_t.pt", "test", "--reference", str(tmp_path / "crv_code.json"),
+                    "--out", t_out))
+    (tmp_path / "op.json").write_text(json.dumps(dict(c, operating_point=dict(baseline_target_fa=0.01))))
+    with pytest.raises(SystemExit, match="--thresholds"):
+        cli.main(["eval", "--field", str(tmp_path / "field.pt"), "--gt", str(tmp_path / "gt_t.pt"),
+                  "--config", str(tmp_path / "op.json"), "--split", "test", "--plain-json",
+                  "--reference", str(tmp_path / "crv.json"), "--out", t_out])
+    assert not os.path.exists(t_out)                      # every refusal before the record
+    out = cli.main(ev("gt_t.pt", "test", "--reference", str(tmp_path / "crv.json"),
+                      "--thresholds", str(tmp_path / "thr.json"), "--out", t_out))
+    assert out["split"] == "test" and out["scene"] == "toy_t"
+
+
+def test_compare_field_provenance(tmp_path):
+    """--compare-field must have seen the field's features; residual rows need state that is
+    marked update-pass only; a RIO10 field must have ingested the ground truth's frames."""
+    cli = _load_cli()
+    _save_case(tmp_path)
+    ck = torch.load(tmp_path / "field.pt", weights_only=False)
+    log = lambda name, frames: (tmp_path / name).write_text(json.dumps(dict(frames=frames)))
+    frames = [dict(i=0, index=0, n_px={"3": 10}), dict(i=1, index=5, n_px={"3": 0})]
+    log("a.frames.json", frames)
+    log("b.frames.json", frames)
+    arg = lambda name: f"bank=b.pt,spec=s.json,scene=toy,log={tmp_path / name}"
+    run = dict(feature_transform="usplat.swap:swap_factory", ply="map.pt", update_stride=5)
+    main = dict(ck, config=dict(run, feature_transform_arg=arg("a.frames.json")),
+                code=dict(mapping_code_sha256="m" * 64))
+    torch.save(main, tmp_path / "main.pt")
+    base = ["eval", "--field", str(tmp_path / "main.pt"), "--gt", str(tmp_path / "gt.pt"),
+            "--config", str(tmp_path / "cfg.json"), "--split", "val", "--plain-json",
+            "--out", str(tmp_path / "e.json")]
+
+    def compare(**kw):
+        c = dict(main, config=dict(main["config"], feature_transform_arg=arg("b.frames.json")))
+        for k, v in kw.items():
+            if k == "config":
+                c["config"] = dict(c["config"], **v)
+            else:
+                c[k] = v
+        torch.save(c, tmp_path / "cmp.pt")
+        return cli.main(base + ["--compare-field", f"ours_noreset={tmp_path / 'cmp.pt'}"])
+    out = compare()                                       # only the log differs: accepted
+    cf = out["compare_fields"]["ours_noreset"]
+    assert cf["mapping_code"] == "m" * 64 and cf["n_resets_total"] > 0
+    pca = dict(ck["pca"], basis=torch.eye(ck["field"]["d"]).flip(0))
+    for kw, msg in ((dict(code=dict(mapping_code_sha256="x" * 64)), "mapping code"),
+                    (dict(config=dict(update_stride=10)), "update_stride"),
+                    (dict(config=dict(feature_transform_arg="bank=other.pt,scene=toy,"
+                                                            f"log={tmp_path / 'b.frames.json'}")),
+                     "feature_transform_arg"),
+                    (dict(pca=pca), "PCA basis")):
+        with pytest.raises(ValueError, match=msg):
+            compare(**kw)
+    log("b.frames.json", frames[:1])
+    with pytest.raises(ValueError, match="frames logs differ"):
+        compare()
+    (tmp_path / "b.frames.json").unlink()
+    with pytest.raises(ValueError, match="frames log .* is missing"):
+        compare()
+    # residual state without the update-pass marker is never read
+    torch.save(dict(ck, change_baselines_scope=None), tmp_path / "nomark.pt")
+    out = cli.main(base[:2] + [str(tmp_path / "nomark.pt")] + base[3:])
+    assert out["rows"]["feature_residual"]["status"].startswith(
+        "missing: ChangeBaselines state not marked update-pass only")
+    assert out["rows"]["fused"]["status"].startswith("missing: inputs")
+    # RIO10: the update frames of the ground truth against the field's run arguments
+    gt = torch.load(tmp_path / "gt.pt", weights_only=False)
+    uf = dict(sequence="seq01_02", part="first_half", stride=5, kf_trans=0.05, kf_rot=5.0)
+    torch.save(dict(gt, update_frames=uf), tmp_path / "gt_uf.pt")
+    ok = dict(update_data="/d/seq01/seq01_02::first_half", update_stride=5, kf_trans=0.05,
+              kf_rot=5.0)
+    for bad, msg in ((dict(kf_trans=0.1), "kf_trans"), (dict(update_stride=1), "update_stride"),
+                     (dict(update_data="/d/seq01/seq01_02"), "part"),
+                     (dict(update_data="/d/seq01/seq01_01::first_half"), "sequence")):
+        torch.save(dict(ck, config=dict(ok, **bad)), tmp_path / "f_uf.pt")
+        with pytest.raises(ValueError, match=msg):
+            cli.main(["eval", "--field", str(tmp_path / "f_uf.pt"), "--gt", str(tmp_path / "gt_uf.pt"),
+                      "--config", str(tmp_path / "cfg.json"), "--split", "val", "--plain-json",
+                      "--out", str(tmp_path / "u.json")])
+    torch.save(dict(ck, config=ok), tmp_path / "f_uf.pt")
+    cli.main(["eval", "--field", str(tmp_path / "f_uf.pt"), "--gt", str(tmp_path / "gt_uf.pt"),
+              "--config", str(tmp_path / "cfg.json"), "--split", "val", "--plain-json",
+              "--out", str(tmp_path / "u.json")])
+
+
+def test_criterion_preconditions(tmp_path):
+    """G3's precondition (plan section 6) read from another finished record: every listed
+    scene must pass; without its record the criterion fails."""
+    cli = _load_cli()
+    _save_case(tmp_path)
+    c = json.loads((tmp_path / "cfg.json").read_text())
+    c["preconditions"] = dict(fa=dict(split="val", statement="field rate <= NCC rate",
+                                      scenes_path="val_scenes", scene_list=["a", "b"],
+                                      rows_path="rates.static_fa", min_pass="all",
+                                      conditions=[dict(left="rate", op="<=",
+                                                       right="baselines.ncc")]))
+    (tmp_path / "pc.json").write_text(json.dumps(c))
+    cli.main(["eval", "--field", str(tmp_path / "field.pt"), "--gt", str(tmp_path / "gt.pt"),
+              "--config", str(tmp_path / "pc.json"), "--split", "val", "--plain-json",
+              "--out", str(tmp_path / "v.json")])
+    crit = lambda *extra: cli.main(["criterion", "--config", str(tmp_path / "pc.json"),
+                                    "--split", "val", "--plain-json", "--records",
+                                    str(tmp_path / "v.json"), *extra,
+                                    "--out", str(tmp_path / "c.json")])
+    r = crit()
+    assert r["criteria"]["c"]["passed"] and not r["passed"]
+    assert r["preconditions"]["fa"]["status"].startswith("missing")
+    sel = lambda ncc_b, scenes=("a", "b"): (tmp_path / "sel.json").write_text(json.dumps(dict(
+        status="ok", metrics=dict(val_scenes=list(scenes), rates=dict(static_fa=dict(
+            a=dict(rate=0.001, baselines=dict(ncc=0.004)),
+            b=dict(rate=0.002, baselines=dict(ncc=ncc_b))))))))
+    sel(0.003)
+    r = crit("--precondition", f"fa={tmp_path / 'sel.json'}")
+    assert r["passed"] and r["preconditions"]["fa"]["n_pass"] == 2
+    sel(0.0015)                                           # one scene above NCC: fails
+    r = crit("--precondition", f"fa={tmp_path / 'sel.json'}")
+    assert not r["passed"] and r["preconditions"]["fa"]["n_pass"] == 1
+    sel(0.003, scenes=("a",))
+    with pytest.raises(ValueError, match="needs"):
+        crit("--precondition", f"fa={tmp_path / 'sel.json'}")
+    with pytest.raises(ValueError, match="not in the config"):
+        crit("--precondition", f"other={tmp_path / 'sel.json'}")
 
 
 def test_eval_cli_refusals(tmp_path):
@@ -529,6 +773,23 @@ def test_gt_rio10_cli(tmp_path):
     rec = json.loads(open(f"{out}.json").read())
     assert rec["status"] == "ok" and rec["metrics"]["shares"]["n_hidden"] >= 1
     assert gt["target"] is None                                  # no class map: no targets
+    assert gt["labels_property"] == "objectId" and rec["metrics"]["labels_property"] == "objectId"
+    # the judged update frames are the ones run_mapping ingests: first half of 4, stride 5
+    uf = gt["update_frames"]
+    assert uf["indices"] == [0] and uf["numbers"] == [0] and uf["part"] == "first_half"
+    assert (uf["sequence"], uf["stride"], uf["kf_trans"], uf["kf_rot"]) == ("seq01_02", 5, 0.05, 5.0)
+    # the update-pass mass floor (mock renderer, full resolution, 8 cm splats): unobserved
+    # below observed_min_mass_px
+    torch.save(dict(torch.load(tmp_path / "gs.pt"), scales=torch.full((N, 3), 0.08)),
+               tmp_path / "gs_big.pt")
+    (tmp_path / "rio_m.json").write_text(json.dumps(dict(cfg, visibility=dict(cfg["visibility"],
+                                                                              downscale=1))))
+    gm = cli.main(["gt-rio10", "--root", str(tmp_path / "rio"), "--scene", "01", "--config",
+                   str(tmp_path / "rio_m.json"), "--ply", str(tmp_path / "gs_big.pt"),
+                   "--mass-backend", "mock", "--plain-json", "--out", str(tmp_path / "gm.pt")])
+    floor = gm["mass"] >= cfg["visibility"]["observed_min_mass_px"]
+    assert gm["mass"].shape == (N,) and 0 < int(floor[:80].sum()) < 80, gm["mass"][:80]
+    assert gm["label"].tolist() == [v if f else -1 for v, f in zip(lab, floor.tolist())]
     # with a class map (RIO10 label -> vocabulary id) the GT carries segmentation targets:
     # static keeps its object's class, stale takes what the location shows in the rescan
     vocab = dict(templates=["a photo of a {}."], ignore=[0],
@@ -552,6 +813,16 @@ def test_gt_rio10_cli(tmp_path):
     assert set(t[20:40]) <= {-1, names.index("box")} and names.index("box") in t[20:40]
     assert t[40:60] == [-1] * 20                                 # removed: nothing there now
     assert all(v == names.index("wall") for v, l in zip(t[60:80], lab[60:80]) if l == 0)
+    # the two scans must name their instance ids with one vertex property (V7)
+    from test_rio_loader import write_ply
+    lp = tmp_path / "rio" / "models01" / "seq01_02" / "labels.ply"
+    rp, ri = cat(res)
+    write_ply(str(lp), rp, ri, prop="instance")
+    with pytest.raises(ValueError, match="labels_id_property"):
+        cli.main(["gt-rio10", "--root", str(tmp_path / "rio"), "--scene", "01", "--config",
+                  str(tmp_path / "rio.json"), "--ply", str(tmp_path / "gs.pt"),
+                  "--plain-json", "--out", str(tmp_path / "x.pt")])
+    write_ply(str(lp), rp, ri)
     # a stricter alignment than the scan noise: d_move below p95 is refused
     cfg["object"]["d_move_cm"] = 0.1
     (tmp_path / "rio2.json").write_text(json.dumps(cfg))

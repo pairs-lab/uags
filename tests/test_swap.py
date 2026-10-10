@@ -298,7 +298,7 @@ def _write_replica(seq_dir, n):
 
 def _toy_spec(tmp_path):
     spec = json.load(open(SPEC))
-    spec["scenes"] = dict(val=["toy"], test=["toy"])
+    spec["scenes"] = dict(val=["toy"], test=["toy_t"])
     spec["mapping"]["stride"] = 1
     spec["update"]["stride"] = 1
     spec["downscale"] = 16
@@ -408,6 +408,7 @@ def test_end_to_end_cpu(tmp_path):
               "--scene", "toy", "--split", "val", "--compare-field", f"ours_noreset={f0}",
               "--out", str(out)])
     m = json.load(open(out))["metrics"]
+    assert m["compare_fields"]["ours_noreset"]["n_resets_total"] == 0
     acc = {k: v["acc_changed"] for k, v in m["seg"]["rows"].items()}
     assert acc["ours"] > acc["ours_noreset"] and acc["ours"] > acc["averaging"], acc
     assert m["reset"]["recall"] > 0.5 and 0.0 <= m["reset"]["static_reset_mass"] <= 1.0

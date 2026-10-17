@@ -1,8 +1,8 @@
 """scripts/make_tables.py best / second-best marks (bold / underline) on the printed means:
  * marks(): the best and second-best distinct values, ties share a mark, None is not ranked;
  * mark(): wraps the mean only, never the std;
- * Table I: --rank all (default) ranks every row, --rank ov only the open-vocabulary rows (CSS
-   shown, not ranked); P2's mIoU / accuracy ("as P0") and NormLift's predictive ("same as averaging") are
+ * Table I: the open-vocabulary rows are ranked; closed-set CSS is printed last, in its own
+   block, and never marked; P2's mIoU / accuracy ("as P0") and NormLift's predictive ("same as averaging") are
    not values; lower is better except mIoU and accuracy;
  * Table III: no marks by default, --marks ranks all rows.
 """
@@ -62,35 +62,28 @@ def test_marks_and_mark():
     print("PASS marks: ties share, None not ranked; mark wraps the mean only")
 
 
-def test_tab1_open_vocabulary_ranking(tmp_path):
-    p = _write(tmp_path)
-    tex = mt.tab1(p, rank="ov")
-    assert "% bold = best, underline = second best per column, among the open-vocabulary" in tex
+def test_tab1_marks_and_the_css_reference(tmp_path):
+    tex = mt.tab1(_write(tmp_path))
+    lines = tex.splitlines()
     css = _line(tex, "CSS")
-    assert "\\textbf" not in css and "\\underline" not in css          # shown, not ranked
-    p0, p2 = _line(tex, "Ours P0"), _line(tex, "Ours P2")
-    assert p0.split(" & ")[2].startswith("\\textbf{28.0}")             # mIoU, higher is better
+    assert lines.index(css) == len(lines) - 1 and lines[-2] == "\\midrule"   # last, own block
+    assert "\\textbf" not in css and "\\underline" not in css and "closed set" in css
+    assert css.split(" & ")[1].startswith("28.5")                       # shown, not ranked
+    p0, p2 = _line(tex, "Ours P0").split(" & "), _line(tex, "Ours P2")
+    assert p0[1].startswith("\\textbf{28.0}")                          # mIoU, higher is better
+    assert p0[2].startswith("\\underline{76.8}")                       # accuracy: F3DGS 77.0
     assert "\\multicolumn{2}{c}{as P0}" in p2                          # not a value
     cells = p2.split(" & ")
-    assert cells[3].startswith("\\textbf{8.7}")                        # ECE, lower is better
-    assert cells[4].startswith("\\textbf{1.00}") and cells[5].startswith("\\textbf{36.2}")
-    assert cells[6].startswith("\\textbf{12.2}") and cells[7].startswith("\\textbf{8.5}")
+    assert cells[2].startswith("\\textbf{8.7}")                        # ECE, lower is better
+    assert cells[3].startswith("\\textbf{1.00}") and cells[4].startswith("\\textbf{36.2}")
+    assert cells[5].startswith("\\textbf{12.2}") and cells[6].startswith("\\textbf{8.5}")
     avg = _line(tex, "Averaging").split(" & ")
-    assert avg[4].startswith("\\underline{9.6}") and avg[5].startswith("\\textbf{1.00}")  # tie
-    f3 = _line(tex, "Feature 3DGS").split(" & ")
-    assert f3[3].startswith("\\textbf{77.0}")                          # accuracy: F3DGS best
-    assert _line(tex, "Ours P0").split(" & ")[3].startswith("\\underline{76.8}")
+    assert avg[3].startswith("\\underline{9.6}") and avg[4].startswith("\\textbf{1.00}")  # tie
+    assert _line(tex, "Feature 3DGS").split(" & ")[2].startswith("\\textbf{77.0}")
     nl = _line(tex, "NormLift\\reimpl, $1-C")
     assert "same predictive as averaging" in nl and "\\underline{8.8}" in nl
-    print("PASS Table I --rank ov: CSS unranked, P2 'as P0' and NormLift text not values")
-
-
-def test_tab1_rank_all(tmp_path):
-    tex = mt.tab1(_write(tmp_path))                       # --rank all (default)
-    css = _line(tex, "CSS").split(" & ")
-    assert css[2].startswith("\\textbf{28.5}") and css[4].startswith("\\textbf{5.1}")
-    assert _line(tex, "Ours P2").split(" & ")[3].startswith("\\underline{8.7}")
-    print("PASS Table I --rank all (default) ranks CSS")
+    assert "& \\checkmark" not in tex and "$\\times$" not in tex      # no OV column
+    print("PASS Table I: open-vocabulary rows ranked; CSS last, unmarked; no OV column")
 
 
 def test_tab3_marks_only_on_request(tmp_path):

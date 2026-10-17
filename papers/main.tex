@@ -699,7 +699,11 @@ is wrong at $M$ frames and right with the full map. It has irreducible error
 ($e_{\mathrm{irr}}=1$) if it is wrong in both. All $M$-frame fields use the
 full-map geometry, and the targets use the pixels that both maps cover. The
 epistemic channel should rank $e_{\mathrm{red}}$~\cite{kendall2017uncertainties},
-and the aleatoric channel should rank $e_{\mathrm{irr}}$.
+and the aleatoric channel should rank $e_{\mathrm{irr}}$. AUSE grows with the
+share of error pixels, which differs between the targets, the scenes and $M$.
+For these targets we therefore divide each scene's AUSE by the AUSE of a
+random ranking of the same errors (all $u$ tied), so 1 is random and 0 is the
+oracle.
 
 %% Operating point of the baselines: per-view FA 1e-3 on static val. Gaussians,
 %% the same nominal rate as ours (decision closed in the fix pass; revisit if
@@ -768,37 +772,39 @@ as well as NormLift's $1-C_{\mathrm{inter}}$ (AUSE 8.5 vs 8.8, lower on three
 of six scenes) and better than the CSS variance (11.2), while the learned $u$
 of LEGaussians ranks them worse than its own confidence (19.7 vs 11.9).
 
+%% Figure: scripts/plot_views.py --stage test (relative scale), from
+%% views/views_test.json and tab1/eval_test.json; per-scene wins:
+%% docs/reports/2026-10-17-paper-completion/logs/views_test_wins.txt
 \begin{figure}[t]
   \centering
-  \fbox{\parbox[c][0.55\linewidth][c]{0.92\linewidth}{\centering\footnotesize
-  \todo{Figure: $2\times2$ panels. Rows: $u^{\mathrm{epi}}$, $u^{\mathrm{ale}}$.
-  Columns: target $e_{\mathrm{red}}$, target $e_{\mathrm{irr}}$. x-axis: mapping
-  frames $M\in\{10,30,90\}$, plus $M=180$ in the $e_{\mathrm{irr}}$ column
-  ($e_{\mathrm{red}}$ is empty at $M=180$). y-axis: AUSE, lower is better.
-  Reference curves: averaging (one minus maximum probability) and, built from
-  NormLift's quantities, $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$ and
-  $1-\mathcal{R}$. Replica test, mean $\pm$ std, $N=6$.}}}
-  \caption{Does each uncertainty rank its own error? AUSE of the epistemic and
-  aleatoric channels against reducible error $e_{\mathrm{red}}$ and irreducible
-  error $e_{\mathrm{irr}}$, for fields built from $M$ of the 180 mapping frames.
-  If the two channels separate, each is lower on its own target than on the
-  other one. \todo{update once measured.}}
+  \includegraphics[width=\linewidth]{figs/views.pdf}
+  \caption{Does each uncertainty rank its own error? AUSE divided by the AUSE
+  of a random ranking of the same errors (dashed line; 0 is the oracle), for
+  fields built from $M$ of the 180 mapping frames, against the reducible error
+  $e_{\mathrm{red}}$ and the irreducible error $e_{\mathrm{irr}}$. Top: our
+  $u^{\mathrm{epi}}$, bottom: our $u^{\mathrm{ale}}$, each with the same
+  references. $M=180$ is the full map, where $e_{\mathrm{red}}$ is empty.
+  Replica test, mean $\pm$ std over $N=6$ scenes.}
   \label{fig:views}
 \end{figure}
 
-Fig.~\ref{fig:views} tests whether the two channels separate. Our
-$u^{\mathrm{epi}}$ counts views with a weight that saturates at one full view,
-so views with a small footprint count fractionally. The score
-$1/(1+N_{\mathrm{eff}})$, built from NormLift's Kish count of pixel masses,
-depends only on the relative masses of the views, so ten tiny views count as
-much as ten full ones. The two can therefore rank $e_{\mathrm{red}}$
-differently for Gaussians with small footprints. For the aleatoric channel we
-compare $\hat\rho$~\eqref{eq:rho} with NormLift's cross-view consistency
-$C_{\mathrm{inter}}$, which, like $\bar r$, is biased upward at few views, and
-with its reliability $\mathcal{R}$, which shrinks with scarce evidence.
-\todo{interpret once measured: is each channel lower on its own target, and is
-$u^{\mathrm{epi}}$ lower than one minus the maximum probability on
-$e_{\mathrm{red}}$?}
+Fig.~\ref{fig:views} tests whether the two channels separate. The references
+are one minus the maximum probability of averaging, the view count
+$1/(1+n_{\mathrm{vis}})$ over views with nonzero pixel mass, and NormLift's
+$1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$ and $1-\mathcal{R}$. With few
+views, $u^{\mathrm{epi}}$ ranks $e_{\mathrm{red}}$ better than
+$u^{\mathrm{ale}}$ (0.35 vs 0.90 at $M=10$, in all six scenes). With many
+views, $u^{\mathrm{ale}}$ ranks $e_{\mathrm{irr}}$ better than
+$u^{\mathrm{epi}}$ (0.48 vs 0.83 at $M=90$, all six scenes; 0.42 vs 0.82 on
+the full map, five of six). At $M=10$, $u^{\mathrm{ale}}$ is defined on only
+4\% of the covered pixels. The count-based scores rank $e_{\mathrm{irr}}$
+close to random or worse (on the full map 0.82 for our $u^{\mathrm{epi}}$,
+1.00 and 1.19 for the two counts): more views do not fix these errors. One
+minus the maximum probability ranks $e_{\mathrm{red}}$ better than both our
+channels in every scene at every $M$. Our channels do not replace it as a
+ranking of all errors; they tell the two kinds apart. On $e_{\mathrm{irr}}$, $u^{\mathrm{ale}}$ passes it from $M=90$ on
+(0.42 vs 0.52 on the full map) and is on par with $1-C_{\mathrm{inter}}$
+(0.43).
 
 %% ----------------------------------------------------------------------------
 \subsection{Real Rearrangements: Stale Content}
@@ -897,13 +903,16 @@ Gaussians in the robust set after the update. All metrics except NLL in \%.
 \cmidrule(l){5-6}
 Variant & mIoU$\uparrow$ & ECE$\downarrow$ & NLL$\downarrow$ & epi & ale\\
 \midrule
-\textbf{Full method}            & \ph & \ph & \ph & \ph & \ph\\
-Pixels instead of views        & \ph & \ph & \ph & \ph & \ph\\
-Uncorrected mean length $\bar r$ & \ph & \ph & \ph & \ph & \ph\\
-Prior-shrunk agreement         & \ph & \ph & \ph & \ph & \ph\\
-Shrunk mean length $\tilde r$  & \ph & \ph & \ph & \ph & \ph\\
-Centered features              & \ph & \ph & \ph & \ph & \ph\\
-Pixel-level variant            & \ph & \ph & \ph & \ph & \ph\\
+%% generated by scripts/make_tables.py tab3 tab3/eval_test.json --val tab3/eval_val.json
+%% --tab1 tab1/eval_test.json (full method = ours_P2, lowest validation NLL; its cells
+%% equal Table I's P2 row); log: docs/reports/2026-10-17-paper-completion/logs/tab3_rows.tex
+\textbf{Full method} & 28.0 & 8.7 & 1.00 & 16.4 & 8.5\\
+Pixels instead of views & 27.9 & 8.1 & 1.01 & 16.5 & 8.8\\
+Uncorrected mean length $\bar r$ & 28.0 & 8.6 & 0.99 & 16.4 & 8.5\\
+Prior-shrunk agreement & 28.0 & 8.5 & 1.01 & 16.4 & 14.8\\
+Shrunk mean length $\tilde r$ & 28.0 & 8.7 & 1.00 & 16.4 & 8.5\\
+Centered features & 28.0 & 8.6 & 0.99 & 16.4 & 8.3\\
+Pixel-level variant & 27.9 & 8.1 & 1.01 & 16.5 & 8.8\\
 \midrule
 \emph{RIO10 test} & \multicolumn{2}{c}{AP$\uparrow$} & & &\\
 \cmidrule(lr){2-3}
@@ -934,8 +943,17 @@ $\lVert\R\rVert/(W_1+c_0)$, or by the shrunk mean length
 $\tilde r=\bar r-(1-\bar r)/(W_1+1)$. Note that $\tilde r=1$ whenever
 $\bar r=1$, so $\tilde r$ does not correct the one-view case. \emph{Centered
 features} subtract the scene-mean feature before the dispersion and the
-change test. The full method uses \todo{the predictive chosen on validation
-(P0, P1 or P2, compared in Table~\ref{tab:replica})}. The bottom block uses
+change test. The full method uses P2, the predictive with the lowest
+validation NLL (Table~\ref{tab:replica}). On Replica only the agreement
+read-out matters much. Shrinking the agreement with the prior raises the
+aleatoric AUSE from 8.5 to 14.8, since it mixes the amount of evidence into
+the aleatoric channel. The bias correction of $\hat\rho$ changes no cell by
+more than 0.05 on the test or the validation scenes ($\bar r$ and $\tilde r$),
+so these data do not show a benefit of the correction. Counting pixels instead
+of views leaves mIoU and the epistemic AUSE unchanged and ranks errors slightly
+worse (8.8). It lowers the test ECE (8.1 vs 8.7) but raised the validation ECE
+(5.2 vs 4.9). Centering lowers the aleatoric AUSE a little on both splits (8.3
+vs 8.5 on test, 4.7 vs 5.0 on validation). The bottom block uses
 RIO10. The persistence and bucket rows vary $k$ and the retention $\lambda$ of
 the change test. The threshold rows replace the history-conditioned null by
 one pooled null per scene, by a null of per-Gaussian maxima over the mapping

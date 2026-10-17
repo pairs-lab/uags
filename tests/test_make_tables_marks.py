@@ -1,8 +1,8 @@
 """scripts/make_tables.py best / second-best marks (bold / underline) on the printed means:
  * marks(): the best and second-best distinct values, ties share a mark, None is not ranked;
  * mark(): wraps the mean only, never the std;
- * Table I: --rank ov ranks the open-vocabulary rows (CSS shown, not ranked), --rank all ranks
-   CSS too; P2's mIoU / accuracy ("as P0") and NormLift's predictive ("same as averaging") are
+ * Table I: --rank all (default) ranks every row, --rank ov only the open-vocabulary rows (CSS
+   shown, not ranked); P2's mIoU / accuracy ("as P0") and NormLift's predictive ("same as averaging") are
    not values; lower is better except mIoU and accuracy;
  * Table III: no marks by default, --marks ranks all rows.
 """
@@ -64,7 +64,7 @@ def test_marks_and_mark():
 
 def test_tab1_open_vocabulary_ranking(tmp_path):
     p = _write(tmp_path)
-    tex = mt.tab1(p)                                       # --rank ov (default)
+    tex = mt.tab1(p, rank="ov")
     assert "% bold = best, underline = second best per column, among the open-vocabulary" in tex
     css = _line(tex, "CSS")
     assert "\\textbf" not in css and "\\underline" not in css          # shown, not ranked
@@ -86,11 +86,11 @@ def test_tab1_open_vocabulary_ranking(tmp_path):
 
 
 def test_tab1_rank_all(tmp_path):
-    tex = mt.tab1(_write(tmp_path), rank="all")
+    tex = mt.tab1(_write(tmp_path))                       # --rank all (default)
     css = _line(tex, "CSS").split(" & ")
     assert css[2].startswith("\\textbf{28.5}") and css[4].startswith("\\textbf{5.1}")
     assert _line(tex, "Ours P2").split(" & ")[3].startswith("\\underline{8.7}")
-    print("PASS Table I --rank all ranks CSS")
+    print("PASS Table I --rank all (default) ranks CSS")
 
 
 def test_tab3_marks_only_on_request(tmp_path):

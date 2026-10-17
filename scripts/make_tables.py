@@ -15,9 +15,9 @@ AUSE_u = AUSE of the row's own uncertainty against the 0/1 error:
     LEGaussians    legs_u (its learned uncertainty)      ours u_ale
     2D, averaging, Feature 3DGS: none ("--")
 Marks: in every number column, bold (best) and underline (second best) on the printed
-mean (not its std); rows with the same printed value share the mark. Table I ranks the
-open-vocabulary rows only (--rank ov, the default: CSS is told the class list at mapping time,
-so it is shown but not ranked; --rank all ranks it too). Table III (an ablation: each row is
+mean (not its std); rows with the same printed value share the mark. Table I ranks every row
+(--rank all, the default; --rank ov ranks the open-vocabulary rows only and leaves CSS, which is
+told the class list at mapping time, unmarked). Table III (an ablation: each row is
 read against the full method, and most cells tie) has marks only with --marks.
 Choices made on the VALIDATION file only (--val): the CSS prior read-out (css or
 css_a<alpha0>) and the P3 temperature (ours_P3_b<beta_g>) by the lowest validation NLL, and
@@ -152,7 +152,7 @@ def mark_columns(table, ranked, higher):
 TAB1_HIGHER = [True, True, False, False, False, False, False]      # COLS + AUSE_u
 
 
-def tab1(path, variant="all", val=None, rank="ov"):
+def tab1(path, variant="all", val=None, rank="all"):
     summ = body(path)["summary"]
     vs = body(val)["summary"] if val else None
     picked = {k: (choose(vs, k, variant) if vs else CHOICES[k][1]) for k in CHOICES}
@@ -402,9 +402,9 @@ def main():
     ap.add_argument("--variant", default="all", choices=["all", "covered"])
     ap.add_argument("--tab1", default="", help="tab3: Table I eval_seg JSON; a comment compares "
                     "the full method's printed cells with its row")
-    ap.add_argument("--rank", default="ov", choices=["ov", "all"], help="tab1: rows that get "
-                    "the best / second-best marks (ov: open-vocabulary rows only, CSS shown but "
-                    "not ranked)")
+    ap.add_argument("--rank", default="all", choices=["all", "ov"], help="tab1: rows that get "
+                    "the best / second-best marks (all rows, or ov: open-vocabulary rows only, "
+                    "CSS shown but not ranked)")
     ap.add_argument("--marks", action="store_true", help="tab3: bold / underline the best and "
                     "second-best cells of each column too")
     ap.add_argument("--digits", type=int, default=1,

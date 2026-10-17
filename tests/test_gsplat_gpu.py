@@ -112,9 +112,11 @@ def main():
           f"{ale[valid].mean():.3f} (> 0.5)")
 
     # temporal change: 4 views of z0, then z1 -> the change test fires
-    # mechanics check with a fixed threshold (the pipeline calibrates it per scene)
-    field = DirectionalSemanticField(N, d, FieldConfig(fast_memory=0.5, change_thr=0.5),
-                                     device=device)
+    # mechanics check of the DEFAULT test (fast_memory 0, persistence k = 2: the classic
+    # residual) with a fixed threshold (the pipeline calibrates it per scene). The first z1
+    # view gives c = 1, the second c = 1 - 1/sqrt(17) = 0.76; their minimum fires. (This test
+    # used fast_memory = 0.5 before k = 2 became the default; with both, min(c) stays < 0.5.)
+    field = DirectionalSemanticField(N, d, FieldConfig(change_thr=0.5), device=device)
     field.set_centre(torch.zeros(d, device=device))
     z1 = torch.randn(d, device=device)
     z1 = Fn.normalize(z1 - (z1 @ z0) * z0, dim=0)            # orthogonal new content

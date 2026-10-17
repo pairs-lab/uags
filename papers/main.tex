@@ -142,9 +142,8 @@ change with a known feature residual and set its threshold per scene, without
 labels, from the map's own mapping pass. A Gaussian that fails the test is
 reset. When depth is available, it rejoins the robust map only after new views
 whose observed depth matches its position. A posterior predictive turns the
-field into per-pixel class probabilities. We evaluate on Replica and on real
-rearrangements in RIO10. \todo{RIO10 access pending: keep RIO10 only if the
-data arrive.}
+field into per-pixel class probabilities. We evaluate on Replica and on 16
+real scenes from which an object was physically removed.
 %% Headline sentence: at most ~20 words (the rest is about 170 words; limit 200).
 \todo{headline result}
 \end{abstract}
@@ -234,10 +233,9 @@ plug-in features at their own fitted temperature.
 
 We evaluate segmentation, uncertainty ranking and calibration on 8 Replica
 scenes~\cite{straub2019replica, zhi2021semanticnerf}, and stale-content
-detection on real object rearrangements in RIO10~\cite{wald2020rio10,
-wald2019rio}. \todo{RIO10 access pending: keep this clause only if the data
-arrive, else name the fallback dataset. Add one sentence on the main measured
-finding, and the anonymous code link or nothing.}
+detection on 16 real scenes in which an object was physically
+removed~\cite{weder2023removing}. \todo{one sentence on the main measured
+finding.}
 
 %% ============================================================================
 %% Related Work
@@ -567,9 +565,9 @@ baseline by NLL on the validation split.
 \label{sec:experiments}
 We ask four questions. Is the field as accurate as simple averaging, and does
 its predictive lower NLL and ECE (Table~\ref{tab:replica})? Does each
-uncertainty rank the error it is meant for (Fig.~\ref{fig:views})? On real
-rearrangements, does the change test find stale content
-(Table~\ref{tab:rio10})? Which parts matter, and does the reset keep stale
+uncertainty rank the error it is meant for (Fig.~\ref{fig:views})? When a
+real object is removed, does the change test find the stale content
+(Table~\ref{tab:change})? Which parts matter, and does the reset keep stale
 content out of the robust set (Table~\ref{tab:ablation})?
 
 %% ----------------------------------------------------------------------------
@@ -588,23 +586,24 @@ mapping. The query vocabulary of a scene is the set of classes present in its
 evaluation frames. One ensemble of five prompt templates, chosen on the
 validation scenes, serves all scenes.
 
-\textbf{RIO10.} RIO10~\cite{wald2020rio10} holds real rescans of 10 rooms in
-which objects were moved or removed between visits. \todo{RIO10 access is
-pending. This block runs once the data arrive.} We validate on scenes 01, 04
-and 06 and test on the other seven. Each method maps on seqXX\_01 and is then
-updated with seqXX\_02 \todo{frame strides and pose source}. Stale ground
-truth comes from the object annotations~\cite{wald2020rio10, wald2019rio},
-which no method reads \todo{check that instance ids match across the two
-rescans, else use the 3RScan annotations}. An object is stale if it was
-removed, moved by more than \ph\,cm or turned by more than \ph$^\circ$. A
-Gaussian is stale if its nearest annotated point in seqXX\_01, within
-\ph\,cm, belongs to a stale object. We fix these thresholds before we look at
-any method output. Gaussians that no update view observes, or that the new
-surface hides in every update view, cannot be judged. We leave them out of the
-change metrics and report their share. The observed depth for re-admission
-comes from \todo{sensor depth or a depth estimator}, never from the mesh. The
-mesh depth of each rescan \todo{verify} shows the new state of the scene, and
-we use it only in an oracle row.
+%% Protocol fixed before any method ran on these scenes (report 2026-10-17,
+%% decisions D1-D6): masks_real as pixel truth, box + after-removal depth test for
+%% stale Gaussians, one ICP alignment per scene, default keyframe rule.
+\textbf{Object removal.} Weder et al.~\cite{weder2023removing} recorded each
+scene twice with ARKit on an iPhone~12~Pro with LiDAR, once with an object and
+once after the object was physically removed, in one coordinate frame. The
+public release has 16 scenes. Each method maps on the first sequence and is
+then updated with the second. We validate on scenes 001 to 004 and test on
+005 to 016. The ground truth comes from the annotated 3D box of the removed
+object, which no method reads. A Gaussian is stale if its center lies in the
+box enlarged by 2\,cm and more than 2\,cm from every high-confidence depth
+point of the second sequence. This leaves out static surfaces inside the box,
+such as the wall behind a removed bike. Gaussians that no update view observes
+are left out of the metrics and counted. The pixel ground truth is the
+object mask of the update frames. In two scenes the two sequences are offset
+by 2.5 to 3.5\,cm, so in every scene we align the second sequence to the first
+with one rigid transform, found by ICP on depth outside the box. Re-admission
+uses the LiDAR depth with high confidence. There is no depth oracle.
 
 \textbf{Map and features.} For each scene we fit one 3D-GS map on the mapping
 frames with gsplat~\cite{ye2024gsplat} (degree-0 color, 30k iterations, at most
@@ -614,7 +613,7 @@ features, compressed to $d=64$
 in advance, and all temperatures are set on the validation scenes. We
 freeze every choice before the test scenes run, and we run them once. We report
 the mean and the population standard deviation over the test scenes ($N=6$ for
-Replica, $N=7$ for RIO10).
+Replica, $N=12$ for object removal).
 
 \textbf{Segmentation baselines.} All baselines share our geometry, features and
 splat weights, and each gets its own temperature, fit by NLL on the validation
@@ -651,17 +650,15 @@ splat weights and, as for our score, require it to persist over $k=2$
 observed views. \emph{NCC} is one minus the normalized cross-correlation of
 observed and rendered grey values in small windows, which ignores a global
 gain or offset. The \emph{depth residual} is the absolute difference between
-observed depth and map depth. Its non-oracle row uses the same depth as our
-re-admission check. Its oracle row uses the RIO10 mesh depth of seqXX\_02 and
-is an upper bound. The \emph{feature residual} is one minus the cosine of
+observed depth and map depth, from the same LiDAR depth as our re-admission
+check. The \emph{feature residual} is one minus the cosine of
 rendered and observed features. It is the residual of
 CL-Splats~\cite{ackermann2025clsplats} and the semantic term of MIF's
 discrepancy score~\cite{jiang2026mif}, and we re-implement only this per-pixel
 residual. Two rows use an uncertainty as the change score: the drop of
 NormLift's $\mathcal{R}$ during the update and our dispersion $1-\hat\rho$.
-The \emph{fused} row averages the ranks
-of our score and of the non-oracle depth residual, with equal weights and
-nothing fitted.
+The \emph{fused} row averages the ranks of our score and of the depth
+residual, with equal weights and nothing fitted.
 
 %% ----------------------------------------------------------------------------
 \subsection{Metrics}
@@ -697,22 +694,20 @@ For these targets we therefore divide each scene's AUSE by the AUSE of a
 random ranking of the same errors (all $u$ tied), so 1 is random and 0 is the
 oracle.
 
-%% Operating point of the baselines: per-view FA 1e-3 on static val. Gaussians,
-%% the same nominal rate as ours (decision closed in the fix pass; revisit if
-%% the lead prefers another point).
+%% Operating point: every row uses the label-free rule of ours (the 0.999
+%% quantile of its own scores on the mapping views); no row sees labels.
 \textbf{Change.} We report average precision (AP) and AUROC for stale content
-at the Gaussian and at the object level. An object's score is the mean score
-of its Gaussians. A residual row scores a Gaussian by the largest value of its
+at the Gaussian level and at the pixel level, where each row's Gaussian scores
+are rendered into the update frames and scored on covered pixels against the
+object mask. A residual row scores a Gaussian by the largest value of its
 persistent residual over the update, and the uncertainty rows use their value
 after the update. A Gaussian that a row never scores ranks last, and we report
 how many there are. The false-alarm rate (FA) is the share of static
 Gaussians flagged at least once during the update, and recall (Rec.) is the
-same share for stale Gaussians. Our threshold targets a nominal per-view
-false-alarm rate of $10^{-3}$ (\secref{sec:change}), so FA grows with the
-number of update views that see a Gaussian. Every other row gets one
-threshold, set on the validation scenes with labels so that its per-view
-false-alarm rate on static Gaussians is $10^{-3}$. The baselines thus use
-labels that our row does not use.
+same share for stale Gaussians. Every row sets its threshold as ours does,
+without labels: the 0.999 quantile of its own scores on the mapping views
+(\secref{sec:change}). This targets a nominal per-view false-alarm rate of
+$10^{-3}$, so FA grows with the number of update views that see a Gaussian.
 
 %% ----------------------------------------------------------------------------
 \subsection{Static Scenes: Accuracy, Calibration and Ranking}
@@ -803,22 +798,22 @@ error apart. On $e_{\mathrm{irr}}$, $u^{\mathrm{ale}}$ is on par with
 $1-C_{\mathrm{inter}}$ (0.42 vs 0.43 on the full map).
 
 %% ----------------------------------------------------------------------------
-\subsection{Real Rearrangements: Stale Content}
-\label{sec:exp-rio10}
+\subsection{Real Object Removal: Stale Content}
+\label{sec:exp-change}
 \begin{table*}[t]
 \centering
-\caption{Stale-content detection on the RIO10 test scenes (mean $\pm$ std,
-$N=7$). AP, AUROC, FA and Rec.\ in \%. Input: I = image, D = observed depth,
-F = features, M = mesh depth of the new rescan. \reimpl Our re-implementation (for~\cite{ackermann2025clsplats,
-jiang2026mif}, of the per-pixel feature residual only). The oracle row reads
-the new mesh, which a robot does not have. \todo{replace placeholders. RIO10
-access pending.}}
-\label{tab:rio10}
+\caption{Stale-content detection on the object-removal test scenes (mean
+$\pm$ std, $N=12$). AP, AUROC, FA and Rec.\ in \%. Input: I = image, D =
+observed LiDAR depth, F = features. \reimpl Our re-implementation
+(for~\cite{ackermann2025clsplats, jiang2026mif}, of the per-pixel feature
+residual only). \textbf{Bold}: best, \underline{underline}: second best.
+\todo{replace placeholders.}}
+\label{tab:change}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{@{}llcccccc@{}}
 \toprule
-& & \multicolumn{2}{c}{Gaussian level} & \multicolumn{2}{c}{Object level}
+& & \multicolumn{2}{c}{Gaussian level} & \multicolumn{2}{c}{Pixel level}
 & \multicolumn{2}{c}{Operating point}\\
 \cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(l){7-8}
 Method & Input & AP$\uparrow$ & AUROC$\uparrow$ & AP$\uparrow$ & AUROC$\uparrow$
@@ -834,31 +829,26 @@ Dispersion $1-\hat\rho$ (ours)                       & F   & \phs & \phs & \phs 
 \midrule
 Ours: test, reset, re-admission                      & F+D & \phs & \phs & \phs & \phs & \phs & \phs\\
 Ours fused with depth residual                       & F+D & \phs & \phs & \phs & \phs & \phs & \phs\\
-\midrule
-\emph{Depth residual, oracle (upper bound)}          & M   & \phs & \phs & \phs & \phs & \phs & \phs\\
 \bottomrule
 \end{tabular}
 \end{table*}
 
-Table~\ref{tab:rio10} reports stale-content detection. Our score differs
+Table~\ref{tab:change} reports stale-content detection. Our score differs
 from the feature-residual row only in where it takes the cosine: per Gaussian
 against all of its earlier evidence, not per pixel against the rendered map.
 Ours also sets its threshold from the mapping pass, resets the Gaussians it
 flags, and re-admits them after the depth check. The fused row asks whether
-our score adds to non-oracle depth. In the test scenes, \ph\% of the
-Gaussians are unobserved and \ph\% are hidden, and they are not in the
-table. \todo{interpret once
-measured: does ours beat every non-oracle residual in AP, or does it add to
-the depth residual in the fused row? Report the rows where a baseline wins.}
-\todo{If the RIO10 labels map to our vocabulary, add mIoU and ECE after the
-update on changed and unchanged regions. Otherwise keep the Limitations
-sentence on synthetic calibration data.} Fig.~\ref{fig:qual} shows examples.
+our score adds to the depth residual. In the test scenes, \ph\% of the
+Gaussians are unobserved and are not in the table. \todo{interpret once
+measured: does ours beat every residual in AP, or does it add to the depth
+residual in the fused row? Report the rows where a baseline wins.}
+Fig.~\ref{fig:qual} shows examples.
 
 \begin{figure}[t]
   \centering
   \fbox{\parbox[c][0.45\linewidth][c]{0.92\linewidth}{\centering\footnotesize
-  \todo{Qualitative figure. Top row: one RIO10 validation frame with a moved
-  or removed object. Bottom row: one Replica frame. Columns: image, query
+  \todo{Qualitative figure. Top row: one object-removal validation frame
+  after the removal. Bottom row: one Replica frame. Columns: image, query
   result, $u^{\mathrm{epi}}$, $u^{\mathrm{ale}}$, change score $\bar c$ with the
   flagged Gaussians.}}}
   \caption{Qualitative results. \todo{caption once the figure exists.}}
@@ -880,11 +870,11 @@ sentence on synthetic calibration data.} Fig.~\ref{fig:qual} shows examples.
 %%    from_state maps them to "history".
 \begin{table}[t]
 \centering
-\caption{Ablations on the test scenes, mean over $N=6$ (top) and $N=7$
+\caption{Ablations on the test scenes, mean over $N=6$ (top) and $N=12$
 (bottom). Each row changes one part of the full method. AUSE: the row's
 $u^{\mathrm{epi}}$ (epi) and $u^{\mathrm{ale}}$ (ale) against the 0/1 error
 of the full map (the split into $e_{\mathrm{red}}$ and $e_{\mathrm{irr}}$ is
-Fig.~\ref{fig:views}). AP at the Gaussian (G) and object (O) level. Kept: share of stale
+Fig.~\ref{fig:views}). AP at the Gaussian (G) and pixel (P) level. Kept: share of stale
 Gaussians in the robust set after the update. All metrics except NLL in \%.
 \todo{replace placeholders.}}
 \label{tab:ablation}
@@ -907,9 +897,9 @@ Shrunk mean length $\tilde r$ & 28.0 & 8.7 & 1.00 & 16.4 & 8.5\\
 Centered features & 28.0 & 8.6 & 0.99 & 16.4 & 8.3\\
 Pixel-level variant & 27.9 & 8.1 & 1.01 & 16.5 & 8.8\\
 \midrule
-\emph{RIO10 test} & \multicolumn{2}{c}{AP$\uparrow$} & & &\\
+\emph{Object removal, test} & \multicolumn{2}{c}{AP$\uparrow$} & & &\\
 \cmidrule(lr){2-3}
-Variant & G & O & FA$\downarrow$ & Rec.$\uparrow$ & Kept$\downarrow$\\
+Variant & G & P & FA$\downarrow$ & Rec.$\uparrow$ & Kept$\downarrow$\\
 \midrule
 \textbf{Full method}            & \ph & \ph & \ph & \ph & \ph\\
 No persistence ($k=1$)         & \ph & \ph & \ph & \ph & \ph\\
@@ -946,8 +936,8 @@ so these data do not show a benefit of the correction. Counting pixels instead
 of views leaves mIoU and the epistemic AUSE unchanged and ranks errors slightly
 worse (8.8). It lowers the test ECE (8.1 vs 8.7) but raised the validation ECE
 (5.2 vs 4.9). Centering lowers the aleatoric AUSE a little on both splits (8.3
-vs 8.5 on test, 4.7 vs 5.0 on validation). The bottom block uses
-RIO10. The persistence and bucket rows vary $k$ and the retention $\lambda$ of
+vs 8.5 on test, 4.7 vs 5.0 on validation). The bottom block uses the
+object-removal scenes. The persistence and bucket rows vary $k$ and the retention $\lambda$ of
 the change test. The threshold rows replace the history-conditioned null by
 one pooled null per scene, by a null of per-Gaussian maxima over the mapping
 pass, or by one fixed threshold from the validation scenes.
@@ -964,7 +954,7 @@ remain.}
 %% Keep it only if the timing runs on this machine.
 \textbf{Run time and memory.} We time one validation scene per dataset on one
 NVIDIA GeForce RTX 5070 Ti with an Intel Core i5-14600KF and no other job
-running. On Replica (RIO10), a keyframe takes \ph\ (\ph)\,ms in total: \ph\
+running. On Replica (object removal), a keyframe takes \ph\ (\ph)\,ms in total: \ph\
 (\ph)\,ms for LSeg feature extraction, \ph\ (\ph)\,ms for the render and
 backward pass, and \ph\ (\ph)\,ms for the statistics, change test and
 re-admission. Peak GPU memory is \ph\,GB. Averaging and NormLift reuse the
@@ -984,8 +974,8 @@ PCA are fit on those frames), so the false-alarm rate on a new sequence can
 exceed the nominal rate. The 5\,cm depth check cannot keep out a thin removed
 object, such as a book on a table. All baselines are our re-implementations
 (LEGaussians on our features), and differences from the authors' code may
-remain. \todo{Keep only if the RIO10
-class map fails:} The predictive is evaluated on synthetic data (Replica) only.
+remain. The removal scenes have no class labels, so the predictive is evaluated
+on synthetic data (Replica) only.
 
 %% ============================================================================
 \section{Conclusion}
@@ -995,8 +985,8 @@ We presented an open-vocabulary semantic field for 3D Gaussian Splatting that
 counts evidence in views and keeps little evidence and conflicting evidence
 apart. A known feature residual, with a threshold from the map's own mapping
 pass, drives the reset and the depth-checked re-admission of changed
-Gaussians. \todo{one sentence with the main measured result on RIO10 and one
-on Replica.} Future work should insert new geometry where content has moved
+Gaussians. \todo{one sentence with the main measured result on object
+removal and one on Replica.} Future work should insert new geometry where content has moved
 and test the field with other feature extractors.
 
 %% ============================================================================

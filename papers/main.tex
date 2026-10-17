@@ -792,22 +792,24 @@ of LEGaussians ranks them worse than its own confidence (19.7 vs 11.9).
 \end{figure}
 
 Fig.~\ref{fig:views} tests whether the two channels separate. The references
-are one minus the maximum probability of averaging, the view count
-$1/(1+n_{\mathrm{vis}})$ over views with nonzero pixel mass, and NormLift's
-$1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$ and $1-\mathcal{R}$. With few
-views, $u^{\mathrm{epi}}$ ranks $e_{\mathrm{red}}$ better than
-$u^{\mathrm{ale}}$ (0.35 vs 0.90 at $M=10$, in all six scenes). With many
-views, $u^{\mathrm{ale}}$ ranks $e_{\mathrm{irr}}$ better than
-$u^{\mathrm{epi}}$ (0.48 vs 0.83 at $M=90$, all six scenes; 0.42 vs 0.82 on
-the full map, five of six). At $M=10$, $u^{\mathrm{ale}}$ is defined on only
-4\% of the covered pixels. The count-based scores rank $e_{\mathrm{irr}}$
-close to random or worse (on the full map 0.82 for our $u^{\mathrm{epi}}$,
-1.00 and 1.19 for the two counts): more views do not fix these errors. One
-minus the maximum probability ranks $e_{\mathrm{red}}$ better than both our
-channels in every scene at every $M$. Our channels do not replace it as a
-ranking of all errors; they tell the two kinds apart. On $e_{\mathrm{irr}}$, $u^{\mathrm{ale}}$ passes it from $M=90$ on
-(0.42 vs 0.52 on the full map) and is on par with $1-C_{\mathrm{inter}}$
-(0.43).
+are our total uncertainty, one minus the maximum probability of P2, the same
+score for averaging, the view count $1/(1+n_{\mathrm{vis}})$ over views with
+nonzero pixel mass, and NormLift's $1/(1+N_{\mathrm{eff}})$,
+$1-C_{\mathrm{inter}}$ and $1-\mathcal{R}$. With few views,
+$u^{\mathrm{epi}}$ ranks $e_{\mathrm{red}}$ better than $u^{\mathrm{ale}}$
+(0.35 vs 0.90 at $M=10$, in all six scenes). With many views,
+$u^{\mathrm{ale}}$ ranks $e_{\mathrm{irr}}$ better than $u^{\mathrm{epi}}$
+(0.48 vs 0.83 at $M=90$, all six scenes; 0.42 vs 0.82 on the full map, five
+of six). At $M=10$, $u^{\mathrm{ale}}$ is defined on only 4\% of the covered
+pixels. The count-based scores rank $e_{\mathrm{irr}}$ close to random or
+worse (on the full map 0.82 for our $u^{\mathrm{epi}}$, 1.00 and 1.19 for the
+two counts): more views do not fix these errors. A total uncertainty ranks
+$e_{\mathrm{red}}$ better than either channel alone. There ours and averaging
+tie (0.19 at $M=10$), and on $e_{\mathrm{irr}}$ ours is lower than averaging
+at every $M$ (0.44 vs 0.52 on the full map, all six scenes at $M=90$ and
+180). The channels add what one score cannot: they tell the two kinds of
+error apart. On $e_{\mathrm{irr}}$, $u^{\mathrm{ale}}$ is on par with
+$1-C_{\mathrm{inter}}$ (0.42 vs 0.43 on the full map).
 
 %% ----------------------------------------------------------------------------
 \subsection{Real Rearrangements: Stale Content}

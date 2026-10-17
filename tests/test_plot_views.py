@@ -31,7 +31,7 @@ pv = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pv)
 
 KS = (10, 30, 90)
-CURVES = [("ours_P0", "u_epi"), ("ours_P0", "u_ale"), ("averaging", "msp"),
+CURVES = [("ours_P0", "u_epi"), ("ours_P0", "u_ale"), ("ours_P2", "msp"), ("averaging", "msp"),
           ("normlift", "normlift_epi"), ("normlift", "normlift_1-Cinter"),
           ("normlift", "normlift_1-R"), ("viewcount", "viewcount")]
 
@@ -65,12 +65,13 @@ def _miou(s):
     return 0.3 + 0.01 * int(s[1:])                  # full-map mIoU of scene "s<i>"
 
 
-ROWS = ("ours_P0", "averaging", "normlift", "viewcount")
+ROWS = ("ours_P0", "ours_P2", "averaging", "normlift", "viewcount")
+OURS_LABELS = ("ours_P0", "ours_P2")          # P2 keeps P0's labels: the same errors
 
 
 def _counts(s, k, row):
     """(n_pixels, n_e_red, n_e_irr) of scene "s<i>" at M = k (ours and the references differ)."""
-    i, r = int(s[1:]), int(row != "ours_P0")       # the references share one predictive
+    i, r = int(s[1:]), int(row not in OURS_LABELS)  # the references share one predictive
     n = 5000 + 100 * i
     return n, (300 + 7 * i + r) // (1 + KS.index(k)), 800 + 11 * i + 13 * KS.index(k) + r
 
@@ -84,7 +85,7 @@ def _scene_ause(s, k, j, t):
 def _acc(s, row):
     """Covered accuracy of the full map: 850 + 9 i + r errors among 5000 + 100 i pixels."""
     n = 5000 + 100 * int(s[1:])
-    return (n - (850 + 9 * int(s[1:]) + int(row != "ours_P0"))) / n
+    return (n - (850 + 9 * int(s[1:]) + int(row not in OURS_LABELS))) / n
 
 
 def _write(tmp_path, views_scenes, tab1_scenes, miou_shift=0.0, counts=False, betas=None):
@@ -280,7 +281,8 @@ def test_random_level_and_target_sizes(tmp_path, capsys):
             assert ms == (list(KS) + [180] if t == "e_irr" else list(KS))
             for k, c in sizes[t][row]:
                 if k == 180:                          # Table I covered n_pixels and acc
-                    per = [(5000 + 100 * i, 850 + 9 * i + int(row != "ours_P0")) for i in (0, 1)]
+                    per = [(5000 + 100 * i, 850 + 9 * i + int(row not in OURS_LABELS))
+                           for i in (0, 1)]
                 else:
                     per = [(n, red if t == "e_red" else irr)
                            for n, red, irr in (_counts(f"s{i}", k, row) for i in (0, 1))]
@@ -289,8 +291,9 @@ def test_random_level_and_target_sizes(tmp_path, capsys):
                 assert abs(c["random"]["std"] - abs(want[0] - want[1]) / 2) < 1e-12
                 assert abs(c["share"]["mean"] - sum(x / n for n, x in per) / 2) < 1e-12
                 assert c["min_count"] == min(x for _, x in per)
-    assert "| e_red | ours_P0 | random AUSE x100 |" in out
+    assert "| e_red | ours_P0 = ours_P2 | random AUSE x100 |" in out
     assert "| e_irr | averaging = normlift = viewcount | smallest target count |" in out
+    assert "| e_red | ours_P0 = ours_P2 | random AUSE x100 |" in out
     print("PASS random level = sparsification_curve(constant u); shares and counts")
 
 
@@ -357,7 +360,7 @@ def test_checks_and_the_test_stage_refusal(tmp_path, capsys):
                                  betas=(b, b))
     ok = tmp_path / "ok.pdf"
     res, out = _run(capsys, ["--stage", "test", "--views", vp, "--tab1", tp, "--out", str(ok)])
-    assert "check covered pixels: PASS: views n_pixels = Table I covered n_pixels in 24 of 24" \
+    assert "check covered pixels: PASS: views n_pixels = Table I covered n_pixels in 30 of 30" \
         in out
     assert "check temperatures: PASS: betas of 2 part files = Table I betas in 6 of 6" in out
     assert ok.exists() and [r[1] for r in res["checks"]] == ["PASS", "PASS", "PASS"]
@@ -376,7 +379,7 @@ def test_checks_and_the_test_stage_refusal(tmp_path, capsys):
     with pytest.raises(SystemExit, match="covered pixels"):
         pv.main(["--stage", "test", "--views", vp, "--tab1", tp, "--out", str(bad)])
     _, out = _run(capsys, ["--stage", "val", "--views", vp, "--tab1", tp, "--out", str(bad)])
-    assert "check covered pixels: FAIL: views n_pixels = Table I covered n_pixels in 21 of 24" \
+    assert "check covered pixels: FAIL: views n_pixels = Table I covered n_pixels in 27 of 30" \
         in out
     print("PASS checks: pixels and temperatures; test stage refuses on a failed check")
 
@@ -410,7 +413,7 @@ def test_relative_scale(tmp_path, capsys):
             for k, st in data[t][(row, sig)]:
                 if k == 180:
                     per = [(_per_scene(j, f"s{i}"), 5000 + 100 * i,
-                            850 + 9 * i + int(row != "ours_P0")) for i in (0, 1)]
+                            850 + 9 * i + int(row not in OURS_LABELS)) for i in (0, 1)]
                 else:
                     per = [(_scene_ause(f"s{i}", k, j, t),) + (lambda c: (c[0], c[1] if t ==
                            "e_red" else c[2]))(_counts(f"s{i}", k, row)) for i in (0, 1)]

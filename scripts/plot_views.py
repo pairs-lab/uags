@@ -14,8 +14,9 @@ AUSE divided by the AUSE of a random ranking of the same errors (all uncertainti
 usplat.evaluation.sparsification_curve's random_gap, from the scene's pixel and target
 counts), so 1 = random and 0 = the oracle; lower is better. --scale raw plots AUSE x100 as in
 the summary. Each curve is the mean over the scenes with +- std error bars (population std,
-as usplat.seg_eval.scene_stats; --band draws bands). Both rows hold the same five references: one minus the maximum
-probability of averaging (signal "msp"), the scores built from NormLift's quantities
+as usplat.seg_eval.scene_stats; --band draws bands). Both rows hold the same references: our total uncertainty, one minus the
+maximum probability of our full predictive (P2, the row --total-row, signal "msp"), one minus
+the maximum probability of averaging, the scores built from NormLift's quantities
 1/(1 + N_eff), 1 - C_inter and 1 - R, and the view count 1/(1 + n_vis).
 READING: raw AUSE grows with the target's share of pixels (and that share varies between
 scenes, targets and M), so raw values are compared only WITHIN a column; the relative scale
@@ -69,6 +70,7 @@ TARGETS = [("e_red", r"reducible error $e_{\mathrm{red}}$"),
 # band, so each curve also has its own marker; normal-vision floor 15.6 passes.
 OURS = ("ours", "Ours", None, None, "#0072B2", "o")
 REFS = [
+    ("ours P2, 1 - max p", r"Ours P2, $1-\max\,p$", "ours_P2", "msp", "#000000", "X"),
     ("averaging, 1 - max p", r"Averaging, $1-\max\,p$", "averaging", "msp", "#D55E00", "s"),
     ("NormLift, 1/(1+N_eff)", r"NormLift, $1/(1+N_{\mathrm{eff}})$", "normlift", "normlift_epi",
      "#009E73", "^"),
@@ -79,7 +81,7 @@ REFS = [
 ]
 RANDOM = dict(label="Random ranking", color="#898781", ls=(0, (3, 2)), lw=0.7)
 MIN_COUNT = 100                   # a scene with fewer target pixels makes the point hollow
-DODGE = 0.045                     # error bars: curve c sits at M * exp((c - 2.5) * DODGE)
+DODGE = 0.04                      # error bars: curve c sits at M * exp((c - 3) * DODGE)
 INK, INK2, AXIS, GRID = "#0b0b0b", "#52514e", "#898781", "#e1e0d9"
 RC = {"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
       "mathtext.fontset": "stix", "font.size": 7, "axes.titlesize": 8, "axes.labelsize": 8,

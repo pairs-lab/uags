@@ -12,3 +12,9 @@ per scene and M: is averaging/msp the lowest relative AUSE on e_red among all 7 
 M=10: room_0:normlift/normlift_1-Cinter, room_1:normlift/normlift_1-R, office_1:averaging/msp, office_2:averaging/msp, office_3:averaging/msp, office_4:averaging/msp
 M=30: room_0:averaging/msp, room_1:averaging/msp, office_1:averaging/msp, office_2:averaging/msp, office_3:averaging/msp, office_4:averaging/msp
 M=90: room_0:averaging/msp, room_1:averaging/msp, office_1:averaging/msp, office_2:averaging/msp, office_3:averaging/msp, office_4:averaging/msp
+
+our total uncertainty (ours_P2 1 - max p) vs references, per-scene wins (lower relative AUSE):
+e_red: ours_P2/msp < averaging/msp: M=10: 5/6, M=30: 4/6, M=90: 3/6
+e_irr: ours_P2/msp < averaging/msp: M=10: 6/6, M=30: 5/6, M=90: 6/6, M=180: 6/6
+e_irr: ours_P2/msp < normlift/normlift_1-Cinter: M=10: 5/6, M=30: 2/6, M=90: 3/6, M=180: 3/6
+e_irr: ours_P2/msp < ours_P0/u_ale: M=10: 6/6, M=30: 5/6, M=90: 5/6, M=180: 4/6

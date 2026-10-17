@@ -513,6 +513,50 @@ def test_state_roundtrip_continues_like_unbroken_run():
     assert torch.isfinite(a["feat/kmin"]).all()             # k = 3 reached across the cut
 
 
+def test_push_view_gives_the_update_only_state():
+    """run_mapping.py's update-pass-only state: an accumulator fed (push_view) the per-view
+    residuals and view weights of the update views that the whole-run accumulator returned
+    equals, bit for bit, one that ran update() on the update views alone (every residual,
+    every filter, the ewma's view weights, partial coverage); the whole-run accumulator,
+    whose ring the residual null reads, is not touched."""
+    H, W = 20, 28
+    ras, N = _mixed_scene(H, W)
+    P = H * W
+    g = torch.Generator().manual_seed(3)
+    ren_rgb = torch.rand(P, 3, generator=g)
+    ren_f = torch.randn(P, 5, generator=g)
+    rd = 1.0 + torch.rand(P, generator=g)
+    gd = 1.0 + torch.rand(N, generator=g)
+
+    def view(t):
+        valid = torch.rand(P, generator=g) > 0.2 * (t % 2)          # partial coverage
+        return dict(observed_rgb=(ren_rgb + 0.1 * t * torch.rand(P, 3, generator=g)).clamp(0, 1),
+                    rendered_rgb=ren_rgb, observed_feat=ren_f + 0.5 * torch.randn(P, 5, generator=g),
+                    rendered_feat=ren_f, depth_obs=rd + 0.1 * torch.rand(P, generator=g),
+                    rendered_depth=rd, gauss_depth=gd, image_hw=(H, W), pixel_valid=valid)
+    views = [view(t) for t in range(7)]
+    whole = ChangeBaselines(N, k=2, view_mass_frac=1e-2)
+    for v in views[:3]:                                              # mapping pass
+        whole.update(ras, P, **v)
+    upd = whole.empty_like()
+    assert upd.config() == whole.config() and upd.names == [] and upd.num_views == 0
+    alone = ChangeBaselines(N, k=2, view_mass_frac=1e-2)
+    for v in views[3:]:                                              # update pass
+        pv = whole.update(ras, P, **v)
+        ring = {n: s.ring.clone() for n, s in whole.series.items()}
+        upd.push_view(pv, whole.last_view_weights)
+        assert all(_same(ring[n], s.ring) for n, s in whole.series.items())
+        alone.update(ras, P, **v)
+    a, b = alone.scores(), upd.scores()
+    assert a.keys() == b.keys() and len(a) == 4 * 4 and upd.num_views == alone.num_views == 4
+    for k in a:
+        assert _same(a[k], b[k]), k
+    assert not _same(whole.scores()["feat/max"], a["feat/max"])      # the whole run differs
+    w = ChangeBaselines(N, k=2, view_mass_frac=1e-2)
+    w.push_view(pv)                                                  # no weights: ewma rate 1
+    assert torch.isfinite(w.scores()["feat/ewma"]).any()
+
+
 # ------------------------------------------------------------------ fusion
 def test_fuse_rank_toy():
     nan = float("nan")

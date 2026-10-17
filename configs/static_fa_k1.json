@@ -1,0 +1,17 @@
+{
+ "name": "static_fa_k1",
+ "description": "Ablation of static_fa: no persistence (k = 1).",
+ "frozen": "2026-10-10, before any static false-alarm run",
+ "base": "static_fa",
+ "field_config": {
+  "calib_mode": "history",
+  "change_persist": 1,
+  "change_quantile": 0.999,
+  "readmit_depth": 0.05
+ },
+ "change_quantile": 0.999,
+ "update_stride": 5,
+ "use_depth": true,
+ "change_baselines": false,
+ "fixed_change_thr": null
+}

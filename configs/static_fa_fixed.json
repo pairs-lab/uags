@@ -1,0 +1,17 @@
+{
+ "name": "static_fa_fixed",
+ "description": "Ablation of static_fa: one fixed threshold carried over from validation (rule: fixed_rule of static_fa.json), no per-scene calibration. Defined by the validation runs, so it runs on the test scenes only.",
+ "frozen": "2026-10-10, before any static false-alarm run",
+ "base": "static_fa",
+ "field_config": {
+  "calib_mode": "history",
+  "change_persist": 2,
+  "change_quantile": 0.999,
+  "readmit_depth": 0.05
+ },
+ "change_quantile": 0.999,
+ "update_stride": 5,
+ "use_depth": true,
+ "change_baselines": false,
+ "fixed_change_thr": "from_validation"
+}

@@ -1,0 +1,62 @@
+{
+ "schema": "uags.swap_spec/1",
+ "frozen": "2026-10-10, before any swap bank, field, ground truth or result exists. The pair rule, the bank, the ground-truth thresholds and the criterion are not changed after a validation run; the concrete pairs are resolved from labels and text only (scripts/make_swap_bank.py) and recorded in each bank and its run record.",
+ "purpose": "Replica semantic swap (usplat/swap.py): in the update pass, the features of source-class pixels are replaced by real features of a target class of the same scene. Synthetic, labelled supporting evidence for the change test and the reset; RIO10 is the real benchmark.",
+ "dataset": "replica_semnerf",
+ "seed": 0,
+ "scenes": {
+  "val": ["office_0", "room_2"],
+  "test": ["room_0", "room_1", "office_1", "office_2", "office_3", "office_4"]
+ },
+ "mapping": {"sequence": "Sequence_1", "stride": 5},
+ "update": {"sequence": "Sequence_2", "stride": 5},
+ "downscale": 2,
+ "downscale_note": "the accumulation grid of the Tab I fields (scripts/replica_tab1.sh DOWNSCALE=2); bank, run and ground truth use it",
+ "extractor": "lseg",
+ "vocab": "configs/vocab_replica.json",
+ "pair_rule": {
+  "excluded_names": ["wall", "floor", "ceiling", "window", "door", "blinds", "curtain", "beam",
+                     "pillar", "stair", "handrail", "panel", "vent", "pipe", "switch", "wall-plug",
+                     "logo", "countertop", "shower-stall", "wall-cabinet", "base-cabinet", "rug",
+                     "mat"],
+  "excluded_note": "structure and surfaces fixed to the building: never a source or a target",
+  "source_min_update_share": 0.005,
+  "source_min_update_frames_frac": 0.10,
+  "source_min_mapping_share": 0.005,
+  "target_min_mapping_share": 0.002,
+  "n_sources": 2,
+  "kinds": ["near", "far"],
+  "kinds_note": "the source with the most update pixels gets its NEAREST class in text space (hard case), the second its FARTHEST (easy case); text = extractor text embeddings with the frozen templates_by_extractor of the vocabulary, cosine; ties: lower class id",
+  "ranking": "sources by update pixels (desc), ties lower class id"
+ },
+ "bank": {
+  "frame_step": 4,
+  "min_segment_px": 200,
+  "max_segments_per_class": 8,
+  "max_side_px": 64,
+  "note": "segments from every frame_step-th mapping frame (Sequence_1, stride 5); one 8-connected component of the target class per segment; features before the PCA (projected by the run's own PCA)"
+ },
+ "gt": {
+  "swapped_min_frac": 0.5,
+  "static_max_frac": 0.05,
+  "min_update_mass_px": 1.0,
+  "note": "share of a Gaussian's update-pass splat mass on swapped pixels: swapped >= 0.5, static <= 0.05, else unjudged; total update mass below 1 pixel (accumulation grid) is unobserved"
+ },
+ "eval": {
+  "query_classes": "the classes with labelled pixels in the scene's mapping or update frames (the bank's classes), vocabulary order",
+  "rows": ["ours", "ours_noreset", "averaging"],
+  "ours_noreset": "the same run with --fixed-change-thr inf (the change test runs, the same c, never a reset) and the reset field's PCA (--pca-from); eval_change.py refuses it unless it saw the reset field's features (mapping code, run arguments, PCA, centre, frames log)",
+  "common_rows": ["ours_c_max", "u_ale", "1-rbar"]
+ },
+ "criterion": {
+  "id": "swap_reset_v1",
+  "split": "test",
+  "statement": "ours with reset has a higher accuracy on swapped Gaussians than ours without reset and than averaging, at a static reset mass <= 1%, on >= 5 of the 6 test scenes",
+  "min_pass": 5,
+  "conditions": [
+   {"left": "seg.rows.ours.acc_changed", "op": ">", "right": "seg.rows.ours_noreset.acc_changed"},
+   {"left": "seg.rows.ours.acc_changed", "op": ">", "right": "seg.rows.averaging.acc_changed"},
+   {"left": "reset.static_reset_mass", "op": "<=", "right": 0.01}
+  ]
+ }
+}

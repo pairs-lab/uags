@@ -184,7 +184,11 @@ Reading (validation only; the test decides): the tuned CSS (closed set, told the
 the best calibrated row (NLL 0.774 vs ours P2 0.824, AURC 5.62 vs 6.15); keep it. Ours P2 is the best open-vocabulary
 predictive. The trained baselines are below fusion: Feature 3DGS 30.8 mIoU; LEGaussians loses ~3.5 mIoU to its
 128-code quantization and its learned u ranks errors worse than a random order at lambda_u 1 and 2 (AUSE 19.5 / 19.9);
-lambda_u = 4 wins only because its u collapses to 0 (all ties: random order apart from the coverage tier). Our u_epi
+lambda_u = 4 wins because on room_2 its u ranks about as well as a random order (16.49 vs 16.63) where lambda_u 1 and 2
+rank worse than one (21.70 / 22.79 vs 16.14 / 16.54). [Corrected 2026-10-10, cross-track review: an earlier sentence
+said its u collapses to 0 (all ties); on office_0 its AUSE at lambda_u = 4 is well below the random order's (18.15 vs 19.71),
+more than the coverage tier alone allows, so its u is not all tied. No u histogram of the lambda_u = 4 fields is
+recorded.] Our u_epi
 ranks the 0/1 error better than NormLift's epistemic score and the view count (8.81 vs 11.52 / 11.23); u_ale ties
 NormLift's 1 - C_inter (5.03 vs 5.07). The field-identity check passed: one identity for all val fields (2a6e51e7a3f1).
 

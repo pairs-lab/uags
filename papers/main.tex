@@ -224,11 +224,11 @@ the residual is a quantile of the map's own mapping-pass scores, per history
 length. This targets a nominal per-view false-alarm rate on static content
 without labels, and we measure the actual rate. A flagged Gaussian is reset
 and rejoins the robust map only after a depth check.
-\item \textbf{A posterior predictive.} Per-pixel class probabilities come from
-a render of each Gaussian's posterior mean feature, so weakly supported
-Gaussians flatten the prediction. The temperature can also depend on the
-rendered uncertainties. We test whether this lowers NLL and ECE compared with
-plug-in features at their own fitted temperature.
+\item \textbf{A predictive that uses both uncertainties.} Each pixel's
+temperature depends on its rendered epistemic and aleatoric uncertainties. We
+test whether this, or a render of each Gaussian's posterior mean feature,
+lowers NLL and ECE compared with plug-in features at their own fitted
+temperature.
 \end{itemize}
 
 We evaluate segmentation, uncertainty ranking and calibration on 8 Replica
@@ -429,7 +429,14 @@ mean, the expected squared norm is $\mathbb{E}\lVert\R_n\rVert^2=(W_1^2-W_2)\rho
 \mathbb{E}\lVert\mathbf{u}_{v,n}\rVert^2$. The ratio inside the clamp is thus
 unbiased for $\rho_n^2$ for two or more views. The clamp and the square root
 leave a small bias at few views. The aleatoric uncertainty is defined once
-$s_n\ge\tau_{\min}$ (default 3 views). Two simpler estimates mix the amount of
+$s_n\ge\tau_{\min}$ (default 3 views).%
+%% Footnote source: docs/reports/2026-09-29-replica-tab1/logs/support_stats.log
+%% (validation fields at code 5e8c51e; 640x480 frames, --downscale 2 in
+%% scripts/replica_tab1.sh, so H*W = 320*240 and a0*H*W = 7.68 px).
+\footnote{One full view is $a_0HW=7.68$ pixels of splat mass at our
+$320\times240$ resolution. On office\_0 / room\_2, $u^{\mathrm{ale}}$ is
+defined for 22.4 / 12.2\% of the Gaussians but 84.2 / 81.8\% of the pixel
+mass.} Two simpler estimates mix the amount of
 evidence into the dispersion. The mean resultant length
 $\bar r_n=\lVert\R_n\rVert/W_1$ is biased upward, by up to about
 $1/\sqrt{n_K}$. A prior-shrunk agreement such as $\lVert\R_n\rVert/(W_1+c_0)$
@@ -469,16 +476,23 @@ defined scores.
 
 %% Tuning scene: usplat/vmf_field.py:44 ("k = 2 won the chess grid") and
 %% docs/reports/2026-09-29-data-and-baselines/README.md ("chess = tuning").
-On a tuning sequence not used for testing, the 7-Scenes chess
-scene~\cite{glocker2013} with simulated object swaps, we chose $\lambda=0$
-and $k=2$. Then $\bar c_n$ is the minimum over the last two views $t$ of
-$1-\cos\big(\sum_{v<t}\omega_{v,n}\mathbf{u}_{v,n},\,\mathbf{u}_{t,n}\big)$, the
-cosine distance between all earlier evidence and the current view. This member
-is the classic feature-residual test~\cite{jiang2026mif,
-ackermann2025clsplats}. We do not claim the statistic, only how its threshold
-is set and the bookkeeping around it. Centering the features on the scene mean
-hurt in tuning, so it is off.
+%% The tuning data are a point-level replay (scripts/cpu_check_change.py):
+%% dense CLIP features of 3D points, the CHANGED half of the points take a
+%% partner's features (> 0.5 m away) in the last half (or fifth, grid of
+%% data-and-baselines attempts/03) of their views. No objects are swapped.
+We chose $\lambda=0$ and $k=2$ on a tuning replay not used for testing: in
+7-Scenes chess~\cite{glocker2013}, half of the sampled 3D points take the
+CLIP features of a point over 0.5\,m away in their later views. Then
+$\bar c_n$ is the minimum over the last two views $t$ of
+$1-\cos\big(\sum_{v<t}\omega_{v,n}\mathbf{u}_{v,n},\,\mathbf{u}_{t,n}\big)$,
+all earlier evidence against the current view. This member is the classic
+feature-residual test~\cite{jiang2026mif, ackermann2025clsplats}, which we do
+not claim. Centering the features on the scene mean hurt in tuning, so it is
+off.
 
+%% Fixed threshold, valid features: static c_max q0.95 = 0.273 (chess) vs
+%% 0.202 (office), data-and-baselines logs/g1_{chess,office}_final_frac0.5.json
+%% (the method-completion numbers used the broken extractor).
 \textbf{Threshold from the mapping pass.} In tuning, a fixed threshold on
 $\bar c_n$ did not transfer between scenes (fixed-threshold row of
 Table~\ref{tab:ablation}). We therefore set it, without labels, from the map's
@@ -610,14 +624,13 @@ frames with gsplat~\cite{ye2024gsplat} (degree-0 color, 30k iterations, at most
 $10^6$ Gaussians). Every method uses this fixed geometry and the same LSeg
 features, compressed to $d=64$
 (\secref{sec:features}). The coverage floor $\tau_{\mathrm{cov}}=0.5$ is fixed
-in advance, and all temperatures are set on the validation scenes. We
-freeze every choice before the test scenes run, and we run them once. We report
-the mean and the population standard deviation over the test scenes ($N=6$ for
-Replica, $N=12$ for object removal).
+in advance. We freeze every choice before the test scenes run, and we run
+them once. We report the mean and the population standard deviation over the
+test scenes ($N=6$ for Replica, $N=12$ for object removal).
 
+%% Temperatures (ours and baselines): stated once, in sec:predictive (NLL, val).
 \textbf{Segmentation baselines.} All baselines share our geometry, features and
-splat weights, and each gets its own temperature, fit by NLL on the validation
-scenes. \emph{2D features} apply the extractor to the
+splat weights. \emph{2D features} apply the extractor to the
 evaluation frame itself, with no map, and covers every pixel. \emph{Averaging} is the pixel-weighted
 mean feature of Gradient-Weighted Feature
 Back-Projection~\cite{joseph2025gradbp}, with no uncertainty of its own
@@ -642,7 +655,9 @@ CSS~\cite{wilson2025css}, a closed-set Dirichlet posterior in which each pixel
 votes for the class whose text is closest to its feature. It is told the
 classes present in the evaluation frames at mapping time, which an
 open-vocabulary map does not know, so we do not rank it (its prior
-$\alpha_0\in\{0.01,0.1,1,10\}$ is chosen by validation NLL).
+$\alpha_0\in\{0.01,0.1,1,10\}$ is chosen by validation NLL). We composite
+its variance with linear splat weights, as for every other channel, whereas
+CSS uses squared weights.
 
 \textbf{Change baselines.} A residual compares an update view with the map
 rendered at the same pose. We lift every residual to the Gaussians with the
@@ -681,8 +696,7 @@ of $f$, where $\bar e_u(f)$ is the mean error left after removing the fraction
 $f$ of pixels with the highest $u$, and $\bar e_\star(f)$ uses the error as
 $u$. A tie in $u$
 (e.g. view counts) takes the mean error of its pixels, the expectation over a
-random order. We grade each
-channel against the error it is meant for. For a field built from $M$ of the
+random order. For a field built from $M$ of the
 180 mapping frames, a pixel has reducible error ($e_{\mathrm{red}}=1$) if it
 is wrong at $M$ frames and right with the full map. It has irreducible error
 ($e_{\mathrm{irr}}=1$) if it is wrong in both. All $M$-frame fields use the
@@ -749,17 +763,29 @@ CSS~\cite{wilson2025css}\reimpl, closed set & 28.5{\scriptsize$\,\pm\,$3.3} & 77
 \end{tabular}
 \end{table*}
 
-In Table~\ref{tab:replica}, P0 renders the view-weighted mean of the features
-that averaging uses (a parity check), NormLift differs from averaging only in
-its uncertainty, and P2 changes only the confidence of the P0 labels. P0 matches
-averaging (28.0 vs 27.9 mIoU), and every fused map beats the 2D features of
-the frame itself (26.3). Training the features does not help: Feature 3DGS
-equals averaging, and LEGaussians loses four points to its quantization. P2
-lowers ECE from 9.9 to 8.7 and AURC from 13.8 to 12.2 at the same NLL, the
-best calibration of the open-vocabulary rows. Our $u^{\mathrm{ale}}$ ranks the
-errors as well as NormLift's $1-C_{\mathrm{inter}}$ (AUSE 8.5 vs 8.8, lower on
-three of six scenes), while the learned $u$ of LEGaussians ranks them worse
-than its own confidence (19.7 vs 11.9).
+%% Per-scene counts: eval_test_224fe1e.json (docs/reports/2026-09-29-
+%% replica-tab1/logs), metrics.scenes[s].rows[r].all.{miou,ece,nll,brier,aurc}.
+%% P2 < P0 on AURC 6/6, ECE 3/6; P1 < P0 on NLL 1/6, ECE 2/6, AURC 2/6.
+%% LEGaussians lambda_u: validation mean AUSE of its own u is 19.46, 19.88,
+%% 17.32 for l1/l2/l4; random order on test: mean 20.6.
+In Table~\ref{tab:replica}, P0 renders the view-weighted mean of the pixel
+features that averaging uses and matches averaging (28.0 vs 27.9 mIoU), a
+parity check. NormLift differs from averaging only in its uncertainty, and P2
+changes only the confidence of the P0 labels. Every map row except
+LEGaussians beats the 2D features in mean mIoU, P0 on four of six scenes.
+The posterior mean is a negative result: P1 does not lower NLL or ECE against
+P0, and its lower mean AURC holds on two scenes. P2 keeps the NLL of P0 and
+lowers mean AURC from 13.8 to 12.2 (lower on all six scenes), but mean ECE
+from 9.9 to 8.7 (lower on only three). Against averaging, P2 is lower on 3, 5, 6 and 6 of the six scenes
+in ECE, NLL, Brier and AURC. P2 has the lowest mean ECE, Brier and AURC among
+the open-vocabulary rows. The closed-set CSS reference receives the scene's
+classes at mapping time and uses per-pixel class votes, so its results do
+not establish an open-vocabulary comparison. Our $u^{\mathrm{ale}}$ ranks the
+errors on par with NormLift's $1-C_{\mathrm{inter}}$ (AUSE 8.5 vs 8.8, lower
+on three of six scenes) and better than the CSS variance on four.
+LEGaussians' $\lambda_u=4$ has the lowest validation AUSE of its own $u$
+(17.3 vs 19.5 and 19.9 at $\lambda_u=1,2$); its test AUSE is near that of a
+random order (19.7 vs 20.6).
 
 %% Figure: scripts/plot_views.py --stage test (relative scale), from
 %% views/views_test.json and tab1/eval_test.json; per-scene wins:
@@ -833,9 +859,10 @@ Ours fused with depth residual                       & F+D & \phs & \phs & \phs 
 \end{tabular}
 \end{table*}
 
-Table~\ref{tab:change} reports stale-content detection. Our score differs
-from the feature-residual row only in where it takes the cosine: per Gaussian
-against all of its earlier evidence, not per pixel against the rendered map.
+Table~\ref{tab:change} reports stale-content detection. Before any reset,
+our score differs from the feature-residual row only in where it takes the
+cosine: per Gaussian against all of its earlier evidence, not per pixel
+against the rendered map.
 Ours also sets its threshold from the mapping pass, resets the Gaussians it
 flags, and re-admits them after the depth check. The fused row asks whether
 our score adds to the depth residual. In the test scenes, \ph\% of the
@@ -915,8 +942,8 @@ Pixel-level variant            & \ph & \ph & \ph & \ph & \ph\\
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:ablation} changes one part at a time and keeps the rest. The
-top block uses Replica. \emph{Pixels instead of views} uses the pixel masses
+In the Replica block of Table~\ref{tab:ablation}, \emph{Pixels instead of
+views} uses the pixel masses
 $m_{v,n}$ in place of $\omega_{v,n}$ in the posterior and the support, with
 $u^{\mathrm{epi}}=1/(1+\sum_v m_{v,n})$. Its $\hat\rho$ still combines view
 means, now with pixel-mass weights, since a pixel-level $Q$ would need an
@@ -994,6 +1021,6 @@ and test the field with other feature extractors.
 %% the IEEEtran.bst control entry (written by the preamble on the first pass).
 %% ============================================================================
 \bibliographystyle{IEEEtran}
-\bibliography{ref}
+\bibliography{ieeectl,ref}
 
 \end{document}

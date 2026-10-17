@@ -54,6 +54,10 @@ Fusion: fuse_rank averages normalised ranks with equal fixed weights (ties get t
 rank, NaN the lowest rank 0). It is a pre-registered row: nothing is fitted. Ranks are NOT
 invariant to which Gaussians are ranked, so the population is part of the definition:
 pre-registered as the AP population (observed, not hidden, labelled), passed as `mask`.
+
+Label-free thresholds (ResidualNull): the field's rule applied to each residual, a q-quantile
+of its own per-view persistent residuals over the (static) mapping pass, pooled; the update
+pass then counts tests and fires per view (the static false-alarm run, run_mapping.py).
 """
 from __future__ import annotations
 from typing import Sequence
@@ -197,6 +201,7 @@ class ChangeBaselines:
         self.depth_gauss_name, self.depth_render_name = f"depth_gauss{sfx}", f"depth_render{sfx}"
         self.series: dict[str, TemporalScore] = {}
         self.num_views = 0
+        self.last_view_weights: dict[str, torch.Tensor] = {}   # w_v of the last update()
 
     def config(self):
         return dict(num_gaussians=self.N, k=self.k, ewma_rate=self.ewma_rate,
@@ -298,7 +303,7 @@ class ChangeBaselines:
                                              device=dev, dtype=dt)
         ref = self.view_mass_frac * float(num_pixels)
         shared = None if observed is None else observed.detach().to(dev).reshape(-1)
-        per_view = {}
+        per_view, weights = {}, {}
         with torch.no_grad():
             for name, (S, m) in zip(names, out):
                 seen = m > _EPS                               # the field's "seen" rule
@@ -310,8 +315,30 @@ class ChangeBaselines:
                 r = torch.where(obs, r, torch.full_like(r, float("nan")))
                 self._series(name).push(r, obs, wv)
                 per_view[name] = r
+                weights[name] = wv
         self.num_views += 1
+        self.last_view_weights = weights
         return per_view
+
+    @torch.no_grad()
+    def push_view(self, per_view, weights=None):
+        """Feed one view's per-view residuals, as update() returned them (NaN = not observed),
+        into this accumulator's filters, with the view weights update() used (its
+        last_view_weights; the ewma needs them). The residual of a view does not depend on
+        the filter state, so an accumulator fed this way from some of another's views holds
+        exactly the state update() would give on those views alone, with no render and no
+        backward pass (scripts/run_mapping.py: the update-pass-only state of the
+        checkpoint, while the accumulator of the whole run keeps the null of ResidualNull)."""
+        for name, r in per_view.items():
+            r = r.detach().to(self.device, self.dtype)
+            w = None if weights is None or weights.get(name) is None \
+                else weights[name].detach().to(self.device, self.dtype)
+            self._series(name).push(r, torch.isfinite(r), w)
+        self.num_views += 1
+
+    def empty_like(self):
+        """A new accumulator with this one's configuration, device and dtype and no state."""
+        return ChangeBaselines(device=self.device, dtype=self.dtype, **self.config())
 
     # ------------------------------------------------------------ read-outs
     @property
@@ -333,6 +360,7 @@ class ChangeBaselines:
     def reset(self):
         self.series.clear()
         self.num_views = 0
+        self.last_view_weights = {}
 
     def state_dict(self):
         return dict(config=self.config(), dtype=str(self.dtype), num_views=self.num_views,
@@ -348,6 +376,92 @@ class ChangeBaselines:
         for name, st in s["series"].items():
             cb._series(name).load_state_dict(st)
         return cb
+
+
+# ------------------------------------------------------------ label-free thresholds
+class ResidualNull:
+    """Label-free thresholds of the residual baselines and their realised per-view false-alarm
+    counts, with the rule of the field's calibrate_change_threshold (scripts/run_mapping.py
+    --change-baselines --summary-json).
+
+    Per view v the test statistic of residual g at Gaussian n is its persistent value
+        rbar_{v,n} = min of the last k observed residuals            (TemporalScore.ring)
+    defined where v observes n and n has >= k observations: the per-view value of the kmin
+    filter, as the field's score is the min of its last k defined c.
+      record(cb, per_view)  mapping pass, static by assumption: every defined rbar is a null
+                            sample and enters one histogram per residual (BINS bins on
+                            [0, hi]: hi = 2 for the NCC and cosine residuals, DEPTH_HI m for
+                            depth; larger values count in the last bin)
+      calibrate(q)          threshold = upper edge of the q bin (the field's estimator)
+      test(cb, per_view)    per view: defined tests and fires rbar > threshold
+    POOLED, one null per residual: the field keeps one null per slow-bucket history size, but a
+    residual compares the view with a fixed map (ncc: the 3DGS colours; depth: its geometry) or
+    with a render that mixes the histories of every Gaussian on the pixel (feat), so it has no
+    per-Gaussian history size. The baselines never reset: a Gaussian above its threshold is
+    tested, and fires, again at its next view."""
+
+    BINS = 20000
+    DEPTH_HI = 4.0                                   # [m] histogram range of depth residuals
+
+    def __init__(self, bins=BINS, depth_hi=DEPTH_HI):
+        self.bins, self.depth_hi = int(bins), float(depth_hi)
+        self.hist: dict[str, torch.Tensor] = {}      # name -> (bins,) float64 counts (CPU)
+        self.thr: dict[str, float] = {}              # name -> threshold after calibrate()
+        self.saturated: dict[str, bool] = {}         # the q bin was the last (>= hi) bin
+        self.q = None
+
+    def hi(self, name):
+        return self.depth_hi if name.startswith("depth") else 2.0
+
+    @staticmethod
+    @torch.no_grad()
+    def statistic(cb: "ChangeBaselines", per_view):
+        """{name: (defined (N,) bool, rbar (N,))} for the view cb.update() just returned."""
+        out = {}
+        for name, r in per_view.items():
+            ts = cb.series[name]
+            defined = torch.isfinite(r) & (ts.count >= ts.k)
+            out[name] = (defined, ts.ring.min(dim=1).values)
+        return out
+
+    @torch.no_grad()
+    def record(self, cb, per_view):
+        for name, (defined, rb) in self.statistic(cb, per_view).items():
+            hi = self.hi(name)
+            v = rb[defined].double().clamp(0.0, hi)
+            b = (v * (self.bins / hi)).long().clamp(max=self.bins - 1)
+            h = self.hist.setdefault(name, torch.zeros(self.bins, dtype=torch.float64))
+            h += torch.bincount(b, minlength=self.bins).double().cpu()
+
+    def calibrate(self, q):
+        """name -> threshold: the upper edge of the q bin of the residual's mapping-pass null
+        (inf when no score was ever defined: that row cannot fire)."""
+        self.q = float(q)
+        for name, h in self.hist.items():
+            if float(h.sum()) == 0:
+                self.thr[name], self.saturated[name] = float("inf"), False
+                continue
+            cdf = torch.cumsum(h, 0) / h.sum()
+            i = int(torch.searchsorted(cdf, torch.tensor([self.q], dtype=cdf.dtype))
+                    .clamp(max=self.bins - 1))
+            self.thr[name] = (i + 1) * self.hi(name) / self.bins
+            self.saturated[name] = i == self.bins - 1
+        return dict(self.thr)
+
+    @torch.no_grad()
+    def test(self, cb, per_view):
+        """name -> (tests, fires) of this view; a residual without a null never fires."""
+        out = {}
+        for name, (defined, rb) in self.statistic(cb, per_view).items():
+            fire = defined & (rb > self.thr.get(name, float("inf")))
+            out[name] = (int(defined.sum()), int(fire.sum()))
+        return out
+
+    def summary(self):
+        return {name: dict(threshold=self.thr.get(name), quantile=self.q,
+                           null_samples=int(h.sum()), saturated=self.saturated.get(name),
+                           hist_range=self.hi(name), bins=self.bins, rule="pooled")
+                for name, h in self.hist.items()}
 
 
 # ------------------------------------------------------------ evaluation helpers

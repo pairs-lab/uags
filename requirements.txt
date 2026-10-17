@@ -10,3 +10,4 @@ open-clip-torch>=3.0  # CLIP backbone (MaskCLIP-style dense features built in
 plyfile               # INRIA .ply checkpoint loading
 opencv-python         # dataset I/O
 tqdm
+matplotlib>=3.7       # figures (scripts/plot_views.py: constrained layout, outside legend)

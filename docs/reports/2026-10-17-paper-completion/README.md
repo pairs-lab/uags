@@ -11,6 +11,10 @@ Attempts: n/a | Time: started 2026-10-17 10:44 JST
 - Machine changed: RTX 4070 Ti 12 GB (was RTX 5070 Ti 16 GB). GitHub push needs credentials on this machine; commits stay local.
 - Second ask (user, 2026-10-17): "use bold for best and underline for second best in table ... please improve and make it
   dominate". Rule kept: improvements are chosen on validation scenes only, baselines are not weakened, the first test run stays on record.
+- Third ask (user, 2026-10-17): give our method the class list at mapping time like CSS, "same with baselines". Plan: new rows
+  "Ours, closed set" (view-level Dirichlet votes) and CSS with soft votes (the same trick for the baseline); hard/soft and alpha0 chosen
+  by validation NLL; a sidecar pass on the saved maps so existing rows do not change; test run once for the new rows (workflow
+  wf_bebbfcb1-3f4).
 - RIO10 never arrived. User decision (2026-10-17): use the NeRF-Object-Removal dataset (Weder et al., CVPR 2023; 16 real
   iPhone scenes, object present then physically removed) for the stale-content table. Protocol fixed before any run:
   validation scenes 001-004, test 005-016 (once); map on frames before `split_start`, update on frames from `split_end`.

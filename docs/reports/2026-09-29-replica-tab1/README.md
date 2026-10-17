@@ -1,11 +1,10 @@
 # Replica Table I: open-vocabulary segmentation and calibration
 2026-09-29 | root: /home/thanhnc/gauss_ws/src/uags | git: master@778bb64 | [all reports](../INDEX.md)
 Follows: [Data, baselines and evaluation infrastructure](../2026-09-29-data-and-baselines/README.md)
-Verdict: IN PROGRESS -- Table I test done and in the paper (d287321); views figure and Table III running
+Verdict: DONE -- Table I measured once on the 6 test scenes and in the paper (d287321); views figure and Table III test moved to [Complete the paper](../2026-10-17-paper-completion/README.md)
 Key result: test (N=6, one shot): AUSE of our u_ale 8.50 ~ NormLift 1-C_inter 8.76 (3/6 scenes), < CSS variance 11.20, << LEGaussians 19.73; tuned CSS best calibrated (ECE 5.05 vs ours P2 8.70) ([table](#test-table-i-one-shot-run-code-224fe1e))
 Attempts: 1 (0 Good / 1 Bad: attempt 06 P3) | Time: started 2026-09-29 13:49 +07; final val 2026-09-30 06:50
 
-Running: [chain4.sh](logs/chain4.sh): views val (re-run with the defined-pixel analysis) -> Table III val -> views test -> Table III test | /home/thanhnc/gauss_ws/data/uags_results/chain4.log | started 2026-09-30 ~09:50
 
 ## 0 Context
 - Ask: "continue to complete our paper" -> fill Table I (plan section 3) with measured numbers.

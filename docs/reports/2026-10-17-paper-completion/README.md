@@ -15,6 +15,19 @@ Attempts: n/a | Time: started 2026-10-17 10:44 JST
   "Ours, closed set" (view-level Dirichlet votes) and CSS with soft votes (the same trick for the baseline); hard/soft and alpha0 chosen
   by validation NLL; a sidecar pass on the saved maps so existing rows do not change; test run once for the new rows (workflow
   wf_bebbfcb1-3f4).
+- Fourth decision (user, 2026-10-17): the paper stays purely open-vocabulary. The closed-set row was cancelled (workflow stopped
+  before it changed any file). CSS stays in Table I as an unranked reference row ("shown, not compared"); the CSS-based change rows
+  (CSS variance, Yager conflict) are dropped (the removal scenes also have no class labels).
+- NOR protocol fixed before any method ran (lead, 2026-10-17, from the loader checks [check_nor.log](logs/check_nor.log)):
+
+| # | Decision | Why |
+|---|---|---|
+| D1 | pixel truth = `masks_real` on the update frames | `masks_synthetic` is a different, virtual (ShapeNet) object: IoU with the box 0.14-0.59 |
+| D2 | stale = centre in `bbox.txt` + 2 cm AND > 2 cm from every high-confidence after-removal depth point | 12-83% of the in-box surface is still there after removal (walls, desk under books) |
+| D3 | one rigid ICP transform per scene (update part to map part), on depth outside the box, for all scenes and methods | before-to-after depth error 3.54 cm (012) and 2.50 cm (016); 0.58 / 0.89 cm after a rigid fit |
+| D4 | keyframe rule = run_mapping defaults (5 cm / 5 deg), as Replica | keeps 27-85 keyframes per scene |
+| D5 | rows: NCC, depth residual, feature residual k=2, NormLift drop, dispersion, ours, ours fused with depth | no class labels for CSS; user decision on CSS |
+| D6 | validation 001-004, test 005-016 (once) | fixed before any run |
 - RIO10 never arrived. User decision (2026-10-17): use the NeRF-Object-Removal dataset (Weder et al., CVPR 2023; 16 real
   iPhone scenes, object present then physically removed) for the stale-content table. Protocol fixed before any run:
   validation scenes 001-004, test 005-016 (once); map on frames before `split_start`, update on frames from `split_end`.
@@ -42,10 +55,11 @@ Attempts: n/a | Time: started 2026-10-17 10:44 JST
 | Table III exact values (r_bar vs full, test) | python read of tab3/eval_test.json summary | ECE 8.648 vs 8.683, NLL 0.9945 vs 0.9955, AUSE ale 8.450 vs 8.498 | PASS (backs the "0.05" sentence) |
 | I2 eval unchanged | -- | no eval code changed; plot_views only reads the JSON files | PASS |
 | Table marks | `CUDA_VISIBLE_DEVICES="" python3 -m pytest tests/test_make_tables_marks.py tests/test_make_tables_tab3.py` | 16 passed; paper rows equal the old rows after removing the marks (checked in the edit script) | PASS |
-| Paper compiles, page count | pdflatex + bibtex on a copy of papers/ | 9 pages (8 at 2d980dc): references [30]-[40] spill to page 9 | FAIL (over the 8-page limit) |
+| Paper compiles, page count | pdflatex + bibtex on a copy of papers/ | 8 pages after the object-removal text replaced RIO10 and the CSS change rows went; 1 undefined citation (weder2023removing, bib entry pending from the NOR workflow) | PASS (8 pages) / FAIL (citation) |
 
 ## 7 Open issues
-- Page limit: 9 pages now, and Table II / NOR setup / timing / qualitative figure still to fill. A cut pass is needed.
+- Page limit: 8 pages now; Table II numbers, the qualitative figure and the timing sentence still to fill.
+- Timing run deferred: the desktop's graphics load the GPU at 11-76% (no compute jobs); measure when the screen is idle.
 - Claim wording: "bias-corrected agreement" is in the abstract, contributions and related work, but Table III shows no
   measured gain from the correction. Needs an author decision (keep as a few-view property, or drop the claim).
 - Stale-content benchmark on NOR: loader, driver, pipeline being built (workflow wf_2faa1219-1f0); then GPU runs.

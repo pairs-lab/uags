@@ -1,0 +1,66 @@
+001 N=510 map=257 upd=188 stride 2 -> 129 (kf 65) | pose bbox.txt/w2c_opencv IoU 0.818 (min 0.558, cover 0.900, inside 0.904); 2nd bbox.ply/w2c_opencv 0.818 | principal point step 0.03 px (random pairs 0.24)
+    lidar box|mask 0.868 mask|box 0.999 box|~mask 0.0002; after removal box|mask 0.284; in-box points near an after-removal point 0.180 (tight box 0.112)
+    depth map-map ok5cm 0.978 med 0.37cm ratio 0.9994 (camera 1: med 0.38cm); revisit ok5cm 0.959 med 0.60cm ratio 0.9988 -> rigid 0.960 / 0.42cm; map-upd ok5cm 0.984 med 0.50cm ratio 1.0003 -> rigid 0.982 / 0.40cm; conf ok5cm 2/1/0 0.977/0.656/0.411
+    masks after removal IoU(syn,real) 0.497 IoU(box,real) 0.807 IoU(box,syn) 0.467
+002 N=405 map=169 upd=156 stride 2 -> 85 (kf 52) | pose bbox.txt/w2c_opencv IoU 0.641 (min 0.316, cover 0.735, inside 0.838); 2nd bbox.ply/w2c_opencv 0.641 | principal point step 0.02 px (random pairs 0.16)
+    lidar box|mask 0.571 mask|box 1.000 box|~mask 0.0001; after removal box|mask 0.431; in-box points near an after-removal point 0.531 (tight box 0.361)
+    depth map-map ok5cm 0.974 med 0.49cm ratio 1.0006 (camera 1: med 0.49cm); revisit ok5cm 0.773 med 0.98cm ratio 0.9968 -> rigid 0.769 / 0.84cm; map-upd ok5cm 0.981 med 0.57cm ratio 1.0008 -> rigid 0.980 / 0.41cm; conf ok5cm 2/1/0 0.964/0.590/0.367
+    masks after removal IoU(syn,real) 0.302 IoU(box,real) 0.646 IoU(box,syn) 0.399
+003 N=406 map=153 upd=157 stride 1 -> 153 (kf 41) | pose bbox.txt/w2c_opencv IoU 0.622 (min 0.000, cover 0.634, inside 0.971); 2nd bbox.ply/w2c_opencv 0.622 | principal point step 0.08 px (random pairs 1.11)
+    lidar box|mask 0.602 mask|box 0.998 box|~mask 0.0002; after removal box|mask 0.441; in-box points near an after-removal point 0.139 (tight box 0.043)
+    depth map-map ok5cm 0.987 med 0.36cm ratio 1.0004 (camera 1: med 0.37cm); revisit ok5cm 0.950 med 0.59cm ratio 1.0004 -> rigid 0.944 / 0.58cm; map-upd ok5cm 0.974 med 0.59cm ratio 1.0030 -> rigid 0.956 / 0.49cm; conf ok5cm 2/1/0 0.983/0.800/0.729
+    masks after removal IoU(syn,real) 0.465 IoU(box,real) 0.638 IoU(box,syn) 0.533
+004 N=363 map=156 upd=139 stride 1 -> 156 (kf 49) | pose bbox.txt/w2c_opencv IoU 0.722 (min 0.446, cover 0.983, inside 0.731); 2nd bbox.ply/w2c_opencv 0.722 | principal point step 0.07 px (random pairs 0.75)
+    lidar box|mask 0.802 mask|box 0.922 box|~mask 0.0304; after removal box|mask 0.321; in-box points near an after-removal point 0.335 (tight box 0.011)
+    depth map-map ok5cm 0.953 med 0.48cm ratio 0.9994 (camera 1: med 0.46cm); revisit ok5cm 0.817 med 1.10cm ratio 0.9954 -> rigid 0.816 / 0.96cm; map-upd ok5cm 0.988 med 0.53cm ratio 1.0016 -> rigid 0.985 / 0.47cm; conf ok5cm 2/1/0 0.952/0.723/0.786
+    masks after removal IoU(syn,real) 0.473 IoU(box,real) 0.729 IoU(box,syn) 0.501
+005 N=240 map=100 upd=94 stride 1 -> 100 (kf 27) | pose bbox.txt/w2c_opencv IoU 0.776 (min 0.400, cover 0.882, inside 0.877); 2nd bbox.ply/w2c_opencv 0.776 | principal point step 0.10 px (random pairs 0.77)
+    lidar box|mask 0.891 mask|box 0.877 box|~mask 0.0244; after removal box|mask 0.876; in-box points near an after-removal point 0.416 (tight box 0.116)
+    depth map-map ok5cm 0.990 med 0.23cm ratio 1.0003 (camera 1: med 0.24cm); revisit ok5cm 0.984 med 0.45cm ratio 1.0012 -> rigid 0.957 / 0.32cm; map-upd ok5cm 0.984 med 0.24cm ratio 1.0007 -> rigid 0.954 / 0.20cm; conf ok5cm 2/1/0 0.988/0.749/0.625
+    masks after removal IoU(syn,real) 0.433 IoU(box,real) 0.787 IoU(box,syn) 0.429
+006 N=259 map=108 upd=102 stride 1 -> 108 (kf 32) | pose bbox.txt/w2c_opencv IoU 0.605 (min 0.000, cover 0.647, inside 0.835); 2nd bbox.ply/w2c_opencv 0.605 | principal point step 0.11 px (random pairs 0.72)
+    lidar box|mask 0.512 mask|box 0.990 box|~mask 0.0004; after removal box|mask 0.180; in-box points near an after-removal point 0.356 (tight box 0.018)
+    depth map-map ok5cm 0.982 med 0.43cm ratio 1.0000 (camera 1: med 0.46cm); revisit ok5cm 0.879 med 1.31cm ratio 0.9980 -> rigid 0.887 / 0.58cm; map-upd ok5cm 0.993 med 0.43cm ratio 1.0021 -> rigid 0.991 / 0.42cm; conf ok5cm 2/1/0 0.982/0.912/0.939
+    masks after removal IoU(syn,real) 0.176 IoU(box,real) 0.624 IoU(box,syn) 0.144
+007 N=332 map=152 upd=131 stride 1 -> 152 (kf 33) | pose bbox.txt/w2c_opencv IoU 0.688 (min 0.518, cover 0.931, inside 0.723); 2nd bbox.ply/w2c_opencv 0.688 | principal point step 0.07 px (random pairs 0.59)
+    lidar box|mask 0.882 mask|box 0.831 box|~mask 0.0314; after removal box|mask 0.699; in-box points near an after-removal point 0.442 (tight box 0.027)
+    depth map-map ok5cm 0.993 med 0.40cm ratio 1.0008 (camera 1: med 0.40cm); revisit ok5cm 0.959 med 0.59cm ratio 0.9993 -> rigid 0.953 / 0.53cm; map-upd ok5cm 0.979 med 0.52cm ratio 1.0017 -> rigid 0.979 / 0.47cm; conf ok5cm 2/1/0 0.991/0.811/0.633
+    masks after removal IoU(syn,real) 0.199 IoU(box,real) 0.689 IoU(box,syn) 0.234
+008 N=488 map=209 upd=218 stride 2 -> 105 (kf 50) | pose bbox.txt/w2c_opencv IoU 0.638 (min 0.168, cover 0.756, inside 0.778); 2nd bbox.ply/w2c_opencv 0.638 | principal point step 0.09 px (random pairs 1.50)
+    lidar box|mask 0.543 mask|box 1.000 box|~mask 0.0000; after removal box|mask 0.257; in-box points near an after-removal point 0.306 (tight box 0.214)
+    depth map-map ok5cm 0.988 med 0.38cm ratio 1.0000 (camera 1: med 0.39cm); revisit ok5cm 0.995 med 0.43cm ratio 0.9995 -> rigid 0.990 / 0.42cm; map-upd ok5cm 0.998 med 0.42cm ratio 1.0007 -> rigid 0.996 / 0.32cm; conf ok5cm 2/1/0 0.986/0.846/0.840
+    masks after removal IoU(syn,real) 0.349 IoU(box,real) 0.638 IoU(box,syn) 0.323
+009 N=623 map=298 upd=277 stride 2 -> 149 (kf 33) | pose bbox.txt/w2c_opencv IoU 0.702 (min 0.633, cover 0.778, inside 0.878); 2nd bbox.ply/w2c_opencv 0.702 | principal point step 0.11 px (random pairs 1.29)
+    lidar box|mask 0.718 mask|box 1.000 box|~mask 0.0002; after removal box|mask 0.700; in-box points near an after-removal point 0.569 (tight box 0.514)
+    depth map-map ok5cm 0.994 med 0.27cm ratio 0.9999 (camera 1: med 0.26cm); revisit ok5cm 0.989 med 0.38cm ratio 0.9998 -> rigid 0.980 / 0.33cm; map-upd ok5cm 1.000 med 0.31cm ratio 0.9998 -> rigid 1.000 / 0.29cm; conf ok5cm 2/1/0 0.993/0.944/1.000
+    masks after removal IoU(syn,real) 0.394 IoU(box,real) 0.677 IoU(box,syn) 0.567
+010 N=592 map=235 upd=173 stride 2 -> 118 (kf 33) | pose bbox.txt/w2c_opencv IoU 0.646 (min 0.581, cover 0.748, inside 0.832); 2nd bbox.ply/w2c_opencv 0.646 | principal point step 0.05 px (random pairs 1.48)
+    lidar box|mask 0.585 mask|box 0.993 box|~mask 0.0008; after removal box|mask 0.422; in-box points near an after-removal point 0.453 (tight box 0.092)
+    depth map-map ok5cm 0.996 med 0.38cm ratio 1.0003 (camera 1: med 0.37cm); revisit ok5cm 0.998 med 0.52cm ratio 1.0007 -> rigid 0.996 / 0.47cm; map-upd ok5cm 0.999 med 0.49cm ratio 0.9977 -> rigid 0.998 / 0.37cm; conf ok5cm 2/1/0 0.995/0.894/1.000
+    masks after removal IoU(syn,real) 0.251 IoU(box,real) 0.660 IoU(box,syn) 0.362
+011 N=816 map=251 upd=464 stride 2 -> 126 (kf 34) | pose bbox.txt/w2c_opencv IoU 0.624 (min 0.353, cover 0.970, inside 0.635); 2nd bbox.ply/w2c_opencv 0.624 | principal point step 0.12 px (random pairs 1.13)
+    lidar box|mask 0.877 mask|box 0.910 box|~mask 0.0474; after removal box|mask 0.716; in-box points near an after-removal point 0.605 (tight box 0.283)
+    depth map-map ok5cm 0.980 med 0.35cm ratio 1.0005 (camera 1: med 0.39cm); revisit ok5cm 0.989 med 0.45cm ratio 0.9999 -> rigid 0.979 / 0.42cm; map-upd ok5cm 0.982 med 0.44cm ratio 0.9996 -> rigid 0.983 / 0.49cm; conf ok5cm 2/1/0 0.979/0.775/0.779
+    masks after removal IoU(syn,real) 0.347 IoU(box,real) 0.664 IoU(box,syn) 0.295
+012 N=537 map=201 upd=209 stride 2 -> 101 (kf 29) | pose bbox.txt/w2c_opencv IoU 0.798 (min 0.716, cover 0.945, inside 0.838); 2nd bbox.ply/w2c_opencv 0.798 | principal point step 0.10 px (random pairs 1.29)
+    lidar box|mask 0.818 mask|box 0.988 box|~mask 0.0033; after removal box|mask 0.674; in-box points near an after-removal point 0.298 (tight box 0.199)
+    depth map-map ok5cm 0.994 med 0.59cm ratio 1.0003 (camera 1: med 0.75cm); revisit ok5cm 0.962 med 1.88cm ratio 0.9998 -> rigid 0.990 / 0.44cm; map-upd ok5cm 0.712 med 3.54cm ratio 1.0287 -> rigid 0.993 / 0.58cm; conf ok5cm 2/1/0 0.977/0.945/0.903
+    masks after removal IoU(syn,real) 0.267 IoU(box,real) 0.789 IoU(box,syn) 0.298
+013 N=633 map=287 upd=233 stride 2 -> 144 (kf 38) | pose bbox.txt/w2c_opencv IoU 0.719 (min 0.664, cover 0.750, inside 0.947); 2nd bbox.ply/w2c_opencv 0.719 | principal point step 0.09 px (random pairs 1.30)
+    lidar box|mask 0.599 mask|box 0.989 box|~mask 0.0011; after removal box|mask 0.395; in-box points near an after-removal point 0.321 (tight box 0.226)
+    depth map-map ok5cm 0.995 med 0.42cm ratio 1.0001 (camera 1: med 0.42cm); revisit ok5cm 0.997 med 0.71cm ratio 0.9999 -> rigid 0.996 / 0.39cm; map-upd ok5cm 0.998 med 0.60cm ratio 0.9999 -> rigid 0.998 / 0.47cm; conf ok5cm 2/1/0 0.994/0.981/1.000
+    masks after removal IoU(syn,real) 0.647 IoU(box,real) 0.703 IoU(box,syn) 0.588
+014 N=793 map=396 upd=297 stride 3 -> 132 (kf 85) | pose bbox.txt/w2c_opencv IoU 0.821 (min 0.795, cover 0.840, inside 0.973); 2nd bbox.ply/w2c_opencv 0.821 | principal point step 0.07 px (random pairs 0.75)
+    lidar box|mask 0.381 mask|box 1.000 box|~mask 0.0000; after removal box|mask 0.306; in-box points near an after-removal point 0.829 (tight box 0.780)
+    depth map-map ok5cm 0.991 med 0.49cm ratio 1.0005 (camera 1: med 0.49cm); revisit ok5cm 0.976 med 1.00cm ratio 1.0007 -> rigid 0.984 / 0.47cm; map-upd ok5cm 1.000 med 0.68cm ratio 1.0016 -> rigid 1.000 / 0.45cm; conf ok5cm 2/1/0 0.990/0.850/0.927
+    masks after removal IoU(syn,real) 0.584 IoU(box,real) 0.805 IoU(box,syn) 0.588
+015 N=702 map=286 upd=269 stride 2 -> 143 (kf 66) | pose bbox.txt/w2c_opencv IoU 0.689 (min 0.411, cover 0.737, inside 0.919); 2nd bbox.ply/w2c_opencv 0.689 | principal point step 0.08 px (random pairs 0.72)
+    lidar box|mask 0.032 mask|box 1.000 box|~mask 0.0000; after removal box|mask 0.000; in-box points near an after-removal point 0.119 (tight box 0.000)
+    depth map-map ok5cm 0.994 med 0.38cm ratio 1.0005 (camera 1: med 0.39cm); revisit ok5cm 0.990 med 0.40cm ratio 0.9997 -> rigid 0.989 / 0.37cm; map-upd ok5cm 1.000 med 0.41cm ratio 1.0004 -> rigid 1.000 / 0.41cm; conf ok5cm 2/1/0 0.992/0.779/0.682
+    masks after removal IoU(syn,real) 0.605 IoU(box,real) 0.716 IoU(box,syn) 0.548
+016 N=484 map=149 upd=203 stride 1 -> 149 (kf 53) | pose bbox.txt/w2c_opencv IoU 0.548 (min 0.377, cover 0.742, inside 0.682); 2nd bbox.ply/w2c_opencv 0.548 | principal point step 0.06 px (random pairs 0.67)
+    lidar box|mask 0.494 mask|box 1.000 box|~mask 0.0000; after removal box|mask 0.310; in-box points near an after-removal point 0.545 (tight box 0.522)
+    depth map-map ok5cm 0.931 med 0.79cm ratio 1.0003 (camera 1: med 0.83cm); revisit ok5cm 0.773 med 1.68cm ratio 0.9976 -> rigid 0.809 / 1.20cm; map-upd ok5cm 0.842 med 2.50cm ratio 1.0096 -> rigid 0.954 / 0.89cm; conf ok5cm 2/1/0 0.929/0.643/0.444
+    masks after removal IoU(syn,real) 0.248 IoU(box,real) 0.626 IoU(box,syn) 0.347
+winners (box, reading) over 16 scenes: [('bbox.txt', 'w2c_opencv')]; failed: []; 168 s
+wrote /home/thanhnc/gauss_ws/data/uags_results/nor/check_nor.json

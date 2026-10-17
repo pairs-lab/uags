@@ -16,7 +16,8 @@ Backends:
 Change handling needs two sequences: the MAPPING sequence (--data) is run with the change
 test recording scores only (change_thr = inf); the field then calibrates its own threshold
 (the q-quantile of its mapping-pass scores, --change-quantile), and the UPDATE sequence
-(--update-data, same scene after a change) runs with that threshold.
+(--update-data, same scene after a change) runs with that threshold. A dataset with parts
+(nor) gives both from one scene folder: --part map --update-part update.
 
 The PCA basis and the centre zbar are fit on the first --pca-frames MAPPING frames only
 (no text, no labels). Text queries are projected without renormalisation (F7).
@@ -147,6 +148,11 @@ def mapping_code_state():
     return dict(mapping_code_sha256=total.hexdigest(), files=files, git=git)
 
 
+def _part(part):
+    """make_dataset options for a sequence part ({} when none is given)."""
+    return {"part": part} if part else {}
+
+
 def _pose_gap(c2w_a, c2w_b):
     dt = (c2w_a[:3, 3] - c2w_b[:3, 3]).norm().item()
     cos = ((c2w_a[:3, :3].t() @ c2w_b[:3, :3]).trace().item() - 1.0) / 2.0
@@ -174,7 +180,7 @@ def run_gsplat(args):
     splats = load_gaussians(args.ply, device=device)
     N = splats["means"].shape[0]
     print(f"loaded {N} Gaussians from {args.ply}")
-    ds = make_dataset(args.dataset, args.data, stride=args.stride)
+    ds = make_dataset(args.dataset, args.data, stride=args.stride, **_part(args.part))
     print(f"dataset {args.dataset}: {len(ds)} frames (stride {args.stride})")
     kw = (dict(model_name=args.clip_model, pretrained=args.clip_pretrained)
           if args.extractor == "clearclip" else {})
@@ -264,7 +270,8 @@ def run_gsplat(args):
     map_tok = extract(ds, map_idx, "mapping")
     upd, upd_idx, upd_tok = None, [], []
     if args.update_data:
-        upd = make_dataset(args.dataset, args.update_data, stride=args.update_stride)
+        upd = make_dataset(args.dataset, args.update_data, stride=args.update_stride,
+                           **_part(args.update_part))
         upd_idx = select(upd)
         upd_tok = extract(upd, upd_idx, "update")
     query_t = None
@@ -379,8 +386,11 @@ def main():
     ap.add_argument("--backend", choices=["mock", "gsplat"], default="mock")
     ap.add_argument("--ply", help="pre-trained 3DGS checkpoint (.ply or .pt)")
     ap.add_argument("--data", help="dataset root")
-    ap.add_argument("--dataset", default="replica", choices=["replica", "replica_semnerf", "scannet", "7scenes"])
+    ap.add_argument("--dataset", default="replica",
+                    choices=["replica", "replica_semnerf", "scannet", "7scenes", "nor"])
     ap.add_argument("--stride", type=int, default=5)
+    ap.add_argument("--part", default="",
+                    help="part of --data, for datasets with parts (nor: map | update | all)")
     ap.add_argument("--downscale", type=int, default=4,
                     help="accumulation resolution = image / downscale (CLIP runs at full res)")
     ap.add_argument("--extractor", default="lseg", help="usplat.extractors name")
@@ -407,6 +417,9 @@ def main():
     ap.add_argument("--update-data", default="",
                     help="root of the UPDATE sequence (same scene after a change)")
     ap.add_argument("--update-stride", type=int, default=5)
+    ap.add_argument("--update-part", default="",
+                    help="part of --update-data (nor: --data and --update-data are the same "
+                         "scene, --part map --update-part update)")
     ap.add_argument("--change-quantile", type=float, default=0.999,
                     help="q of the mapping-pass null used to set the change threshold")
     ap.add_argument("--use-depth", action="store_true",

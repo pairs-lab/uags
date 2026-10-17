@@ -4,6 +4,7 @@ fit_gs.py — fit a 3DGS map on a posed RGB(-D) sequence with gsplat (plan K9).
   scripts/gpu_gate.sh 3000 python3 scripts/fit_gs.py --dataset 7scenes \
       --data <7scenes>/chess/seq-01 --stride 10 --iters 3000 --max-res 640 --out chess.pt
 
+A dataset with parts takes --part (nor: --part map fits the frames before the removal).
 Every FitConfig field of usplat/gs_fit.py is a flag (--max-gaussians, --init-voxel, ...;
 booleans take 1/0, true/false, e.g. --opacity-reset 0 for the gsplat 1.5.3 behaviour).
 Every --holdout-every-th frame (after the stride) is held out for PSNR. Progress goes to
@@ -75,6 +76,8 @@ def build_parser():
     ap.add_argument("--dataset", required=True, choices=sorted(DATASETS))
     ap.add_argument("--data", required=True, help="dataset root")
     ap.add_argument("--stride", type=int, default=1, help="take every stride-th frame")
+    ap.add_argument("--part", default="",
+                    help="part of the sequence, for datasets with parts (nor: map | update | all)")
     ap.add_argument("--out", required=True, help="output .pt")
     ap.add_argument("--device", default="cuda")
     choices = dict(init=["auto", "depth", "random"])
@@ -96,7 +99,8 @@ def main(argv=None):
 
     # code identity before the fit: files edited during a long run do not change it
     code = dict(git=_git_rev(ROOT), code_sha256=code_sha256())
-    ds = make_dataset(args.dataset, args.data, stride=args.stride)
+    ds = make_dataset(args.dataset, args.data, stride=args.stride,
+                      **({"part": args.part} if args.part else {}))
     print(f"[fit] dataset {args.dataset}: {len(ds)} frames (stride {args.stride})",
           file=sys.stderr, flush=True)
     splats, meta = fit_dataset(ds, cfg, device=args.device,

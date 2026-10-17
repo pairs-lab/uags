@@ -157,8 +157,8 @@ def downscale_factor(h: int, w: int, max_res: int) -> int:
 def load_frames(ds, max_res: int = 640, indices: Optional[Sequence[int]] = None):
     """Read dataset frames, downscaled with usplat.datasets.downscale. Returns (frames, f).
 
-    A K_depth of the raw frame is rescaled here to the output depth grid (downscale knows
-    only K), from the raw frame, so a later downscale that also scales it is not doubled."""
+    A K_depth of the raw frame is rescaled here to the output depth grid, from the raw frame
+    (usplat.datasets.downscale rescales it the same way), so it is never scaled twice."""
     from usplat.datasets import downscale
     idx = range(len(ds)) if indices is None else indices
     frames, f = [], None

@@ -1,0 +1,29 @@
+repro start 2026-10-17 11:04:50
+[views test] 20261017-110450 git 7bc9ae7
+keyframes used 10 | observed Gaussians 87.6% | mean support 0.10 views
+timing: {'keyframes': 10, 'ms_per_keyframe_update': 98.32580708898604, 'ms_per_keyframe_field': 98.306889180094, 'ms_per_keyframe_extract': 310.0597275129985, 'n_css': 0, 'n_baselines': 2, 'peak_alloc_extract_mib': 1930.0908203125, 'gpu': 'NVIDIA GeForce RTX 4070 Ti', 'peak_alloc_mib': 2173.1181640625, 'peak_reserved_mib': 6272.0}
+saved field -> /home/thanhnc/gauss_ws/data/uags_fields/room_0_lseg_k10.pt (mapping code b7b80b92d565)
+keyframes used 30 | observed Gaussians 95.8% | mean support 0.27 views
+timing: {'keyframes': 30, 'ms_per_keyframe_update': 38.1950011360459, 'ms_per_keyframe_field': 38.17611767250734, 'ms_per_keyframe_extract': 85.91395133989863, 'n_css': 0, 'n_baselines': 2, 'peak_alloc_extract_mib': 1930.0908203125, 'gpu': 'NVIDIA GeForce RTX 4070 Ti', 'peak_alloc_mib': 2187.58544921875, 'peak_reserved_mib': 6272.0}
+saved field -> /home/thanhnc/gauss_ws/data/uags_fields/room_0_lseg_k30.pt (mapping code b7b80b92d565)
+keyframes used 90 | observed Gaussians 96.3% | mean support 0.80 views
+timing: {'keyframes': 90, 'ms_per_keyframe_update': 37.53550848470897, 'ms_per_keyframe_field': 37.47570330225345, 'ms_per_keyframe_extract': 82.57750757814695, 'n_css': 0, 'n_baselines': 2, 'peak_alloc_extract_mib': 1930.0908203125, 'gpu': 'NVIDIA GeForce RTX 4070 Ti', 'peak_alloc_mib': 2196.9404296875, 'peak_reserved_mib': 6272.0}
+saved field -> /home/thanhnc/gauss_ws/data/uags_fields/room_0_lseg_k90.pt (mapping code b7b80b92d565)
+   room_0 k=  10        ours_P0 mIoU 0.232 n_red 686582 n_irr 1669984 AUSE red/irr msp:0.049/0.128 entropy:0.057/0.128 u_epi:0.058/0.161 u_ale:0.090/0.204
+   room_0 k=  10        ours_P2 mIoU 0.232 n_red 686582 n_irr 1669984 AUSE red/irr msp:0.045/0.124 entropy:0.053/0.124 u_epi:0.058/0.161 u_ale:0.090/0.204
+   room_0 k=  10      averaging mIoU 0.232 n_red 702074 n_irr 1673530 AUSE red/irr msp:0.049/0.129 entropy:0.057/0.129
+   room_0 k=  10       normlift mIoU 0.232 n_red 702074 n_irr 1673530 AUSE red/irr msp:0.049/0.129 entropy:0.057/0.129 normlift_1-R:0.079/0.187 normlift_epi:0.087/0.191 normlift_1-Cinter:0.034/0.177
+   room_0 k=  10      viewcount mIoU 0.232 n_red 702074 n_irr 1673530 AUSE red/irr msp:0.049/0.129 entropy:0.057/0.129 viewcount:0.089/0.205 viewcount_a0:0.058/0.151
+   room_0 k=  30        ours_P0 mIoU 0.277 n_red 123938 n_irr 1862574 AUSE red/irr msp:0.004/0.115 entropy:0.006/0.112 u_epi:0.011/0.168 u_ale:0.014/0.183
+   room_0 k=  30        ours_P2 mIoU 0.277 n_red 123938 n_irr 1862574 AUSE red/irr msp:0.004/0.111 entropy:0.007/0.109 u_epi:0.011/0.168 u_ale:0.014/0.183
+   room_0 k=  30      averaging mIoU 0.277 n_red 130492 n_irr 1864785 AUSE red/irr msp:0.004/0.118 entropy:0.007/0.115
+   room_0 k=  30       normlift mIoU 0.277 n_red 130492 n_irr 1864785 AUSE red/irr msp:0.004/0.118 entropy:0.007/0.115 normlift_1-R:0.016/0.210 normlift_epi:0.018/0.223 normlift_1-Cinter:0.005/0.091
+   room_0 k=  30      viewcount mIoU 0.277 n_red 130492 n_irr 1864785 AUSE red/irr msp:0.004/0.118 entropy:0.007/0.115 viewcount:0.023/0.250 viewcount_a0:0.012/0.161
+   room_0 k=  90        ours_P0 mIoU 0.269 n_red 62128 n_irr 2012584 AUSE red/irr msp:0.001/0.107 entropy:0.003/0.109 u_epi:0.006/0.186 u_ale:0.004/0.123
+   room_0 k=  90        ours_P2 mIoU 0.269 n_red 62128 n_irr 2012584 AUSE red/irr msp:0.001/0.096 entropy:0.003/0.092 u_epi:0.006/0.186 u_ale:0.004/0.123
+   room_0 k=  90      averaging mIoU 0.269 n_red 74174 n_irr 2008252 AUSE red/irr msp:0.002/0.110 entropy:0.004/0.111
+   room_0 k=  90       normlift mIoU 0.269 n_red 74174 n_irr 2008252 AUSE red/irr msp:0.002/0.110 entropy:0.004/0.111 normlift_1-R:0.007/0.192 normlift_epi:0.009/0.232 normlift_1-Cinter:0.003/0.077
+   room_0 k=  90      viewcount mIoU 0.269 n_red 74174 n_irr 2008252 AUSE red/irr msp:0.002/0.110 entropy:0.004/0.111 viewcount:0.010/0.256 viewcount_a0:0.008/0.174
+merged 1 scenes -> /home/thanhnc/gauss_ws/data/uags_results/views_repro/views_test.json
+done: views test -> /home/thanhnc/gauss_ws/data/uags_results/views_repro/views_test.json
+repro done 2026-10-17 11:38:36

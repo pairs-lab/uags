@@ -14,7 +14,10 @@ Attempts: n/a | Time: started 2026-10-17 10:44 JST
   were copied. GitHub push needs credentials on this machine (git fetch/push fail); commits stay local until then.
 
 ## 5 Verification
-(filled at the end)
+| Check | Command | Result | Status |
+|---|---|---|---|
+| Environment on the new machine | CPU suite `CUDA_VISIBLE_DEVICES="" python3 -m pytest tests/`; GPU tests test_gsplat_gpu, test_gs_fit, test_extractor_lseg, test_clip_real | 145 passed / 10 skipped (rejected-extractor weights, GPU-only); GPU 24 passed after one stale test was updated to the k = 2 default (ee7b4fe) | PASS |
+| I1 cross-machine: views for room_0 re-mapped and re-evaluated on the RTX 4070 Ti vs the RTX 5070 Ti file | [repro.sh](logs/repro_room_0.log); compare script in this README | 114 AUSE values, largest change 0.0021 (x100); e_red/e_irr pixel counts within 0.01%; mIoU equal to 3 decimals ([json](logs/views_test_room_0_4070ti.json)) | PASS |
 
 ## 7 Open issues
 - RIO10 access (user) or a replacement dataset (research running).

@@ -1,8 +1,10 @@
 """
-make_tables.py — LaTeX rows of the paper's Table I (tab:replica) from an eval_seg.py JSON, so
-every number in the paper comes from a saved evaluation file (no hand copying).
+make_tables.py — LaTeX rows of the paper's Table I (tab:replica) and of the Replica block of
+Table III (tab:ablation) from an eval_seg.py JSON, so every number in the paper comes from a
+saved evaluation file (no hand copying).
 
     python3 scripts/make_tables.py tab1 <eval_test.json> --val <eval_val.json> > rows.tex
+    python3 scripts/make_tables.py tab3 <eval_test.json> --val <eval_val.json> > rows.tex
 
 Rows and columns follow papers/main.tex (tab:replica): mean {\\scriptsize +- std} over the
 scenes of the file (population std, as usplat.seg_eval.scene_stats), N printed in a comment.
@@ -17,6 +19,28 @@ css_a<alpha0>) and the P3 temperature (ours_P3_b<beta_g>) by the lowest validati
 LEGaussians' lambda_u (legs_l<lambda>) by the lowest validation AUSE of its own u. Without
 --val the defaults css, ours_P3_b20 and legs_l1 are used and a comment says so.
     python3 scripts/make_tables.py choose <eval_val.json> --key legs    prints the chosen row
+
+Table III, Replica block (rows of usplat/ablation_rows.py; columns mIoU, ECE, NLL, AUSE epi,
+AUSE ale): means over the scenes of the file (the caption says "mean over N": no std), N
+printed in a comment. mIoU, ECE and AUSE in %, NLL in nats.
+    Full method  the ours predictive (P0, P1 or P2) with the lowest validation NLL (--val;
+                 without it ours_P2 and a comment says so). The comment also says when the
+                 --val file fit its betas on the same scenes it scores (in-sample)
+    variants     abl_<variant>_P2 if the full method is P2, else abl_<variant>_P0 (the
+                 ablations have no P1 row): the same predictive as the full method
+    AUSE epi/ale the row's own u_epi / u_ale against the row's own 0/1 error on the map built
+                 from all mapping frames, with the variant's pixels ("all": the coverage rule,
+                 uncovered pixels count as wrong and as the most uncertain). Fig. views scores
+                 covered pixels only, so its M=180 point is not this cell.
+Comment lines flag a cell whose mean covers another number of scenes than the full method's
+mIoU, and a variant that prints the same cells as the full method. At the end, per scene:
+each variant's sign against the full method in every column, and each row's share of pixels
+with an undefined u_ale (AUSE ale ranks them as the most uncertain, so that column also
+measures how much of the map has u_ale defined).
+    --digits D   decimals of the ECE and AUSE cells (default 1; mIoU keeps 1, NLL 2)
+    --tab1 F     compare the full method's printed cells with the same row of the Table I
+                 file F: each run fits its own betas, so ECE and NLL can differ a little
+    python3 scripts/make_tables.py tab3 <eval_test.json> --val <eval_val.json> --tab1 <tab1.json>
 """
 from __future__ import annotations
 import argparse
@@ -76,11 +100,11 @@ def choose(val_summary, key, variant="all"):
     return min(cand, key=cand.get) if cand else default
 
 
-def cell(stat, scale, digits=1):
+def cell(stat, scale, digits=1, std=True):
     if stat is None or stat.get("n", 0) == 0 or not math.isfinite(stat.get("mean", float("nan"))):
         return "--"
     m, s, n = stat["mean"] * scale, stat.get("std", float("nan")) * scale, stat["n"]
-    if n < 2 or not math.isfinite(s):
+    if not std or n < 2 or not math.isfinite(s):
         return f"{m:.{digits}f}"
     return f"{m:.{digits}f}{{\\scriptsize$\\,\\pm\\,${s:.{digits}f}}}"
 
@@ -115,16 +139,208 @@ def tab1(path, variant="all", val=None):
     return "\n".join(lines)
 
 
+# Table III (tab:ablation), Replica block: (label, ablation variant; None = the full method)
+TAB3 = [
+    ("\\textbf{Full method}", None),
+    ("Pixels instead of views", "pixels"),
+    ("Uncorrected mean length $\\bar r$", "est_rbar"),
+    ("Prior-shrunk agreement", "est_joint"),
+    ("Shrunk mean length $\\tilde r$", "est_legacy"),
+    ("Centered features", "centre"),
+    ("Pixel-level variant", "legacy"),
+]
+# Table III columns: (name in comments, stat key, scale, decimals; None = --digits).
+# "ause:<signal>" = the AUSE of that signal. mIoU is better when higher, the rest when lower.
+TAB3_COLS = [("mIoU", "miou", 100.0, 1), ("ECE", "ece", 100.0, None), ("NLL", "nll", 1.0, 2),
+             ("AUSE epi", "ause:u_epi", 100.0, None), ("AUSE ale", "ause:u_ale", 100.0, None)]
+HIGHER_BETTER = {"miou"}
+FULL = ("ours_P0", "ours_P1", "ours_P2")                         # the full method's candidates
+PIXELS = {"all": "with the coverage rule of Table I (uncovered pixels count as wrong and as "
+                 "the most uncertain); Fig. views scores covered pixels only, so its M=180 "
+                 "point is not this cell",
+          "covered": "on covered pixels only (as Fig. views)"}
+
+
+def full_method(val_summary, variant="all"):
+    """The full method's row, the ours predictive (P0, P1 or P2) with the lowest mean
+    validation NLL, and the reason for the comment line (ours_P2 when nothing to choose)."""
+    if val_summary is None:
+        return "ours_P2", "no --val: default, not chosen on validation"
+    nll = {r: val_summary[r][variant]["nll"]["mean"] for r in FULL if r in val_summary}
+    ok = {r: v for r, v in nll.items() if math.isfinite(v)}
+    if not ok:
+        return "ours_P2", f"no finite validation NLL of {', '.join(FULL)}: default"
+    return min(ok, key=ok.get), "lowest validation NLL among " + ", ".join(
+        f"{r} {v:.4f}" for r, v in nll.items())
+
+
+def fit_note(path):
+    """'; in-sample ...' when the file's betas were fit on the same scenes it scores (its
+    eval_seg.py run had --val-scenes equal to --scenes and no --betas), else ''."""
+    c = json.load(open(path)).get("config") or {}
+    if c.get("val_scenes") and c.get("val_scenes") == c.get("scenes") and not c.get("betas"):
+        return "; in-sample: the betas were fit on these same scenes"
+    return ""
+
+
+def _stat(m, key):
+    """The summary stat {mean, std, n, n_nan} of one Table III column, or None."""
+    if key.startswith("ause:"):
+        return (m.get("ause") or {}).get(key[5:])
+    return m.get(key)
+
+
+def tab3_cells(m, digits=1):
+    """The printed cells of one Table III row: means only."""
+    return [cell(_stat(m, k), sc, digits if dg is None else dg, std=False)
+            for _, k, sc, dg in TAB3_COLS]
+
+
+def cell_n(m):
+    """(column name, number of scenes behind its mean) for each cell that prints a mean."""
+    out = []
+    for name, k, _, _ in TAB3_COLS:
+        st = _stat(m, k)
+        if st and st.get("n", 0) > 0:
+            out.append((name, st["n"]))
+    return out
+
+
+def n_notes(label, m, n_full):
+    """'% <label>: N = ...' for the cells whose mean covers another number of scenes than the
+    full method's mIoU (a mean over other scenes is not comparable). The column names are
+    left out when every cell of the row has that N."""
+    cols = {}
+    for name, n in cell_n(m):
+        if n != n_full:
+            cols.setdefault(n, []).append(name)
+    return [f"% {label}: N = {n} scenes"
+            + ("" if len(names) == len(TAB3_COLS) else " for " + ", ".join(names))
+            + f", the full method has {n_full}" for n, names in sorted(cols.items())]
+
+
+def tab1_note(full, m, t1_path, variant="all", digits=1):
+    """A comment that compares the full method's printed cells with the same row of a Table I
+    file. Each run fits its own betas on random pixel subsets, so ECE and NLL can differ in
+    the last digit; mIoU and AUSE do not depend on beta and should agree."""
+    t1 = body(t1_path)["summary"]
+    if full not in t1:
+        return f"% full method vs Table I: row {full!r} not in {t1_path}"
+    here, there = tab3_cells(m, digits), tab3_cells(t1[full].get(variant) or {}, digits)
+    diff = [f"{name} {x} here, {y} in Table I"
+            for (name, *_), x, y in zip(TAB3_COLS, here, there) if x != y]
+    return (f"% full method vs Table I ({t1_path}, row {full}): "
+            + ("differs in " + "; ".join(diff) if diff else "same printed cells"))
+
+
+def _scene_value(m, key):
+    """One scene's value of a Table III column (an AUSE comes from its "ranking"), or None."""
+    if key.startswith("ause:"):
+        return ((m.get("ranking") or {}).get(key[5:]) or {}).get("ause")
+    return m.get(key)
+
+
+def _undefined(m):
+    """One scene's share of pixels with an undefined u_ale (covered pixels; AUSE ale ranks
+    them above every finite u_ale), or None."""
+    u = (m.get("ranking") or {}).get("u_ale") or {}
+    if "n_undefined" not in u or not m.get("n_pixels"):
+        return None
+    return u["n_undefined"] / m["n_pixels"]
+
+
+def _sign(v, f, higher_better):
+    """'+' better than the full method's value f, '-' worse, '=' the same (up to float
+    noise, relative 1e-9: a re-mapped field can repeat a value in its last bits), '?' missing."""
+    if v is None or f is None or not (math.isfinite(v) and math.isfinite(f)):
+        return "?"
+    if math.isclose(v, f, rel_tol=1e-9, abs_tol=1e-12):
+        return "="
+    return "+" if (v > f) == higher_better else "-"
+
+
+def _row_signs(vals, full_vals):
+    """'mIoU --, ECE -+, ...': for each column, one sign per scene against the full method."""
+    out = []
+    for name, k, _, _ in TAB3_COLS:
+        signs = [_sign(_scene_value(v, k), _scene_value(f, k), k in HIGHER_BETTER)
+                 for v, f in zip(vals, full_vals)]
+        out.append(f"{name} {''.join(signs)}")
+    return ", ".join(out)
+
+
+def scene_notes(b, rows, full, variant="all"):
+    """Comment lines for reading the table at small N. Per scene (in file order): whether each
+    variant is better (+), worse (-) or the same (=) as the full method in each column, and
+    each row's share of pixels with an undefined u_ale."""
+    scenes = b.get("scenes") or {}
+    if not scenes:
+        return ["% no per-scene results in the file: no per-scene signs"]
+    per = {r: [((scenes[s].get("rows") or {}).get(r) or {}).get(variant) or {} for s in scenes]
+           for _, r in rows}
+    lines = [f"% per scene ({', '.join(scenes)}): + better, - worse, = same value (relative"
+             " 1e-9) as the full method (mIoU: higher is better, the rest: lower); u_ale"
+             " undefined = % of the pixels, ranked as the most uncertain in AUSE ale"]
+    for label, r in rows:
+        share = " ".join("?" if x is None else f"{100 * x:.1f}" for x in map(_undefined, per[r]))
+        signs = "" if r == full else _row_signs(per[r], per[full]) + "; "
+        lines.append(f"% {label}: {signs}u_ale undefined {share}")
+    return lines
+
+
+def tab3(path, variant="all", val=None, tab1=None, digits=1):
+    b = body(path)
+    summ = b["summary"]
+    full, why = full_method(body(val)["summary"] if val else None, variant)
+    if val:
+        why += fit_note(val)
+    pred = "P2" if full == "ours_P2" else "P0"          # the ablation rows are P0 and P2 only
+    rows = [(label, full if v is None else f"abl_{v}_{pred}") for label, v in TAB3]
+    have = [(label, r) for label, r in rows if r in summ]
+    ns = sorted({n for _, r in have for _, n in cell_n(summ[r][variant])})
+    fm = summ[full][variant] if full in summ else None
+    n_full = (_stat(fm, "miou") or {}).get("n") if fm else None
+    lines = [f"% generated by scripts/make_tables.py tab3 {path} --variant {variant}"
+             + (f" --val {val}" if val else "") + (f" --tab1 {tab1}" if tab1 else "")
+             + (f" --digits {digits}" if digits != 1 else "") + f"; scenes per cell N = {ns}",
+             f"% full method = {full} ({why}); variants: abl_<variant>_{pred}"
+             + (" (the ablations have no P1 row)" if full == "ours_P1" else ""),
+             "% means over scenes; AUSE epi / ale = each row's own u_epi / u_ale against the"
+             " row's own 0/1 error on the map from all mapping frames, " + PIXELS[variant]]
+    if tab1 and fm:
+        lines.append(tab1_note(full, fm, tab1, variant, digits))
+    for label, r in rows:
+        if r not in summ:
+            lines.append(f"% {label}: row {r!r} not in {path}")
+            continue
+        m = summ[r][variant]
+        if n_full:
+            lines += n_notes(label, m, n_full)
+        cells = tab3_cells(m, digits)
+        if fm and r != full and cells == tab3_cells(fm, digits):
+            lines.append(f"% {label}: same printed cells as the full method")
+        lines.append(f"{label} & " + " & ".join(cells) + "\\\\")
+    if fm:
+        lines += scene_notes(b, have, full, variant)
+    return "\n".join(lines)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("table", choices=["tab1", "choose"])
+    ap.add_argument("table", choices=["tab1", "tab3", "choose"])
     ap.add_argument("--key", default="legs", choices=["css", "p3", "legs"])
     ap.add_argument("path")
     ap.add_argument("--val", default="", help="validation eval_seg JSON (row choices)")
     ap.add_argument("--variant", default="all", choices=["all", "covered"])
+    ap.add_argument("--tab1", default="", help="tab3: Table I eval_seg JSON; a comment compares "
+                    "the full method's printed cells with its row")
+    ap.add_argument("--digits", type=int, default=1,
+                    help="tab3: decimals of the ECE and AUSE cells (mIoU keeps 1, NLL 2)")
     a = ap.parse_args()
     if a.table == "choose":                      # the validation choice of one row family
         print(choose(body(a.path)["summary"], "@" + a.key, a.variant))
+    elif a.table == "tab3":
+        print(tab3(a.path, a.variant, a.val or None, a.tab1 or None, a.digits))
     else:
         print(tab1(a.path, a.variant, a.val or None))
 

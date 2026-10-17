@@ -1,13 +1,13 @@
 # Reports: uags
 ## Current state
-Replica Table I is measured and in the paper ([report](2026-09-29-replica-tab1/README.md), test N=6, one shot): our
-aleatoric channel ranks errors on par with NormLift's 1-C_inter and better than CSS / LEGaussians; tuned closed-set CSS is
-the best calibrated; Feature 3DGS and LEGaussians (added as SOTA baselines) do not beat fusion. Running: views figure and
-Table III. Open: RIO10 access (user), P3 attempt negative, paper at 8 pages (journal class). Last updated 2026-09-30.
+Replica Table I, the views figure and the Replica block of Table III are measured and in the paper
+([report](2026-10-17-paper-completion/README.md)): the two channels separate (u_epi ranks reducible errors, u_ale
+irreducible ones); the rho_hat bias correction shows no measured gain. Open: stale-content table on the
+NeRF-Object-Removal dataset (replaces RIO10, building), timing, qualitative figure, page limit (9 > 8). Last updated 2026-10-17.
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|
-| 2026-10-17 | [Complete the paper](2026-10-17-paper-completion/README.md) | IN PROGRESS | new machine; env rebuild; RIO10 replacement research |
+| 2026-10-17 | [Complete the paper](2026-10-17-paper-completion/README.md) | IN PROGRESS | views figure (test N=6): channels separate (u_epi on e_red at M=10, u_ale on e_irr at M=90, 6/6 scenes); Table III Replica filled; NOR stale-content benchmark being built; paper 9 pages |
 | 2026-09-29 | [Replica Table I](2026-09-29-replica-tab1/README.md) | DONE | test (N=6): u_ale AUSE 8.50 ~ NormLift 8.76, < CSS 11.2, << LEGaussians 19.7; tuned CSS best calibrated; Table I in paper; views + Tab III running |
 | 2026-09-29 | [Paper revision 1](2026-09-29-paper-revision-1/README.md) | DONE | text matches code, ieeeconf, anonymous; 29 review fixes; 8 pages |
 | 2026-09-29 | [Bibliography moved to ref.bib](2026-09-29-bibliography/README.md) | DONE | 49 entries verified; compiles with BibTeX, 0 errors/undefined |

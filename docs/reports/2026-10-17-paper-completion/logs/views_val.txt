@@ -1,0 +1,59 @@
+views figure, stage val: primary analysis (summary)
+views: /home/thanhnc/gauss_ws/data/uags_results/views/views_val.json; N = 2 scenes: office_0, room_2
+M=180 (e_irr only): Table I AUSE on covered pixels, /home/thanhnc/gauss_ws/data/uags_results/tab1/eval_val.json, its summary (same scenes)
+check full-map mIoU: PASS: max |mIoU views full map - Table I| = 0.00e+00 over 10 (scene, row) pairs
+check covered pixels: PASS: views n_pixels = Table I covered n_pixels in 30 of 30 (scene, M, row) triples
+check temperatures: PASS: betas of 2 part files = Table I betas in 38 of 38 (part, row) pairs
+plotted: AUSE / random-ranking AUSE per scene (1 = random, 0 = oracle), mean +- population std over scenes; lower is better
+
+| target | curve (AUSE / random) | JSON row/signal | M=10 | M=30 | M=90 | M=180 |
+|---|---|---|---|---|---|---|
+| e_red | ours, u_epi | ours_P0/u_epi | 0.247 +- 0.122 | 0.298 +- 0.220 | 0.341 +- 0.220 | -- |
+| e_red | ours, u_ale | ours_P0/u_ale | 0.966 +- 0.005 | 0.553 +- 0.092 | 0.250 +- 0.080 | -- |
+| e_red | averaging, 1 - max p | averaging/msp | 0.170 +- 0.053 | 0.118 +- 0.022 | 0.046 +- 0.014 | -- |
+| e_red | NormLift, 1/(1+N_eff) | normlift/normlift_epi | 0.615 +- 0.271 | 0.555 +- 0.018 | 0.730 +- 0.147 | -- |
+| e_red | NormLift, 1 - C_inter | normlift/normlift_1-Cinter | 0.455 +- 0.177 | 0.242 +- 0.052 | 0.256 +- 0.106 | -- |
+| e_red | NormLift, 1 - R | normlift/normlift_1-R | 0.566 +- 0.263 | 0.416 +- 0.071 | 0.478 +- 0.135 | -- |
+| e_red | view count, 1/(1+n_vis) | viewcount/viewcount | 0.502 +- 0.146 | 0.484 +- 0.087 | 0.700 +- 0.059 | -- |
+| e_irr | ours, u_epi | ours_P0/u_epi | 0.667 +- 0.043 | 0.613 +- 0.048 | 0.549 +- 0.050 | 0.537 +- 0.044 |
+| e_irr | ours, u_ale | ours_P0/u_ale | 0.980 +- 0.007 | 0.639 +- 0.070 | 0.351 +- 0.067 | 0.304 +- 0.058 |
+| e_irr | averaging, 1 - max p | averaging/msp | 0.405 +- 0.075 | 0.348 +- 0.000 | 0.303 +- 0.002 | 0.285 +- 0.004 |
+| e_irr | NormLift, 1/(1+N_eff) | normlift/normlift_epi | 0.829 +- 0.129 | 0.774 +- 0.062 | 0.749 +- 0.042 | 0.711 +- 0.047 |
+| e_irr | NormLift, 1 - C_inter | normlift/normlift_1-Cinter | 0.629 +- 0.170 | 0.338 +- 0.119 | 0.331 +- 0.066 | 0.306 +- 0.055 |
+| e_irr | NormLift, 1 - R | normlift/normlift_1-R | 0.800 +- 0.107 | 0.660 +- 0.073 | 0.556 +- 0.039 | 0.447 +- 0.030 |
+| e_irr | view count, 1/(1+n_vis) | viewcount/viewcount | 0.786 +- 0.141 | 0.757 +- 0.002 | 0.697 +- 0.050 | 0.685 +- 0.041 |
+
+| target | curve (raw AUSE x100) | JSON row/signal | M=10 | M=30 | M=90 | M=180 |
+|---|---|---|---|---|---|---|
+| e_red | ours, u_epi | ours_P0/u_epi | 1.073 +- 0.634 | 0.430 +- 0.324 | 0.152 +- 0.025 | -- |
+| e_red | ours, u_ale | ours_P0/u_ale | 3.936 +- 0.559 | 0.782 +- 0.154 | 0.142 +- 0.037 | -- |
+| e_red | averaging, 1 - max p | averaging/msp | 0.729 +- 0.310 | 0.179 +- 0.042 | 0.039 +- 0.028 | -- |
+| e_red | NormLift, 1/(1+N_eff) | normlift/normlift_epi | 2.388 +- 0.786 | 0.832 +- 0.010 | 0.584 +- 0.396 | -- |
+| e_red | NormLift, 1 - C_inter | normlift/normlift_1-Cinter | 1.971 +- 0.976 | 0.367 +- 0.095 | 0.142 +- 0.025 | -- |
+| e_red | NormLift, 1 - R | normlift/normlift_1-R | 2.194 +- 0.779 | 0.620 +- 0.078 | 0.398 +- 0.287 | -- |
+| e_red | view count, 1/(1+n_vis) | viewcount/viewcount | 1.992 +- 0.331 | 0.732 +- 0.163 | 0.528 +- 0.321 | -- |
+| e_irr | ours, u_epi | ours_P0/u_epi | 10.257 +- 0.348 | 9.664 +- 1.810 | 8.929 +- 1.550 | 8.839 +- 1.449 |
+| e_irr | ours, u_ale | ours_P0/u_ale | 15.163 +- 1.605 | 10.107 +- 2.199 | 5.749 +- 1.546 | 5.044 +- 1.366 |
+| e_irr | averaging, 1 - max p | averaging/msp | 6.343 +- 1.782 | 5.420 +- 0.617 | 4.877 +- 0.400 | 4.667 +- 0.474 |
+| e_irr | NormLift, 1/(1+N_eff) | normlift/normlift_epi | 12.537 +- 0.676 | 11.957 +- 0.415 | 11.983 +- 0.397 | 11.548 +- 0.246 |
+| e_irr | NormLift, 1 - C_inter | normlift/normlift_1-Cinter | 9.922 +- 3.595 | 5.486 +- 2.460 | 5.416 +- 1.535 | 5.083 +- 1.343 |
+| e_irr | NormLift, 1 - R | normlift/normlift_1-R | 12.116 +- 0.384 | 10.164 +- 0.039 | 8.892 +- 0.173 | 7.254 +- 0.147 |
+| e_irr | view count, 1/(1+n_vis) | viewcount/viewcount | 11.851 +- 0.939 | 11.810 +- 1.329 | 11.291 +- 1.817 | 11.257 +- 1.654 |
+
+| target | errors of row | quantity | M=10 | M=30 | M=90 | M=180 |
+|---|---|---|---|---|---|---|
+| e_red | ours_P0 | random AUSE x100 | 4.073 +- 0.560 | 1.408 +- 0.045 | 0.684 +- 0.368 | -- |
+| e_red | ours_P0 | target share % | 4.288 +- 0.589 | 1.482 +- 0.047 | 0.720 +- 0.388 | -- |
+| e_red | ours_P0 | smallest target count | 250966 | 84459 | 18381 | -- |
+| e_red | averaging = normlift = viewcount | random AUSE x100 | 4.123 +- 0.540 | 1.501 +- 0.068 | 0.720 +- 0.397 | -- |
+| e_red | averaging = normlift = viewcount | target share % | 4.340 +- 0.569 | 1.580 +- 0.072 | 0.758 +- 0.418 | -- |
+| e_red | averaging = normlift = viewcount | smallest target count | 255935 | 91234 | 18776 | -- |
+| e_irr | ours_P0 | random AUSE x100 | 15.468 +- 1.520 | 15.633 +- 1.717 | 16.129 +- 1.349 | 16.347 +- 1.350 |
+| e_irr | ours_P0 | target share % | 17.583 +- 1.941 | 17.793 +- 2.193 | 18.433 +- 1.730 | 18.724 +- 1.743 |
+| e_irr | ours_P0 | smallest target count | 1061368 | 1058555 | 1113750 | 1130588 |
+| e_irr | averaging = normlift = viewcount | random AUSE x100 | 15.360 +- 1.566 | 15.597 +- 1.790 | 16.090 +- 1.441 | 16.336 +- 1.428 |
+| e_irr | averaging = normlift = viewcount | target share % | 17.445 +- 1.999 | 17.748 +- 2.288 | 18.387 +- 1.850 | 18.714 +- 1.846 |
+| e_irr | averaging = normlift = viewcount | smallest target count | 1048065 | 1049093 | 1117853 | 1135653 |
+
+wrote /tmp/claude-1000/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/views_fig/views_val.pdf
+wrote /tmp/claude-1000/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/views_fig/views_val.png

@@ -1,7 +1,7 @@
 # Complete the UAGS paper
-2026-10-17 | root: /home/thanhnc/gauss_ws/src/uags | git: master@f88229c (+ uncommitted NOR loader work) | [all reports](../INDEX.md)
+2026-10-17 | root: /home/thanhnc/gauss_ws/src/uags | git: master@9358007 (+ uncommitted NOR loader work) | [all reports](../INDEX.md)
 Follows: [Replica Table I](../2026-09-29-replica-tab1/README.md)
-Verdict: IN PROGRESS -- views figure and Replica ablations are in the paper; the stale-content benchmark (NOR) is being built
+Verdict: IN PROGRESS -- Table I marked, views figure and Replica ablations in the paper; NOR benchmark being built; improvement plan being designed
 Key result: views figure (Replica test, N=6): u_epi ranks reducible errors better than u_ale at M=10 (0.35 vs 0.90 x random, 6/6 scenes); u_ale ranks irreducible errors better than u_epi at M=90 (0.48 vs 0.83, 6/6) ([log](logs/views_test.txt), [wins](logs/views_test_wins.txt))
 Attempts: n/a | Time: started 2026-10-17 10:44 JST
 
@@ -9,6 +9,8 @@ Attempts: n/a | Time: started 2026-10-17 10:44 JST
 - Ask (user, 2026-10-17): "now we need to complete the paper". Target: RA-L submission 2026-11-27 (8 pages, IEEEtran journal).
 - Done before this run: Table I (Replica test, N=6, one shot) is in papers/main.tex; views figure and Table III validated.
 - Machine changed: RTX 4070 Ti 12 GB (was RTX 5070 Ti 16 GB). GitHub push needs credentials on this machine; commits stay local.
+- Second ask (user, 2026-10-17): "use bold for best and underline for second best in table ... please improve and make it
+  dominate". Rule kept: improvements are chosen on validation scenes only, baselines are not weakened, the first test run stays on record.
 - RIO10 never arrived. User decision (2026-10-17): use the NeRF-Object-Removal dataset (Weder et al., CVPR 2023; 16 real
   iPhone scenes, object present then physically removed) for the stale-content table. Protocol fixed before any run:
   validation scenes 001-004, test 005-016 (once); map on frames before `split_start`, update on frames from `split_end`.
@@ -22,6 +24,8 @@ Attempts: n/a | Time: started 2026-10-17 10:44 JST
 | The bias correction of rho_hat changes no Table III cell by more than 0.05 (r_bar, r_tilde rows; val and test) | [tab3_rows.tex](logs/tab3_rows.tex); exact values in this README, 5 Verification | stated in the ablation text; the abstract / contribution wording "bias-corrected" is not backed by a measured gain (open issue) |
 | Prior-shrunk agreement hurts the aleatoric ranking (AUSE ale 14.8 vs 8.5 test, 7.3 vs 5.0 val) | [tab3_rows.tex](logs/tab3_rows.tex) | supports "agreement that does not shrink with evidence" |
 | Centred features lower AUSE ale a little on both splits (8.3 vs 8.5 test, 4.7 vs 5.0 val) | [tab3_rows.tex](logs/tab3_rows.tex) | stated; the method was frozen before test, so not adopted |
+| Table I marks (best / second best among the open-vocabulary rows; CSS is told the classes at mapping time, shown but not ranked): ours best in 6 of 7 columns; accuracy: Feature 3DGS 77.0 vs ours 76.8 | `scripts/make_tables.py tab1 ... --rank ov`; with `--rank all` CSS is best in mIoU, Acc, ECE, Brier, AURC | caption states the rule |
+| Our total uncertainty (1 - max p of P2, a row measured in the frozen views run) ties averaging on e_red (0.19 vs 0.19 at M=10) and beats it on e_irr in 6/6 scenes at M=90 and 180 (0.44 vs 0.52) | [views_test.txt](logs/views_test.txt), [views_test_wins.txt](logs/views_test_wins.txt) | added to the figure as "Ours P2, 1 - max p"; shown next to averaging's |
 
 ## 5 Verification
 | Check | Command | Result | Status |
@@ -33,6 +37,7 @@ Attempts: n/a | Time: started 2026-10-17 10:44 JST
 | Table III: full method equals Table I P2 | `python3 scripts/make_tables.py tab3 tab3/eval_test.json --val tab3/eval_val.json --tab1 tab1/eval_test.json` | "same printed cells" ([tab3_rows.tex](logs/tab3_rows.tex)) | PASS |
 | Table III exact values (r_bar vs full, test) | python read of tab3/eval_test.json summary | ECE 8.648 vs 8.683, NLL 0.9945 vs 0.9955, AUSE ale 8.450 vs 8.498 | PASS (backs the "0.05" sentence) |
 | I2 eval unchanged | -- | no eval code changed; plot_views only reads the JSON files | PASS |
+| Table marks | `CUDA_VISIBLE_DEVICES="" python3 -m pytest tests/test_make_tables_marks.py tests/test_make_tables_tab3.py` | 16 passed; paper rows equal the old rows after removing the marks (checked in the edit script) | PASS |
 | Paper compiles, page count | pdflatex + bibtex on a copy of papers/ | 9 pages (8 at 2d980dc): references [30]-[40] spill to page 9 | FAIL (over the 8-page limit) |
 
 ## 7 Open issues
@@ -40,12 +45,15 @@ Attempts: n/a | Time: started 2026-10-17 10:44 JST
 - Claim wording: "bias-corrected agreement" is in the abstract, contributions and related work, but Table III shows no
   measured gain from the correction. Needs an author decision (keep as a few-view property, or drop the claim).
 - Stale-content benchmark on NOR: loader, driver, pipeline being built (workflow wf_2faa1219-1f0); then GPU runs.
+- Improvement plan (workflow wf_067f2900-c19, CPU only): ideas for the predictive, the channels and the change test, judged for legitimacy;
+  experiments then run on validation scenes only. CSS (closed vocabulary) will likely stay ahead on calibration.
 - Push: no GitHub credentials on this machine.
 
 ## 8 Files
 - Code: [scripts/plot_views.py](../../../scripts/plot_views.py), [tests/test_plot_views.py](../../../tests/test_plot_views.py),
   [scripts/make_tables.py](../../../scripts/make_tables.py) (tab3), requirements.txt (matplotlib) -- commits 03bbd81, bc90c09.
-- Paper: papers/main.tex (views figure, metrics sentence, Table III Replica block), papers/figs/views.pdf -- commit f88229c.
+- Paper: papers/main.tex (views figure, metrics sentence, Table III Replica block), papers/figs/views.pdf -- commit f88229c;
+  Table I marks (623af34, also scripts/make_tables.py, tests/test_make_tables_marks.py); total-uncertainty curve (9358007).
 - Logs: [views_test.txt](logs/views_test.txt), [views_val.txt](logs/views_val.txt), [views_test_defined.txt](logs/views_test_defined.txt),
   [views_val_defined.txt](logs/views_val_defined.txt), [views_test_wins.txt](logs/views_test_wins.txt), [tab3_rows.tex](logs/tab3_rows.tex),
   [repro_room_0.log](logs/repro_room_0.log), [views_test_room_0_4070ti.json](logs/views_test_room_0_4070ti.json).

@@ -63,6 +63,17 @@ Running: `STAGE=val scripts/nor_tab2.sh` | PID 627181 | /home/thanhnc/gauss_ws/d
 Problem: only 0.5% of the Gaussians are scored (a full view needs >= 9.7 px of splat mass; the maps hit the 1M cap), and
 70% of the covered pixels are never scored, so every pixel AUROC is below 50. This is why D7 compares the "relmax" weight.
 
+## 3 Attempts (object removal, validation only)
+| # | Idea | Result (val, N=4) | Critic |
+|---|---|---|---|
+| 01 | default change weight "view" | ours P AP 30.3; 0.5% of Gaussians scored; P AUROC < 50 for every row | Bad: the test reaches almost no Gaussian of a 1M map |
+| 02 | change weight "relmax", fast_min = slow_min = 0.5 (D7) | ours P AP **68.3**; 61% of Gaussians scored; Kept 10.3% (was 59.0%) ([rows](logs/nor_tab2_val_relmax.tex), [summary](logs/nor_val_relmax_summary.txt)) | Good: chosen by the D7 rule (higher pixel AP of ours) |
+
+Relmax validation rows (%): G AP / G AUROC / P AP / P AUROC / FA / Rec. NCC 36.3/82.4/58.2/78.4/10.1/49.3; depth
+80.1/92.8/65.0/73.7/0.4/48.0; feature 62.8/89.5/69.3/79.2/10.5/59.7; NormLift drop 61.1/92.3/71.8/85.9/1.7/36.5;
+dispersion 23.9/56.5/56.2/63.4/0.1/4.3; ours 60.3/90.1/68.3/78.7/5.8/53.2; ours + depth 84.0/93.7/73.5/78.7/-/-.
+Where a baseline wins on val: depth residual beats ours alone in G AP (80.1 vs 60.3); NormLift drop has the best P AUROC.
+
 ## 5 Verification
 | Check | Command | Result | Status |
 |---|---|---|---|

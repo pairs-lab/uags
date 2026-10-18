@@ -1,0 +1,8 @@
+       ncc [  I]: g_ap 36.3 g_auroc 82.4 p_ap 58.2 p_auroc 78.4 fa 10.1 rec 49.3 (N = 4)
+     depth [  D]: g_ap 80.1 g_auroc 92.8 p_ap 65.0 p_auroc 73.7 fa 0.4 rec 48.0 (N = 4)
+      feat [  F]: g_ap 62.8 g_auroc 89.5 p_ap 69.3 p_auroc 79.2 fa 10.5 rec 59.7 (N = 4)
+  normlift [  F]: g_ap 61.1 g_auroc 92.3 p_ap 71.8 p_auroc 85.9 fa 1.7 rec 36.5 (N = 4)
+dispersion [  F]: g_ap 23.9 g_auroc 56.5 p_ap 56.2 p_auroc 63.4 fa 0.1 rec 4.3 (N = 4)
+      ours [F+D]: g_ap 60.3 g_auroc 90.1 p_ap 68.3 p_auroc 78.7 fa 5.8 rec 53.2 (N = 4)
+     fused [F+D]: g_ap 84.0 g_auroc 93.7 p_ap 73.5 p_auroc 78.7 fa nan rec nan (N = 4)
+scenes ['001', '002', '003', '004']: unobserved 38.8% (pooled 38.8%), stale observed 71317 per scene, Kept 10.3%; replay ok True

@@ -72,6 +72,7 @@ Problem: only 0.5% of the Gaussians are scored (a full view needs >= 9.7 px of s
 | # | Idea | Result (val, N=4) | Critic |
 |---|---|---|---|
 | 01 | default change weight "view" | ours P AP 30.3; 0.5% of Gaussians scored; P AUROC < 50 for every row | Bad: the test reaches almost no Gaussian of a 1M map |
+| 03 | Table I v2 (pre-registered 2026-10-10): P4 vote predictive, P1 prior grid, P2 on P1, read-outs of the v1 fields | pooled val NLL: P2 0.800 (kept), P2-on-P1 0.809, P1 c0=0.01 0.811, P4 best 0.854 ([selection](logs/tab1_v2_selection_val.json), [rows](logs/tab1_v2_val_rows.txt)) | Bad: no v2 row beats P2 on validation; Table I unchanged. P4 lowers ECE on room_2 (2.6 vs 2.7) but costs NLL |
 | 02 | change weight "relmax", fast_min = slow_min = 0.5 (D7) | ours P AP **68.3**; 61% of Gaussians scored; Kept 10.3% (was 59.0%) ([rows](logs/nor_tab2_val_relmax.tex), [summary](logs/nor_val_relmax_summary.txt)) | Good: chosen by the D7 rule (higher pixel AP of ours) |
 
 Relmax validation rows (%): G AP / G AUROC / P AP / P AUROC / FA / Rec. NCC 36.3/82.4/58.2/78.4/10.1/49.3; depth

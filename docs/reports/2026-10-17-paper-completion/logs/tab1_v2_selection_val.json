@@ -1,0 +1,139 @@
+{
+ "selection": {
+  "prereg": {
+   "path": "/home/thanhnc/gauss_ws/src/uags/configs/tab1_v2_prereg.json",
+   "sha256": "0abdf9fc9dc0a0f911f847f40387830a5200ece5f0c225ddad61d131c4b18387",
+   "registered": "2026-10-10"
+  },
+  "validation": {
+   "path": "/home/thanhnc/gauss_ws/data/uags_results/tab1_v2/eval_val.json",
+   "sha256": "dfd8c5e06f535b6245383e0b17b9c2d9895d197f8e607e221a1f9ecbdeef0353",
+   "run_id": "37d8ee7721d742ed942ab8bf5c7edfda",
+   "git": {
+    "repo": "/home/thanhnc/gauss_ws/src/uags",
+    "commit": "45d89e9c01ecf5d4959d29595570b70a4f50cea6",
+    "branch": "master",
+    "dirty": false,
+    "dirty_tracked": false,
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diff_bytes": 0,
+    "code_sha256": "cd372fb85148700fa88095e3492d3f9f5beb43e555e5ff26d95f5a6adc36f8e6",
+    "exclude": [
+     "**/*.pyc",
+     "docs/**",
+     "papers/**",
+     "outputs/**"
+    ],
+    "untracked": []
+   },
+   "scenes": [
+    "office_0",
+    "room_2"
+   ]
+  },
+  "metric": {
+   "name": "nll",
+   "variant": "all",
+   "pooling": "pixels",
+   "text": "validation NLL in nats with the coverage rule (variant 'all'), pooled over the labelled pixels of all validation scenes: sum_s n_s NLL_s / sum_s n_s, n_s = labelled pixels of scene s; temperatures fit by eval_seg.py on the same validation scenes (one per row, as in v1)"
+  },
+  "tie": {
+   "tol": 0.0001,
+   "rule": "candidates within tol nats of the lowest value tie; the tie goes to the one listed first; lists run from the reference setting outward (P1: c0 = 1, the FieldConfig default; P4: lambda = 1, the vMF moment match, then alpha0 = 1, the flat Dirichlet of CSS's default; @ours_v2: the v1 predictive ours_P2 first, so a v2 row must beat it by more than tol)"
+  },
+  "choices": {
+   "@p1": {
+    "row": "ours_P1_c0.01",
+    "values": {
+     "ours_P1_c1": [
+      "ours_P1_c1",
+      0.8365354017981917
+     ],
+     "ours_P1_c0.3": [
+      "ours_P1_c0.3",
+      0.8237377956437526
+     ],
+     "ours_P1_c0.1": [
+      "ours_P1_c0.1",
+      0.816724739450852
+     ],
+     "ours_P1_c0.03": [
+      "ours_P1_c0.03",
+      0.8124889733292225
+     ],
+     "ours_P1_c0.01": [
+      "ours_P1_c0.01",
+      0.810561739524532
+     ]
+    }
+   },
+   "@p4": {
+    "row": "ours_P4_a0.01_s2",
+    "values": {
+     "ours_P4_a1_s1": [
+      "ours_P4_a1_s1",
+      0.9861429601677086
+     ],
+     "ours_P4_a0.1_s1": [
+      "ours_P4_a0.1_s1",
+      0.9274678245355773
+     ],
+     "ours_P4_a0.01_s1": [
+      "ours_P4_a0.01_s1",
+      0.8989709905352217
+     ],
+     "ours_P4_a1_s0.5": [
+      "ours_P4_a1_s0.5",
+      0.9974820915473455
+     ],
+     "ours_P4_a0.1_s0.5": [
+      "ours_P4_a0.1_s0.5",
+      0.942849044661573
+     ],
+     "ours_P4_a0.01_s0.5": [
+      "ours_P4_a0.01_s0.5",
+      0.9178719434249333
+     ],
+     "ours_P4_a1_s2": [
+      "ours_P4_a1_s2",
+      0.9604926424870636
+     ],
+     "ours_P4_a0.1_s2": [
+      "ours_P4_a0.1_s2",
+      0.8913078844826288
+     ],
+     "ours_P4_a0.01_s2": [
+      "ours_P4_a0.01_s2",
+      0.853898375394007
+     ]
+    }
+   },
+   "@ours_v2": {
+    "row": "ours_P2",
+    "values": {
+     "ours_P2": [
+      "ours_P2",
+      0.8003190437222519
+     ],
+     "ours_P2p1": [
+      "ours_P2p1",
+      0.808588725119118
+     ],
+     "@p1": [
+      "ours_P1_c0.01",
+      0.810561739524532
+     ],
+     "@p4": [
+      "ours_P4_a0.01_s2",
+      0.853898375394007
+     ]
+    }
+   }
+  },
+  "chosen": {
+   "@p1": "ours_P1_c0.01",
+   "@p4": "ours_P4_a0.01_s2",
+   "@ours_v2": "ours_P2"
+  }
+ }
+}

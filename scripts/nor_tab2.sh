@@ -72,6 +72,16 @@ case "$STAGE" in
   *)        echo "STAGE must be val or test (got '$STAGE')"; exit 2 ;;
 esac
 mkdir -p "$OUT/$STAGE"
+if [ -n "$VARIANT" ]; then    # the split config with the variant's field paths, for the loop and the merge
+  VCFG="$OUT/config_$STAGE.json"
+  python3 -c "import json, sys
+c = json.load(open(sys.argv[1]))
+for e in c['scenes']:
+    e['field'] = e['field'][:-3] + '_' + sys.argv[3] + '.pt' if e['field'].endswith('.pt') else e['field'] + '_' + sys.argv[3]
+c['variant'] = dict(name=sys.argv[3], field_config=sys.argv[4], base_config=sys.argv[1])
+json.dump(c, open(sys.argv[2], 'w'), indent=1)" "$CFG" "$VCFG" "$VARIANT" "$FIELD_CONFIG"
+  CFG=$VCFG
+fi
 SLOG="$OUT/nor_tab2_${STAGE}.$TS.log"
 say() { echo "$*" | tee -a "$SLOG"; }
 run() {                       # run a step with its output appended to the log $1 (or print it)
@@ -106,7 +116,6 @@ mapfile -t SCENES < <(python3 scripts/nor_tab2.py scenes "$CFG")
 [ "${#SCENES[@]}" -gt 0 ] || { say "no scenes in $CFG"; exit 1; }
 for line in "${SCENES[@]}"; do
   read -r s data stride ustride align ply field <<< "$line"
-  [ -z "$VARIANT" ] || field="${field%.pt}_$VARIANT.pt"
   if [ "$align" != none ] && [ ! -f "$align" ]; then          # D3 (reads the GT box to mask the object), CPU
     [ "$(basename "$align")" = "$s.json" ] || { say "$CFG: $s: align must be <dir>/$s.json"; exit 1; }
     L="$OUT/align_${s}.$TS.log"

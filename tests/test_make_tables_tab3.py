@@ -311,7 +311,7 @@ def test_labels_match_the_paper():
         pytest.skip("papers/main.tex not found")
     tex = p.read_text()
     block = tex[tex.index("\\label{tab:ablation}"):]
-    block = block[block.index("Variant & mIoU"):block.index("\\emph{RIO10 test}")]
+    block = block[block.index("Variant & mIoU"):block.index("\\emph{Object removal, test}")]
     paper = [l.split("&")[0].strip() for l in block.splitlines()[1:]
              if "&" in l and not l.lstrip().startswith("%")]
     assert paper == [label for label, _ in _mt().TAB3] == LABELS, paper

@@ -1,7 +1,8 @@
 """
 make_tables.py — LaTeX rows of the paper's Table I (tab:replica) and of the Replica block of
-Table III (tab:ablation) from an eval_seg.py JSON, so every number in the paper comes from a
-saved evaluation file (no hand copying).
+Table III (tab:ablation) from an eval_seg.py JSON, and of Table II (tab:change) from a
+scripts/nor_tab2.py merge, so every number in the paper comes from a saved evaluation file
+(no hand copying).
 
     python3 scripts/make_tables.py tab1 <eval_test.json> --val <eval_val.json> > rows.tex
     python3 scripts/make_tables.py tab3 <eval_test.json> --val <eval_val.json> > rows.tex
@@ -64,6 +65,22 @@ prereg's tie tolerance go to the candidate listed first. All candidates are repo
         now in scripts/ usplat/ configs/; the selection is that of any earlier test attempt)
     python3 scripts/make_tables.py tab1 <eval_test.json> --val <eval_val.json> --v2
         Table I with the v2 rows after ours P2
+
+Table II (tab:change), stale content on NeRF-Object-Removal, from the merge of
+scripts/nor_tab2.py (scripts/nor_tab2.sh writes it):
+    python3 scripts/make_tables.py tab2 <change_test.json> > rows.tex
+Rows (TAB2) follow papers/main.tex with their input column (I image, D LiDAR depth, F
+features); columns Gaussian AP, AUROC, pixel AP, AUROC, FA, Rec., all in %, mean {\\scriptsize
++- std} over the scenes (population std). AP / AUROC rank a Gaussian (pixel) that a row never
+scores last. FA / Rec. are at each row's own label-free operating point; the fused row has
+none ("--"). Marks on the printed means of every column, all rows ranked: bold best,
+underline second best; FA is better when lower, the rest when higher. --digits D sets the
+decimals of FA and Rec. (AP and AUROC keep 1). Comment lines after the rows: the
+unobserved Gaussians left out (mean per scene and pooled), the stale and box-only counts, each
+row's never-scored share and its AP / AUROC on the set every row defines, ours' Kept, the
+per-scene count of scenes where ours is higher than each row, the settings, and warnings (k
+of the runs is not the label's k = 2, a mock backend, a mapping replay that was not exact,
+a cell over fewer scenes).
 """
 from __future__ import annotations
 import argparse
@@ -643,9 +660,179 @@ def tab3(path, variant="all", val=None, tab1=None, digits=1, marks_on=False):
     return "\n".join(lines)
 
 
+# Table II (tab:change): (label, input, row of scripts/eval_change_nor.py); None = \midrule
+TAB2 = [
+    ("NCC photometric residual", "I", "ncc"),
+    ("Depth residual", "D", "depth"),
+    ("Feature residual, $k=2$~\\cite{ackermann2025clsplats, jiang2026mif}\\reimpl", "F", "feat"),
+    ("NormLift reliability drop~\\cite{zang2026normlift}\\reimpl", "F", "normlift"),
+    ("Dispersion $1-\\hat\\rho$ (ours)", "F", "dispersion"),
+    None,
+    ("Ours: test, reset, re-admission", "F+D", "ours"),
+    ("Ours fused with depth residual", "F+D", "fused"),
+]
+TAB2_K = 2                      # the persistence in the feature-residual label
+# Table II columns: (name in comments, summary metric of the merge, larger is better), in %
+TAB2_COLS = [("G AP", "g_ap", True), ("G AUROC", "g_auroc", True), ("P AP", "p_ap", True),
+             ("P AUROC", "p_auroc", True), ("FA", "fa", False), ("Rec", "rec", True)]
+TAB2_OP = ("fa", "rec")         # --digits sets their decimals; AP and AUROC keep 1
+
+
+def _floats(x):
+    """x with the "nan" / "inf" / "-inf" strings of usplat.runlog records back as floats."""
+    if isinstance(x, dict):
+        return {k: _floats(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [_floats(v) for v in x]
+    return float(x) if isinstance(x, str) and x in ("nan", "inf", "-inf") else x
+
+
+def merged(path):
+    """The metrics of a finished scripts/nor_tab2.py merge record."""
+    d = json.load(open(path))
+    if d.get("status", "ok") != "ok":
+        raise SystemExit(f"{path}: status {d.get('status')!r}, not a finished merge")
+    b = d["metrics"] if isinstance(d.get("metrics"), dict) else d
+    if "summary" not in b or "scenes_order" not in b:
+        raise SystemExit(f"{path}: no summary (not a scripts/nor_tab2.py merge)")
+    return _floats(b)
+
+
+def _pct(stat, digits=1):
+    """The mean of a stat in % ('12.3'), or '--'."""
+    if not stat or not stat.get("n") or not math.isfinite(stat.get("mean", float("nan"))):
+        return "--"
+    return f"{100 * stat['mean']:.{digits}f}"
+
+
+def _pm(stat, digits=1):
+    """'12.3 +- 4.5' in % (comments), or '--'."""
+    if _pct(stat) == "--":
+        return "--"
+    return f"{100 * stat['mean']:.{digits}f} +- {100 * stat['std']:.{digits}f}"
+
+
+def _finite(x):
+    return x is not None and math.isfinite(x)
+
+
+def tab2_wins(b, rows):
+    """Per scene: in how many scenes ours is higher than each other row, per ranking column."""
+    per, names = b.get("scenes") or {}, b["scenes_order"]
+    if "ours" not in b["summary"] or not per:
+        return []
+    cols = TAB2_COLS[:4]
+    lines = [f"% per scene ({', '.join(names)}): scenes where ours is higher than the row, "
+             + ", ".join(name for name, _, _ in cols) + " (of the scenes where both are defined)"]
+    for label, r in rows:
+        if r == "ours":
+            continue
+        parts = []
+        for _, k, _ in cols:
+            pairs = [(per[s]["rows"]["ours"][k], per[s]["rows"][r][k]) for s in names
+                     if r in per[s]["rows"]]
+            pairs = [(x, y) for x, y in pairs if _finite(x) and _finite(y)]
+            parts.append(f"{sum(x > y for x, y in pairs)}/{len(pairs)}")
+        lines.append(f"% ours vs {label}: " + ", ".join(parts))
+    return lines
+
+
+def tab2_notes(b, rows, n):
+    """Comment lines under Table II (see the module docstring)."""
+    s, c, o = b["summary"], b["counts"], b.get("ours") or {}
+    st, mp, fit = b.get("settings") or {}, b.get("maps") or {}, b.get("fit_config") or {}
+    lines = [f"% unobserved Gaussians (no update view; left out of every Gaussian-level cell): "
+             f"{_pm(c['unobserved_share'])}% per scene, {100 * c['pooled_unobserved_share']:.1f}% "
+             f"of all Gaussians of the {n} scenes",
+             f"% stale observed Gaussians (D2): {c['n_stale_observed']['mean']:.0f} per scene "
+             f"({_pm(c['stale_share'], 2)}% of the observed); {_pct(c['box_static_share'])}% "
+             f"of the observed Gaussians in the inflated box are static by D2 (within 2 cm of "
+             f"the after-removal depth; the box alone would call them stale)",
+             f"% pixels (D1: masks_real of the update keyframes, covered pixels, pooled per "
+             f"scene): {_pct(c['p_pos_share'])}% positive; keyframes per scene: mapping "
+             f"{c['n_mapping_views']['mean']:.1f}, update {c['n_update_views']['mean']:.1f}"]
+    for label, r in rows:
+        v = s[r]
+        lines.append(f"% {label}: never scored (ranked last) G {_pct(v['g_unscored'])}% / P "
+                     f"{_pct(v['p_unscored'])}%; on the set every row defines (G "
+                     f"{_pct(c['g_common_share'])}%, P {_pct(c['p_common_share'])}% of the "
+                     f"population): G AP {_pct(v['g_ap_common'])}, AUROC "
+                     f"{_pct(v['g_auroc_common'])}; P AP {_pct(v['p_ap_common'])}, AUROC "
+                     f"{_pct(v['p_auroc_common'])}")
+    if o:
+        lines.append(f"% ours: Kept (stale observed Gaussians in the robust set after the "
+                     f"update) {_pm(o['kept'])}% (after the mapping pass {_pm(o['kept_after_mapping'])}%);"
+                     f" end state after re-admission FA {_pm(o['changed_end_fa'], 2)}%, Rec "
+                     f"{_pm(o['changed_end_rec'])}%; resets per scene "
+                     f"{o['n_resets']['mean']:.0f}")
+    lines += tab2_wins(b, rows)
+    lines.append(f"% settings: q {st.get('change_quantile')}, k {st.get('k')}, tau_cov "
+                 f"{st.get('tau_cov')}, D2 margins {st.get('inflate_m')} / {st.get('near_m')} m, "
+                 f"keyframes {st.get('kf_trans')} m / {st.get('kf_rot')} deg, downscale "
+                 f"{st.get('downscale')}, extractor {st.get('extractor')}, backend "
+                 f"{st.get('backend')}; pipeline: {b.get('pipeline')}")
+    if mp.get("n_gaussians", {}).get("n"):
+        lines.append(f"% maps: {mp['n_gaussians']['mean']:.0f} Gaussians, held-out PSNR "
+                     f"{mp['psnr']['mean']:.2f} dB (means over scenes); fit iters "
+                     f"{fit.get('iters')}, max_gaussians {fit.get('max_gaussians')}, max_res "
+                     f"{fit.get('max_res')}")
+    if st.get("k") != TAB2_K:
+        lines.append(f"% WARNING: the feature-residual label says k={TAB2_K}, the runs used "
+                     f"k = {st.get('k')}")
+    if st.get("backend") != "gsplat":
+        lines.append(f"% WARNING: backend {st.get('backend')!r}, not a protocol run")
+    if not (b.get("replay") or {}).get("all_ok", True):
+        lines.append(f"% WARNING: the mapping replay was not exact in scenes "
+                     f"{b['replay'].get('not_ok')} (max relative dW1 "
+                     f"{b['replay'].get('max_rel_dW1'):.2e})")
+    return lines
+
+
+def tab2(path, digits=1):
+    b = merged(path)
+    summ, names = b["summary"], b["scenes_order"]
+    n = len(names)
+    out, table, have = [], [], []
+    for entry in TAB2:
+        if entry is None:
+            out.append(("line", "\\midrule"))
+            continue
+        label, inp, row = entry
+        if row not in summ:
+            out.append(("line", f"% {label}: row {row!r} not in {path}"))
+            continue
+        cells = [cell(summ[row].get(k), 100.0, digits if k in TAB2_OP else 1)
+                 for _, k, _ in TAB2_COLS]
+        out.append(("row", label, inp))
+        table.append(cells)
+        have.append((label, row))
+    ns = sorted({summ[r][k]["n"] for _, r in have for _, k, _ in TAB2_COLS
+                 if summ[r].get(k, {}).get("n")})
+    lines = [f"% generated by scripts/make_tables.py tab2 {path}"
+             + (f" --digits {digits}" if digits != 1 else "")
+             + f"; split {b.get('split')}, scenes {', '.join(names)}; scenes per cell N = {ns}",
+             "% mean {\\scriptsize +- population std} over the scenes, in %; bold = best, "
+             "underline = second best per column (FA: lower is better, the rest: higher); "
+             "FA / Rec. at each row's own label-free operating point; fused: none"]
+    for label, r in have:
+        short = [name for name, k, _ in TAB2_COLS if summ[r].get(k, {}).get("n")
+                 and summ[r][k]["n"] != n]
+        if short:
+            lines.append(f"% {label}: fewer than the {n} scenes in " + ", ".join(short))
+    mark_columns(table, [True] * len(table), [hb for _, _, hb in TAB2_COLS])
+    rows = iter(table)
+    for item in out:
+        if item[0] == "line":
+            lines.append(item[1])
+            continue
+        _, label, inp = item
+        lines.append(f"{label} & {inp} & " + " & ".join(next(rows)) + "\\\\")
+    return "\n".join(lines + tab2_notes(b, have, n))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("table", choices=["tab1", "tab3", "choose", "select", "check-test", "check-scenes"])
+    ap.add_argument("table", choices=["tab1", "tab2", "tab3", "choose", "select", "check-test", "check-scenes"])
     ap.add_argument("--key", default="legs", choices=["css", "p3", "legs", "p1", "p4", "ours_v2"])
     ap.add_argument("path")
     ap.add_argument("--val", default="", help="validation eval_seg JSON (row choices)")
@@ -663,7 +850,8 @@ def main(argv=None):
     ap.add_argument("--marks", action="store_true", help="tab3: bold / underline the best and "
                     "second-best cells of each column too")
     ap.add_argument("--digits", type=int, default=1,
-                    help="tab3: decimals of the ECE and AUSE cells (mIoU keeps 1, NLL 2)")
+                    help="tab3: decimals of the ECE and AUSE cells (mIoU keeps 1, NLL 2); "
+                         "tab2: of the FA and Rec. cells (AP and AUROC keep 1)")
     a = ap.parse_args(argv)
     if a.table == "choose":                      # the validation choice of one row family
         if "@" + a.key in V2_KEYS:
@@ -672,6 +860,8 @@ def main(argv=None):
             print(choose(body(a.path)["summary"], "@" + a.key, a.variant))
     elif a.table == "tab3":
         print(tab3(a.path, a.variant, a.val or None, a.tab1 or None, a.digits, a.marks))
+    elif a.table == "tab2":
+        print(tab2(a.path, a.digits))
     elif a.table == "select":                    # the v2 selection, recorded
         sel = selection(a.path, a.prereg)
         if a.out:

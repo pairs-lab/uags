@@ -4,7 +4,8 @@ scripts/replica_tab1_v2.sh).
 
  * the prereg names exactly the rows usplat.rows.v2_rows builds (plus ours_P2), with the
    grids of usplat.rows, dated 2026-10-10;
- * Table I v1 is reproduced byte for byte from the v1 records (make_tables defaults unchanged);
+ * Table I v1 keeps every recorded numeric cell, with marks and a separate, unranked CSS
+   reference block replacing the original OV column;
  * '@p1' / '@p4' / '@ours_v2' take the lowest validation NLL pooled over pixels (not the scene
    mean), ties within tol go to the candidate listed first, a missing or NaN row refuses;
  * the scenes of a stage are the prereg's (by name; validation and test disjoint);
@@ -80,17 +81,48 @@ def test_prereg_matches_the_code():
 
 
 def test_v1_table_is_unchanged(monkeypatch):
-    """make_tables' default output still equals the committed v1 LaTeX rows."""
+    """All v1 cells match the recorded rows; only marks, OV and CSS placement changed."""
+    import re
+
     tex = V1_LOGS / "table1_rows.tex"
     if not tex.exists():
         pytest.skip("v1 records not present")
     monkeypatch.chdir(REPO)
     rel = "docs/reports/2026-09-29-replica-tab1/logs"
     out = mt.tab1(f"{rel}/eval_test_224fe1e.json", "all", f"{rel}/eval_val_224fe1e.json")
-    assert out + "\n" == tex.read_text()
-    assert mt.choose(mt.body(f"{rel}/eval_val_224fe1e.json")["summary"], "@css") == "css_a0.01"
-    print("PASS v1 Table I rows reproduced byte for byte")
 
+    def numeric_rows(text, original=False):
+        rows = {}
+        for line in text.splitlines():
+            if " & " not in line or line.startswith("%"):
+                continue
+            label, *cells = line.removesuffix("\\\\").split(" & ")
+            if original:
+                ov = cells.pop(0)
+                assert ov == ("$\\times$" if label.startswith("CSS") else "\\checkmark")
+            # CSS's closed-set reference label replaces the old "Dirichlet" label.
+            if label.startswith("CSS"):
+                assert label == ("CSS (Dirichlet)~\\cite{wilson2025css}\\reimpl" if original
+                                 else "CSS~\\cite{wilson2025css}\\reimpl, closed set")
+                label = "CSS"
+            assert label not in rows
+            # Strip only the two numeric mean decorations; retain every mean, std, missing
+            # cell and multicolumn verbatim for comparison with the independent saved rows.
+            rows[label] = [re.sub(r"\\(?:textbf|underline)\{(-?\d+(?:\.\d+)?)\}", r"\1", c)
+                           for c in cells]
+        return rows
+
+    current, original = numeric_rows(out), numeric_rows(tex.read_text(), original=True)
+    assert current == original
+    assert [r for r in current if r != "CSS"] == [r for r in original if r != "CSS"]
+    lines = out.splitlines()
+    css = next(line for line in lines if line.startswith("CSS"))
+    assert lines[-2:] == ["\\midrule", css]            # separate reference block, last
+    assert "\\textbf" not in css and "\\underline" not in css
+    assert " & \\checkmark" not in out and "$\\times$" not in out
+    assert "'@css': 'css_a0.01'" in lines[0]
+    assert mt.choose(mt.body(f"{rel}/eval_val_224fe1e.json")["summary"], "@css") == "css_a0.01"
+    print("PASS v1 numeric cells preserved, CSS chosen on validation and shown unranked")
 
 # ---------------------------------------------------------------------- selection rule
 def _val_body(nll, n=(100, 900), rows=None, betas=True):

@@ -600,24 +600,25 @@ mapping. The query vocabulary of a scene is the set of classes present in its
 evaluation frames. One ensemble of five prompt templates, chosen on the
 validation scenes, serves all scenes.
 
-%% Protocol fixed before any method ran on these scenes (report 2026-10-17,
+%% Protocol fixed before any method ran on these scenes (report 2026-10-17/18,
 %% decisions D1-D6): masks_real as pixel truth, box + after-removal depth test for
-%% stale Gaussians, one ICP alignment per scene, default keyframe rule.
+%% stale Gaussians, scenes with a > 1 cm offset between the sequences left out,
+%% default keyframe rule.
 \textbf{Object removal.} Weder et al.~\cite{weder2023removing} recorded each
 scene twice with ARKit on an iPhone~12~Pro with LiDAR, once with an object and
 once after the object was physically removed, in one coordinate frame. The
 public release has 16 scenes. Each method maps on the first sequence and is
 then updated with the second. We validate on scenes 001 to 004 and test on
-005 to 016. The ground truth comes from the annotated 3D box of the removed
+005 to 016, except 012 and 016, whose two sequences are offset by 3.5 and
+2.5\,cm; we leave out any scene with an offset above 1\,cm, a rule fixed
+before any method ran. The ground truth comes from the annotated 3D box of the removed
 object, which no method reads. A Gaussian is stale if its center lies in the
 box enlarged by 2\,cm and more than 2\,cm from every high-confidence depth
 point of the second sequence. This leaves out static surfaces inside the box,
 such as the wall behind a removed bike. Gaussians that no update view observes
 are left out of the metrics and counted. The pixel ground truth is the
-object mask of the update frames. In two scenes the two sequences are offset
-by 2.5 to 3.5\,cm, so in every scene we align the second sequence to the first
-with one rigid transform, found by ICP on depth outside the box. Re-admission
-uses the LiDAR depth with high confidence. There is no depth oracle.
+object mask of the update frames. Re-admission uses the LiDAR depth with high
+confidence. There is no depth oracle.
 
 \textbf{Map and features.} For each scene we fit one 3D-GS map on the mapping
 frames with gsplat~\cite{ye2024gsplat} (degree-0 color, 30k iterations, at most
@@ -626,7 +627,7 @@ features, compressed to $d=64$
 (\secref{sec:features}). The coverage floor $\tau_{\mathrm{cov}}=0.5$ is fixed
 in advance. We freeze every choice before the test scenes run, and we run
 them once. We report the mean and the population standard deviation over the
-test scenes ($N=6$ for Replica, $N=12$ for object removal).
+test scenes ($N=6$ for Replica, $N=10$ for object removal).
 
 %% Temperatures (ours and baselines): stated once, in sec:predictive (NLL, val).
 \textbf{Segmentation baselines.} All baselines share our geometry, features and
@@ -829,7 +830,7 @@ $1-C_{\mathrm{inter}}$ (0.42 vs 0.43 on the full map).
 \begin{table*}[t]
 \centering
 \caption{Stale-content detection on the object-removal test scenes (mean
-$\pm$ std, $N=12$). AP, AUROC, FA and Rec.\ in \%. Input: I = image, D =
+$\pm$ std, $N=10$). AP, AUROC, FA and Rec.\ in \%. Input: I = image, D =
 observed LiDAR depth, F = features. \reimpl Our re-implementation
 (for~\cite{ackermann2025clsplats, jiang2026mif}, of the per-pixel feature
 residual only). \textbf{Bold}: best, \underline{underline}: second best.
@@ -897,7 +898,7 @@ Fig.~\ref{fig:qual} shows examples.
 %%    from_state maps them to "history".
 \begin{table}[t]
 \centering
-\caption{Ablations on the test scenes, mean over $N=6$ (top) and $N=12$
+\caption{Ablations on the test scenes, mean over $N=6$ (top) and $N=10$
 (bottom). Each row changes one part of the full method. AUSE: the row's
 $u^{\mathrm{epi}}$ (epi) and $u^{\mathrm{ale}}$ (ale) against the 0/1 error
 of the full map (the split into $e_{\mathrm{red}}$ and $e_{\mathrm{irr}}$ is

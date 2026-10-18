@@ -17,7 +17,8 @@ Change handling needs two sequences: the MAPPING sequence (--data) is run with t
 test recording scores only (change_thr = inf); the field then calibrates its own threshold
 (the q-quantile of its mapping-pass scores, --change-quantile), and the UPDATE sequence
 (--update-data, same scene after a change) runs with that threshold. A dataset with parts
-(nor) gives both from one scene folder: --part map --update-part update.
+(nor) gives both from one scene folder: --part map --update-part update; --align <json> moves
+the update part's poses onto the map part (usplat/nor_align.py, protocol D3).
 
 The PCA basis and the centre zbar are fit on the first --pca-frames MAPPING frames only
 (no text, no labels). Text queries are projected without renormalisation (F7).
@@ -398,9 +399,23 @@ def mapping_code_state():
     return dict(mapping_code_sha256=total.hexdigest(), files=files, git=git)
 
 
-def _part(part):
-    """make_dataset options for a sequence part ({} when none is given)."""
-    return {"part": part} if part else {}
+def input_entry(path):
+    """{path, bytes, sha256} of an input file (the 3DGS map), saved with the field so a later
+    step can refuse a field built on an earlier map at the same path; None without a path."""
+    import hashlib
+    if not path or not os.path.exists(path):
+        return None
+    d = hashlib.sha256()
+    with open(path, "rb") as f:
+        for b in iter(lambda: f.read(1 << 20), b""):
+            d.update(b)
+    return dict(path=os.path.abspath(path), bytes=os.path.getsize(path), sha256=d.hexdigest())
+
+
+def _part(part, align=""):
+    """make_dataset options for a sequence part and an update-pose alignment ({} when none
+    is given)."""
+    return {**({"part": part} if part else {}), **({"align": align} if align else {})}
 
 
 def _pose_gap(c2w_a, c2w_b):
@@ -431,7 +446,8 @@ def run_gsplat(args, rec=None):
     splats = load_gaussians(args.ply, device=device)
     N = splats["means"].shape[0]
     print(f"loaded {N} Gaussians from {args.ply}")
-    ds = make_dataset(args.dataset, args.data, stride=args.stride, **_part(args.part))
+    ds = make_dataset(args.dataset, args.data, stride=args.stride,
+                      **_part(args.part, args.align))
     print(f"dataset {args.dataset}: {len(ds)} frames (stride {args.stride})")
     kw = (dict(model_name=args.clip_model, pretrained=args.clip_pretrained)
           if args.extractor == "clearclip" else {})
@@ -527,7 +543,7 @@ def run_gsplat(args, rec=None):
     upd, upd_idx, upd_tok = None, [], []
     if args.update_data:
         upd = make_dataset(args.dataset, args.update_data, stride=args.update_stride,
-                           **_part(args.update_part))
+                           **_part(args.update_part, args.align))
         upd_idx = select(upd)
         upd_tok = extract(upd, upd_idx, "update")
     query_t = None
@@ -707,7 +723,7 @@ def run_gsplat(args, rec=None):
         field=field.state_dict(), pca=pca.state_dict(), config=vars(args), timing=timing,
         field_config=field.cfg.to_dict(), extractor=args.extractor,
         extractor_options=ext_opts, pca_explained=explained,
-        code=mapping_code_state(), gpu_reserved_mib=held,
+        code=mapping_code_state(), gpu_reserved_mib=held, inputs=dict(ply=input_entry(args.ply)),
         baselines=B.baselines_state(bs) if bs else [], css_class_ids=css_ids,
         normlift_R_before_update=nl_before, **change_state(cb_upd)),
         no_save=args.no_save_field)
@@ -745,7 +761,9 @@ def save_field(path, build, no_save=False):
     return True
 
 
-def main(argv=None):
+def build_parser():
+    """The command line (scripts/nor_tab2.py reuse parses it too: a saved field's config must
+    equal the options a new run would get)."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--backend", choices=["mock", "gsplat"], default="mock")
     ap.add_argument("--ply", help="pre-trained 3DGS checkpoint (.ply or .pt)")
@@ -787,6 +805,9 @@ def main(argv=None):
     ap.add_argument("--update-part", default="",
                     help="part of --update-data (nor: --data and --update-data are the same "
                          "scene, --part map --update-part update)")
+    ap.add_argument("--align", default="",
+                    help="nor: update-pose alignment JSON (scripts/align_nor.py); applied to "
+                         "the update part of --data and --update-data")
     ap.add_argument("--change-quantile", type=float, default=0.999,
                     help="q of the mapping-pass null used to set the change threshold")
     ap.add_argument("--use-depth", action="store_true",
@@ -819,7 +840,11 @@ def main(argv=None):
                     help="gsplat backend device (cpu only with a CPU rasterizer, in tests)")
     ap.add_argument("--query", default="", help="comma-separated open-vocab text queries")
     ap.add_argument("--out", default="outputs/field.pt")
-    args = ap.parse_args(argv)
+    return ap
+
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
     cli = [sys.argv[0]] + list(argv if argv is not None else sys.argv[1:])
     if args.backend == "mock":
         kw = dict(field_config=args.field_config, change_quantile=args.change_quantile)

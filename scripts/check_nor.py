@@ -51,7 +51,8 @@ Masks, depth and confidence share one 192x256 grid; K_depth = K scaled to it. "F
  4 masks update frames: IoU of masks_synthetic with masks_real and with the box silhouette,
          share of masks_synthetic inside masks_real.
 Prints a summary per scene and writes every number to --out (JSON). Exit code 1 if a scene
-failed to load.
+failed to load. The depth geometry (back-projection, reprojection, ICP, frame pairing) lives in
+usplat/nor_align.py, which also fits the per-scene update-pose alignment (scripts/align_nor.py).
 """
 from __future__ import annotations
 import argparse
@@ -70,20 +71,13 @@ from usplat.box3d import (read_box_corners, box_silhouette, points_in_box,  # no
                           box_extents)
 from usplat.datasets import (NeRFObjectRemovalDataset, read_colmap_images,  # noqa: E402
                              read_colmap_cameras, qvec_to_rotmat)
+from usplat.nor_align import (INFLATE, evenly, backproject, reproject,  # noqa: E402
+                              dz_stats, rigid_align, nearest_pose)
 
 BOX_FILES = ("bbox.txt", "bbox.ply", "bbox_refined.txt", "bbox_refined.ply", "bbox_nerf.txt",
              "bbox_nerf_refined.txt")
 FLIP = np.diag([1.0, -1.0, -1.0, 1.0])                # OpenGL <-> OpenCV camera axes
-INFLATE = 0.02                                        # stale ground truth margin [m]
-DZ_OK = 0.05                                          # [m]
 KF_TRANS, KF_ROT = 0.05, 5.0                          # run_mapping.py keyframe defaults
-
-
-def evenly(seq, m):
-    seq = list(seq)
-    if len(seq) <= m:
-        return seq
-    return [seq[int(round(x))] for x in np.linspace(0, len(seq) - 1, m)]
 
 
 def pose_readings(q, t):
@@ -119,66 +113,6 @@ def similarity_fit(src, dst):
     t = md - s * R @ ms
     rms = float(np.sqrt((((s * src @ R.T + t) - dst) ** 2).sum(1).mean()))
     return s, R, t, rms
-
-
-def backproject(depth, K, c2w, keep=None):
-    """World points (M, 3) and pixel (v, u) of the depth > 0 pixels (gsplat pixel centres)."""
-    ok = depth > 0
-    if keep is not None:
-        ok &= keep
-    v, u = np.nonzero(ok)
-    z = depth[v, u].astype(np.float64)
-    pc = np.stack([(u + 0.5 - K[0, 2]) / K[0, 0] * z, (v + 0.5 - K[1, 2]) / K[1, 1] * z, z], 1)
-    return pc @ c2w[:3, :3].T + c2w[:3, 3], v, u
-
-
-def reproject(fa, fb, keep_a=None, keep_b=None):
-    """dz = z_b - z_pred (m), z_pred, and a's pixel (v, u), for a's valid depth pixels that
-    land on a valid pixel of b. fa, fb: dicts of numpy depth, K_depth, c2w."""
-    Pw, va, ua = backproject(fa["depth"], fa["K_depth"], fa["c2w"], keep_a)
-    w2c = np.linalg.inv(fb["c2w"])
-    P = Pw @ w2c[:3, :3].T + w2c[:3, 3]
-    K, (h, w) = fb["K_depth"], fb["depth"].shape
-    zp = P[:, 2]
-    ok = zp > 0.05
-    ub = np.floor(K[0, 0] * P[:, 0] / np.where(ok, zp, 1) + K[0, 2]).astype(np.int64)
-    vb = np.floor(K[1, 1] * P[:, 1] / np.where(ok, zp, 1) + K[1, 2]).astype(np.int64)
-    ok &= (ub >= 0) & (ub < w) & (vb >= 0) & (vb < h)
-    zb = np.zeros_like(zp)
-    zb[ok] = fb["depth"][vb[ok], ub[ok]]
-    ok &= zb > 0
-    if keep_b is not None:
-        ok[ok] &= keep_b[vb[ok], ub[ok]]
-    return zb[ok] - zp[ok], zp[ok], va[ok], ua[ok], int(len(zp))
-
-
-def dz_stats(dz, zp, n_src):
-    if len(dz) == 0:
-        return dict(n=0, overlap=0.0, med_abs_dz=math.nan, ok5cm=math.nan, ratio=math.nan)
-    return dict(n=int(len(dz)), overlap=len(dz) / max(n_src, 1),
-                med_abs_dz=float(np.median(np.abs(dz))),
-                ok5cm=float((np.abs(dz) < DZ_OK).mean()), ratio=float(np.median((dz + zp) / zp)))
-
-
-def rigid_align(src, dst, iters=30, trim=DZ_OK):
-    """4x4 rigid T moving src (M, 3) onto dst: point-to-point ICP from the identity, with
-    the nearest-neighbour pairs closer than `trim`."""
-    tree, T, cur = cKDTree(dst), np.eye(4), src
-    for _ in range(iters):
-        d, j = tree.query(cur, distance_upper_bound=trim)
-        ok = np.isfinite(d)
-        if ok.sum() < 3:
-            break
-        A, B = cur[ok], dst[j[ok]]
-        ma, mb = A.mean(0), B.mean(0)
-        U, _, Vt = np.linalg.svd((B - mb).T @ (A - ma))
-        D = np.eye(3)
-        D[2, 2] = np.sign(np.linalg.det(U @ Vt))
-        step = np.eye(4)
-        step[:3, :3] = U @ D @ Vt
-        step[:3, 3] = mb - step[:3, :3] @ ma
-        cur, T = cur @ step[:3, :3].T + step[:3, 3], step @ T
-    return T
 
 
 def pair_stats(fa, fb, keep_a=None, keep_b=None):
@@ -352,15 +286,6 @@ def check_near_after(ds, map_frames, upd_frames, nf, near=0.02):
         d, _ = cKDTree(after).query(P, distance_upper_bound=near)
         out[name] = dict(n=int(len(P)), near_after_share=float(np.isfinite(d).mean()))
     return out
-
-
-def nearest_pose(c2ws, cands, b):
-    """The frame of cands whose pose is nearest frame b (|dC| / 0.1 m + angle / 10 deg)."""
-    def cost(a):
-        dt = np.linalg.norm(c2ws[a][:3, 3] - c2ws[b][:3, 3])
-        cos = float(np.clip(c2ws[a][:3, 2] @ c2ws[b][:3, 2], -1, 1))
-        return dt / 0.1 + math.degrees(math.acos(cos)) / 10.0
-    return min(cands, key=cost)
 
 
 def check_depth(ds, raw, nf, n_pairs, gap, revisit):

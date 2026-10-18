@@ -49,6 +49,10 @@ class _PosedRGBD:
         return (max(0, self._n - self.offset) + self.stride - 1) // self.stride
 
     def __getitem__(self, i):
+        # no negative or out-of-range index: a dataset part (nor: map | update) must never
+        # walk into the neighbouring frames of the capture (also ends a for-loop over ds)
+        if not 0 <= i < len(self):
+            raise IndexError(f"frame index {i} outside 0..{len(self) - 1}")
         return self.frame(self.offset + i * self.stride)
 
     def frame(self, idx):
@@ -504,6 +508,10 @@ class NeRFObjectRemovalDataset(_PosedRGBD):
     check_nor.py for the measured error per level). The raw confidence stays available.
     `part` (map | update | all) has no default, so a caller cannot mix the two states by
     accident; `stride` applies inside the part (frame numbers start, start + stride, ...).
+    Update-pose alignment (protocol D3): align = the JSON of usplat/nor_align.py (a path, or
+    its dict) gives one rigid T (4x4, x_map = T x_update) per scene; every frame of the update
+    part (frame numbers >= split_end) then gets c2w = T c2w, every other frame keeps its pose.
+    The JSON must name this scene folder ("scene"). align=None: the poses of images.txt.
     Frame dict: image, depth (on its own grid), K_depth, depth_confidence, c2w, K, index
     (the frame number of the file names), part ("map" | "between" | "update"), and
     mask_real / mask_synthetic (bool, depth grid) when the file exists. downscale() moves the
@@ -513,7 +521,7 @@ class NeRFObjectRemovalDataset(_PosedRGBD):
     DEPTH_HW = (192, 256)                       # ARKit sceneDepth grid (rows, columns)
     BOX_FILE = "bbox.txt"                       # the object's box in the COLMAP frame
 
-    def __init__(self, root, stride=1, part=None, min_confidence=2):
+    def __init__(self, root, stride=1, part=None, min_confidence=2, align=None):
         super().__init__(stride)
         import json
         if part not in self.PARTS:
@@ -531,10 +539,34 @@ class NeRFObjectRemovalDataset(_PosedRGBD):
                                     all=(0, n))[part]
         self._n = self.end - self.start
         self.c2w, self.K, self.image_hw = self._read_cameras()
+        self.align_T = self._read_align(align)
+        if self.align_T is not None:                           # D3: the update part only
+            self.c2w[self.split[1]:] = self.align_T @ self.c2w[self.split[1]:]
         self.K_depth = self.K.copy()
         self.K_depth[:, 0] *= self.DEPTH_HW[1] / self.image_hw[1]
         self.K_depth[:, 1] *= self.DEPTH_HW[0] / self.image_hw[0]
         self.box_path = os.path.join(root, "boxes", self.BOX_FILE)
+
+    def _read_align(self, align):
+        """T (4, 4) float64 of an alignment record (JSON path or dict), None for None. The
+        record must name this scene folder and T must be rigid."""
+        import json
+        if align is None:
+            return None
+        if isinstance(align, (str, os.PathLike)):
+            with open(align) as f:
+                align = json.load(f)
+        here = os.path.basename(os.path.normpath(self.root))
+        if align.get("scene") != here:
+            raise ValueError(f"nor: the alignment is for scene {align.get('scene')!r}, "
+                             f"not {here!r}")
+        T = np.asarray(align["T"], dtype=np.float64)
+        R = T[:3, :3] if T.shape == (4, 4) else None
+        if (R is None or not np.allclose(T[3], [0, 0, 0, 1]) or not np.allclose(R.T @ R, np.eye(3),
+                                                                             atol=1e-6)
+                or np.linalg.det(R) < 0):
+            raise ValueError(f"nor: alignment T of {here} is not a rigid 4x4 transform")
+        return T
 
     def _read_cameras(self):
         """c2w (N, 4, 4) and K (N, 3, 3) float64 per frame number, and the image (H, W)."""

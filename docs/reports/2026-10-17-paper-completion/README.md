@@ -31,6 +31,11 @@ Running: `STAGE=val scripts/nor_tab2.sh` | PID 627181 | /home/thanhnc/gauss_ws/d
 | D6 | validation 001-004, test 005-016 (once) | fixed before any run |
 | D7 | (2026-10-18, after val scene 001 with the default field, before any other variant result) change-stream weight chosen on validation: default "view" (w = min(1, m/a0HW)) vs "relmax" (w = m / running max of m, fast_min = slow_min = 0.5, merged code 26ff3cf). Rule: the higher mean validation PIXEL-level AP of "Ours" (pixel set = covered pixels of the update keyframes, the same for both variants); tie (< 0.005): pixel AUROC; still tied: default | default field scores only 0.36-0.47% of the 1M Gaussians (a full view needs >= 9.7 px of splat mass), so ours rarely tests: Kept 0.99 (001), 0.66 (002) |
 | D3' | (2026-10-18, still before any method ran) no alignment; a scene whose before-to-after median depth error is > 1 cm is left out: 012 (3.54 cm), 016 (2.50 cm). Test N = 10 | the one-transform ICP lowered photometric agreement in 6 well-aligned scenes (013: 0.63 -> 0.40) and left 1.34 cm in 012 (driver report) |
+- Fifth ask (user, 2026-10-19): "we win but only slightly ... make it dominate" (Table I). Path taken: the Table I v2
+  pre-registration from the merged origin work (configs/tab1_v2_prereg.json, registered 2026-10-10 before any v2 run):
+  read-out-only predictives on the existing v1 fields (P1 prior grid, P2 on P1, P4 open-vocabulary vote predictive),
+  chosen by pooled validation NLL against v1's P2; the test split then gets a disclosed second look. Validation stage
+  started 2026-10-19 02:33 (`STAGE=val scripts/replica_tab1_v2.sh`, EVAL_NEED 7500 for this 12 GB card).
 - RIO10 never arrived. User decision (2026-10-17): use the NeRF-Object-Removal dataset (Weder et al., CVPR 2023; 16 real
   iPhone scenes, object present then physically removed) for the stale-content table. Protocol fixed before any run:
   validation scenes 001-004, test 005-016 (once); map on frames before `split_start`, update on frames from `split_end`.

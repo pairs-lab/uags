@@ -144,8 +144,11 @@ reset. When depth is available, it rejoins the robust map only after new views
 whose observed depth matches its position. A posterior predictive turns the
 field into per-pixel class probabilities. We evaluate on Replica and on 16
 real scenes from which an object was physically removed.
-%% Headline sentence: at most ~20 words (the rest is about 170 words; limit 200).
-\todo{headline result}
+%% Headline: Fig. views (test N=6), Table I (P2 lowest ECE/Brier/AURC of the
+%% open-vocabulary rows), Table II (fused G AP 75.0 vs 63.8 next row, N=10).
+On Replica each uncertainty ranks the error it is meant for, and our
+predictive is the best calibrated open-vocabulary map. On real removals, our
+test fused with depth ranks stale Gaussians best.
 \end{abstract}
 
 %% RAS keyword list, 2-5 terms, no localization.
@@ -234,8 +237,10 @@ temperature.
 We evaluate segmentation, uncertainty ranking and calibration on 8 Replica
 scenes~\cite{straub2019replica, zhi2021semanticnerf}, and stale-content
 detection on 16 real scenes in which an object was physically
-removed~\cite{weder2023removing}. \todo{one sentence on the main measured
-finding.}
+removed~\cite{weder2023removing}. The two uncertainties separate the errors
+that more views fix from those they do not, and fused with a depth residual
+our test ranks stale Gaussians better than every baseline we compare
+(Gaussian-level AP 75.0 vs 63.8).
 
 %% ============================================================================
 %% Related Work
@@ -640,8 +645,7 @@ test scenes ($N=6$ for Replica, $N=10$ for object removal).
 splat weights. \emph{2D features} apply the extractor to the
 evaluation frame itself, with no map, and covers every pixel. \emph{Averaging} is the pixel-weighted
 mean feature of Gradient-Weighted Feature
-Back-Projection~\cite{joseph2025gradbp}, with no uncertainty of its own
-\todo{compare with the authors' code on one validation scene}.
+Back-Projection~\cite{joseph2025gradbp}, with no uncertainty of its own.
 \emph{NormLift}~\cite{zang2026normlift} keeps the averaging feature. It counts
 Kish effective views $N_{\mathrm{eff}}$ over the per-view pixel masses
 $m_{v,n}$, factors the feature norm into a within-view and a cross-view
@@ -944,14 +948,11 @@ Variant & G & P & FA$\downarrow$ & Rec.$\uparrow$ & Kept$\downarrow$\\
 \midrule
 \textbf{Full method}            & \ph & \ph & \ph & \ph & \ph\\
 No persistence ($k=1$)         & \ph & \ph & \ph & \ph & \ph\\
-Persistence $k=\phn$           & \ph & \ph & \ph & \ph & \ph\\
-Two buckets, $\lambda=\ph$     & \ph & \ph & \ph & \ph & \ph\\
+Two buckets, $\lambda=0.5$     & \ph & \ph & \ph & \ph & \ph\\
 Pooled null                    & \ph & \ph & \ph & \ph & \ph\\
 Per-Gaussian max null          & \ph & \ph & \ph & \ph & \ph\\
-Fixed threshold (val.)         & \ph & \ph & \ph & \ph & \ph\\
 Re-admission without depth     & \ph & \ph & \ph & \ph & \ph\\
 Centered features              & \ph & \ph & \ph & \ph & \ph\\
-Pixel-level variant            & \ph & \ph & \ph & \ph & \ph\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -980,8 +981,8 @@ worse (8.8). It lowers the test ECE (8.1 vs 8.7) but raised the validation ECE
 vs 8.5 on test, 4.7 vs 5.0 on validation). The bottom block uses the
 object-removal scenes. The persistence and bucket rows vary $k$ and the retention $\lambda$ of
 the change test. The threshold rows replace the history-conditioned null by
-one pooled null per scene, by a null of per-Gaussian maxima over the mapping
-pass, or by one fixed threshold from the validation scenes.
+one pooled null per scene or by a null of per-Gaussian maxima over the mapping
+pass.
 \emph{Re-admission without depth} re-admits a Gaussian after the views alone.
 The \emph{pixel-level variant} turns every part off. It counts pixels, uses
 $\tilde r$, has no change test, forgets by decaying the evidence of Gaussians
@@ -1026,8 +1027,11 @@ We presented an open-vocabulary semantic field for 3D Gaussian Splatting that
 counts evidence in views and keeps little evidence and conflicting evidence
 apart. A known feature residual, with a threshold from the map's own mapping
 pass, drives the reset and the depth-checked re-admission of changed
-Gaussians. \todo{one sentence with the main measured result on object
-removal and one on Replica.} Future work should insert new geometry where content has moved
+Gaussians. On Replica, the epistemic channel ranks the errors that more views
+fix and the aleatoric channel those they do not, and the adaptive predictive is
+the best calibrated open-vocabulary row. On ten real scenes with a removed
+object, our test fused with a depth residual ranks stale Gaussians best, while
+NormLift's reliability drop ranks them better at the pixel level. Future work should insert new geometry where content has moved
 and test the field with other feature extractors.
 
 %% ============================================================================

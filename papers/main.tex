@@ -465,12 +465,17 @@ in~\eqref{eq:kappa}, where scarce evidence should broaden the posterior.
 \label{sec:change}
 We test each Gaussian at each view with a family of two-bucket statistics. An
 older bucket $\R^{\mathrm{old}}_n$ and a recent bucket $\R^{\mathrm{new}}_n$
-split $\R_n$ without overlap. Each view moves a share $1-\lambda^{\omega}$ of
-the recent bucket, and of its mass, into the older one. It then adds
-$\omega_{v,n}\mathbf{u}_{v,n}$ to the recent one (retention $\lambda\in[0,1)$
-per full view). The score
+split $\R_n$ without overlap. The test counts a view by
+$\nu_{v,n}=m_{v,n}/\max_{v'\le v}m_{v',n}$, its share of the largest splat mass
+the Gaussian has had so far, not by $\omega_{v,n}$. In a dense map most
+Gaussians never cover $a_0HW$ pixels in one view, so a test on full views would
+rarely run; we chose $\nu$ on the validation scenes (\secref{sec:setup}). Each
+view moves a share $1-\lambda^{\nu}$ of the recent bucket, and of its mass,
+into the older one. It then adds $\nu_{v,n}\mathbf{u}_{v,n}$ to the recent one
+(retention $\lambda\in[0,1)$ per unit of $\nu$). The score
 $c_n=1-\cos(\R^{\mathrm{old}}_n,\R^{\mathrm{new}}_n)$ is defined once the
-support reaches $\tau_{\min}$ and each bucket holds one full view. A change
+buckets hold $\tau_{\min}$ views of weight $\nu$ and each holds at least half a
+view. A change
 must persist, so the statistic $\bar c_n$ is the minimum of the last $k$
 defined scores.
 
@@ -512,7 +517,7 @@ inflated by the short early histories.
 \textbf{Reset and re-admission.} When $\bar c_n>\theta(h_n)$, Gaussian $n$
 forgets. Its four sums, buckets and depth record restart from the current
 view, and it is flagged \emph{changed}. It is re-admitted at the first view at
-which its view weight since the reset, the view that fired included, is at
+which its weight $\nu$ since the reset, the view that fired included, is at
 least 3 and the view-weighted mean of
 $\lvert d^{\mathrm{obs}}_{v,n}-d^{\mathrm{ctr}}_{v,n}\rvert$ over these views
 is at most 5\,cm. Here $d^{\mathrm{obs}}_{v,n}$ is the observed depth (sensor
@@ -531,9 +536,10 @@ Gaussians with $s_n\ge\tau_{\min}$, $\hat\rho_n\ge0.6$ and no change flag.
 \STATE Render and backward pass: $\R_{v,n}$, $m_{v,n}$, depth sums
 \FORALL{Gaussians $n$ with $m_{v,n}>0$, in parallel}
 \STATE $\mathbf{u}\leftarrow\R_{v,n}/m_{v,n}$,\;
-$\omega\leftarrow\min(1,m_{v,n}/(a_0HW))$
-\STATE $\R^{\mathrm{old}}_n\mathrel{+}=(1-\lambda^{\omega})\R^{\mathrm{new}}_n$,\;
-$\R^{\mathrm{new}}_n\leftarrow\lambda^{\omega}\R^{\mathrm{new}}_n+\omega\mathbf{u}$
+$\omega\leftarrow\min(1,m_{v,n}/(a_0HW))$,\;
+$\nu\leftarrow m_{v,n}/\max_{v'\le v}m_{v',n}$
+\STATE $\R^{\mathrm{old}}_n\mathrel{+}=(1-\lambda^{\nu})\R^{\mathrm{new}}_n$,\;
+$\R^{\mathrm{new}}_n\leftarrow\lambda^{\nu}\R^{\mathrm{new}}_n+\nu\mathbf{u}$
 \STATE If defined, $\bar c_n\leftarrow$ minimum of the last $k$ scores $c_n$.
 While mapping, add $\bar c_n$ to the null of bin $h_n$. Later, reset and flag
 $n$ if $\bar c_n>\theta(h_n)$.
@@ -1022,6 +1028,6 @@ and test the field with other feature extractors.
 %% the IEEEtran.bst control entry (written by the preamble on the first pass).
 %% ============================================================================
 \bibliographystyle{IEEEtran}
-\bibliography{ieeectl,ref}
+\bibliography{ref}
 
 \end{document}

@@ -1,9 +1,10 @@
 # Complete the UAGS paper
 2026-10-17 | root: /home/thanhnc/gauss_ws/src/uags | git: master@9358007 (+ uncommitted NOR loader work) | [all reports](../INDEX.md)
 Follows: [Replica Table I](../2026-09-29-replica-tab1/README.md)
-Verdict: IN PROGRESS -- Table I marked, views figure and Replica ablations in the paper; NOR benchmark being built; improvement plan being designed
+Verdict: IN PROGRESS -- NOR change benchmark built (commit 25ccc6c); validation run started 2026-10-18 10:53
 Key result: views figure (Replica test, N=6): u_epi ranks reducible errors better than u_ale at M=10 (0.35 vs 0.90 x random, 6/6 scenes); u_ale ranks irreducible errors better than u_epi at M=90 (0.48 vs 0.83, 6/6) ([log](logs/views_test.txt), [wins](logs/views_test_wins.txt))
 Attempts: n/a | Time: started 2026-10-17 10:44 JST
+Running: `STAGE=val scripts/nor_tab2.sh` | PID 627181 | /home/thanhnc/gauss_ws/data/uags_results/nor/tab2/run_val.20261018.log | 2026-10-18 10:53
 
 ## 0 Context
 - Ask (user, 2026-10-17): "now we need to complete the paper". Target: RA-L submission 2026-11-27 (8 pages, IEEEtran journal).
@@ -28,6 +29,7 @@ Attempts: n/a | Time: started 2026-10-17 10:44 JST
 | D4 | keyframe rule = run_mapping defaults (5 cm / 5 deg), as Replica | keeps 27-85 keyframes per scene |
 | D5 | rows: NCC, depth residual, feature residual k=2, NormLift drop, dispersion, ours, ours fused with depth | no class labels for CSS; user decision on CSS |
 | D6 | validation 001-004, test 005-016 (once) | fixed before any run |
+| D3' | (2026-10-18, still before any method ran) no alignment; a scene whose before-to-after median depth error is > 1 cm is left out: 012 (3.54 cm), 016 (2.50 cm). Test N = 10 | the one-transform ICP lowered photometric agreement in 6 well-aligned scenes (013: 0.63 -> 0.40) and left 1.34 cm in 012 (driver report) |
 - RIO10 never arrived. User decision (2026-10-17): use the NeRF-Object-Removal dataset (Weder et al., CVPR 2023; 16 real
   iPhone scenes, object present then physically removed) for the stale-content table. Protocol fixed before any run:
   validation scenes 001-004, test 005-016 (once); map on frames before `split_start`, update on frames from `split_end`.

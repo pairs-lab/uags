@@ -20,6 +20,9 @@
 #                (nor_tab2.py frozen; the test merge checks it again with --frozen)
 #   EVAL=0     : alignments (if any), maps and fields only, no evaluation
 #   DRY_RUN=1  : print the steps instead of running them (the guards still run)
+#   ABLATION=1 : with VARIANT and STAGE=test, a Table III ablation of the final method: scored on
+#                the test scenes only (no choice depends on it), so it has no validation run and
+#                skips the frozen checks; the stage log says so. Still runs once per variant.
 #   VARIANT=<name> FIELD_CONFIG=<json> : a field variant chosen on validation (e.g. the change
 #                weight): run_mapping.py --field-config <json>, fields <field>_<name>.pt, outputs
 #                under $OUT (default .../nor/tab2_<name>); maps are shared with the default
@@ -42,6 +45,8 @@ export UAGS_GPU_HEADROOM_MIB=${UAGS_GPU_HEADROOM_MIB:-1024}            # 12 GB, 
 export UAGS_GPU_POLL_S=${UAGS_GPU_POLL_S:-5}
 VARIANT=${VARIANT:-}
 FIELD_CONFIG=${FIELD_CONFIG:-}
+ABLATION=${ABLATION:-0}
+[ "$ABLATION" = 0 ] || [ -n "$VARIANT" ] || { echo "ABLATION needs VARIANT"; exit 2; }
 [ -z "$VARIANT" ] || [ -n "$FIELD_CONFIG" ] || { echo "VARIANT needs FIELD_CONFIG"; exit 2; }
 OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/nor/tab2${VARIANT:+_$VARIANT}}
 STAGE=${STAGE:-val}
@@ -107,8 +112,12 @@ if [ "$STAGE" = test ]; then
       say "refused: $OUT/change_test.json holds a finished test run (the test split runs once; FORCE_TEST=1 to override)"
       exit 1
     fi
-    CUDA_VISIBLE_DEVICES= python3 scripts/nor_tab2.py frozen "$OUT/change_val.json" \
-      --pipeline "$PIPELINE" 2>&1 | tee -a "$SLOG"
+    if [ "$ABLATION" != 0 ]; then
+      say "ablation $VARIANT: test only, no validation run, frozen checks skipped (Table III)"
+    else
+      CUDA_VISIBLE_DEVICES= python3 scripts/nor_tab2.py frozen "$OUT/change_val.json" \
+        --pipeline "$PIPELINE" 2>&1 | tee -a "$SLOG"
+    fi
   fi
 fi
 
@@ -163,7 +172,7 @@ done
 [ "$EVAL" = 1 ] || { say "done: $STAGE alignments, maps and fields only (EVAL=0)"; exit 0; }
 L="$OUT/merge_${STAGE}.$TS.log"
 M=(merge --config "$CFG" --dir "$OUT/$STAGE" --out "$OUT/change_$STAGE.json" --pipeline "$PIPELINE")
-[ "$STAGE" = test ] && M+=(--frozen "$OUT/change_val.json")
+[ "$STAGE" = test ] && [ "$ABLATION" = 0 ] && M+=(--frozen "$OUT/change_val.json")
 run "$L" env CUDA_VISIBLE_DEVICES= python3 scripts/nor_tab2.py "${M[@]}" || { tail -30 "$L"; exit 1; }
 T="$OUT/tab2_${STAGE}.$TS.tex"
 if [ "$DRY_RUN" = 1 ]; then

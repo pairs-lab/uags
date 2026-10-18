@@ -20,6 +20,9 @@
 #                (nor_tab2.py frozen; the test merge checks it again with --frozen)
 #   EVAL=0     : alignments (if any), maps and fields only, no evaluation
 #   DRY_RUN=1  : print the steps instead of running them (the guards still run)
+#   VARIANT=<name> FIELD_CONFIG=<json> : a field variant chosen on validation (e.g. the change
+#                weight): run_mapping.py --field-config <json>, fields <field>_<name>.pt, outputs
+#                under $OUT (default .../nor/tab2_<name>); maps are shared with the default
 # An existing alignment is kept; an existing map, field or evaluation is reused only if it
 # was built with the same options and code (nor_tab2.py reuse), else the run stops: a smoke
 # output at a protocol path is never reused silently. A finished evaluation is never rerun
@@ -37,7 +40,10 @@ export PATH="$CUDA_HOME/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
 export UAGS_GPU_USGLOC_EXTRA_MIB=${UAGS_GPU_USGLOC_EXTRA_MIB:-99999}   # never beside USGLoc
 export UAGS_GPU_HEADROOM_MIB=${UAGS_GPU_HEADROOM_MIB:-1024}            # 12 GB, Xorg holds 2 GB
 export UAGS_GPU_POLL_S=${UAGS_GPU_POLL_S:-5}
-OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/nor/tab2}
+VARIANT=${VARIANT:-}
+FIELD_CONFIG=${FIELD_CONFIG:-}
+[ -z "$VARIANT" ] || [ -n "$FIELD_CONFIG" ] || { echo "VARIANT needs FIELD_CONFIG"; exit 2; }
+OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/nor/tab2${VARIANT:+_$VARIANT}}
 STAGE=${STAGE:-val}
 EVAL=${EVAL:-1}
 DRY_RUN=${DRY_RUN:-0}
@@ -57,6 +63,7 @@ EVAL_NEED=${EVAL_NEED:-6500}
 FIT_FIXED=(--iters "$ITERS" --max-gaussians 1000000 --max-res "$MAX_RES")
 MAP_FIXED=(--downscale "$DOWNSCALE" --extractor lseg --baselines --use-depth --feat-dim 64
            --pca-frames 20 --seed 0)
+[ -z "$FIELD_CONFIG" ] || MAP_FIXED+=(--field-config "$FIELD_CONFIG")
 EVAL_FIXED=(--tau-cov "$TAU_COV")
 PIPELINE="fit ${FIT_FIXED[*]} | map ${MAP_FIXED[*]} | eval ${EVAL_FIXED[*]}"
 TS=$(date +%Y%m%d-%H%M%S)
@@ -99,6 +106,7 @@ mapfile -t SCENES < <(python3 scripts/nor_tab2.py scenes "$CFG")
 [ "${#SCENES[@]}" -gt 0 ] || { say "no scenes in $CFG"; exit 1; }
 for line in "${SCENES[@]}"; do
   read -r s data stride ustride align ply field <<< "$line"
+  [ -z "$VARIANT" ] || field="${field%.pt}_$VARIANT.pt"
   if [ "$align" != none ] && [ ! -f "$align" ]; then          # D3 (reads the GT box to mask the object), CPU
     [ "$(basename "$align")" = "$s.json" ] || { say "$CFG: $s: align must be <dir>/$s.json"; exit 1; }
     L="$OUT/align_${s}.$TS.log"

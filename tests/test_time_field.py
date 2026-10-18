@@ -139,10 +139,11 @@ def test_cli_cpu_mock(tmp_path, monkeypatch):
     assert math.isclose(sum(s["by_tensor"].values()), s["total"])
     assert math.isclose(s["total"] - s["without_change_buckets"], (2 * d + 2) * 4)
     # in memory, every tensor: raw and centred channels 2 (d + 4), buckets 2 d + 2, weight sums
-    # 6, c_ring 2, seven per-Gaussian scalars: 57 float32; changed (bool) 1 B, n_resets 4 B;
-    # per scene: c_hist and its 4001 bin edges (float64), 5 history edges, zbar (d floats)
-    fixed = 6 * 4000 * 8 + 4001 * 8 + 5 * 4 + d * 4
-    assert math.isclose(s["in_memory"], 57 * 4 + 1 + 4 + fixed / rec["n_gaussians"])
+    # 6, c_ring 2, eight per-Gaussian scalars (m_max included): 58 float32; changed,
+    # last_tested, last_fired (bool) 3 B, n_resets 4 B; per scene: c_hist and its 4001 bin
+    # edges (float64), 5 history edges, zbar (d floats), n_tests and n_fires (6 int64 each)
+    fixed = 6 * 4000 * 8 + 4001 * 8 + 5 * 4 + d * 4 + 2 * 6 * 8
+    assert math.isclose(s["in_memory"], 58 * 4 + 3 + 4 + fixed / rec["n_gaussians"])
     fit = rec["fit"]
     assert fit["scene"]["fit_s"] == 60.0 and fit["scene"]["parts"] == ["time_init_s",
                                                                        "time_train_s"]
@@ -269,12 +270,13 @@ def test_state_bytes_by_hand():
     s = tf.state_bytes(f.state_dict())
     # float32 per Gaussian: raw R (d) + W1 W2 Q Wr = 8; buckets Rf Rs (2d) + nf ns = 10;
     # weight sums fB2 fC fCq fBq2 T2 TQ = 6; c_ring (k = 2) + c_last + c_max = 4; pixel_mass,
-    # views_since_reset, depth_last = 3. Per scene: zbar (d floats), c_hist 6 x 4000 float64.
-    per_scene = (dd * 4 + 6 * 4000 * 8) / N
+    # views_since_reset, depth_last = 3; last_tested (bool) 1 B. Per scene: zbar (d floats),
+    # c_hist 6 x 4000 float64, n_tests 6 int64 (counted with the read-outs by state_bytes).
+    per_scene = (dd * 4 + 6 * 4000 * 8 + 6 * 8) / N
     assert s["posterior"] == 8 * 4
-    assert math.isclose(s["total"], (8 + 10 + 6 + 4 + 3) * 4 + per_scene)
+    assert math.isclose(s["total"], (8 + 10 + 6 + 4 + 3) * 4 + 1 + per_scene)
     assert math.isclose(s["total"] - s["without_change_buckets"], 10 * 4)
-    assert math.isclose(s["without_change_test"], (8 + 3) * 4 + dd * 4 / N)
+    assert math.isclose(s["without_change_test"], (8 + 3) * 4 + 1 + (dd * 4 + 6 * 8) / N)
     assert {"cen_R", "depth_abs", "depth_w", "changed", "n_resets"} <= set(s["saved_as_none"])
     print(f"PASS state bytes: {s['total']:.1f} B per Gaussian (N = {N}, d = {dd})")
 

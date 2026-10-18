@@ -47,6 +47,22 @@ Running: `STAGE=val scripts/nor_tab2.sh` | PID 627181 | /home/thanhnc/gauss_ws/d
 | Table I marks over ALL rows (user, 2026-10-17: CSS must be marked where it is best): CSS best in mIoU, Acc, ECE, Brier, AURC; ours best in NLL (tie with averaging) and AUSE, second in mIoU, ECE, Brier, AURC | `scripts/make_tables.py tab1 ...` (default `--rank all`; `--rank ov` would rank the open-vocabulary rows only) | caption: bold best, underline second best; CSS is told the classes at mapping time |
 | Our total uncertainty (1 - max p of P2, a row measured in the frozen views run) ties averaging on e_red (0.19 vs 0.19 at M=10) and beats it on e_irr in 6/6 scenes at M=90 and 180 (0.44 vs 0.52) | [views_test.txt](logs/views_test.txt), [views_test_wins.txt](logs/views_test_wins.txt) | added to the figure as "Ours P2, 1 - max p"; shown next to averaging's |
 
+## 2 Baseline (object removal, validation 001-004, default change weight "view")
+`STAGE=val scripts/nor_tab2.sh` at commit 25ccc6c; rows [nor_tab2_val_default.tex](logs/nor_tab2_val_default.tex), per scene [summary](logs/nor_val_default_summary.txt). In %, mean over 4 scenes.
+
+| Row | G AP | G AUROC | P AP | P AUROC | FA | Rec |
+|---|---|---|---|---|---|---|
+| NCC | 21.3 | 79.3 | 27.1 | 40.4 | 18.9 | 58.3 |
+| Depth residual | 39.1 | 83.0 | 28.9 | 39.8 | 0.9 | 5.8 |
+| Feature residual k=2 | 61.8 | 85.6 | 30.0 | 39.8 | 17.3 | 79.6 |
+| NormLift drop | 28.4 | 88.4 | 28.7 | 40.6 | 0.4 | 0.0 |
+| Dispersion (ours) | 56.9 | 92.5 | 29.6 | 39.5 | 0.7 | 29.6 |
+| Ours | 47.6 | 86.9 | 30.3 | 40.0 | 5.4 | 41.0 |
+| Ours + depth | 61.3 | 87.2 | 30.4 | 39.6 | -- | -- |
+
+Problem: only 0.5% of the Gaussians are scored (a full view needs >= 9.7 px of splat mass; the maps hit the 1M cap), and
+70% of the covered pixels are never scored, so every pixel AUROC is below 50. This is why D7 compares the "relmax" weight.
+
 ## 5 Verification
 | Check | Command | Result | Status |
 |---|---|---|---|

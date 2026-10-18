@@ -1,0 +1,12 @@
+001: 3567/999632 observed (807515 seen), stale 191 observed (33085 total, box-only 47602), common tested 2092, Kept 0.9948 (seen 0.2408); static shell within 0.02 m 0.998; wrote /home/thanhnc/gauss_ws/data/uags_results/nor/tab2/val/001.json
+002: 4698/999658 observed (674237 seen), stale 519 observed (90366 total, box-only 165545), common tested 3584, Kept 0.6628 (seen 0.2282); static shell within 0.02 m 0.996; wrote /home/thanhnc/gauss_ws/data/uags_results/nor/tab2/val/002.json
+003: 6560/999016 observed (721965 seen), stale 64 observed (137691 total, box-only 139777), common tested 5310, Kept 0.3750 (seen 0.0319); static shell within 0.02 m 0.987; wrote /home/thanhnc/gauss_ws/data/uags_results/nor/tab2/val/003.json
+004: 4646/999465 observed (753851 seen), stale 525 observed (73484 total, box-only 156890), common tested 3703, Kept 0.3276 (seen 0.2367); static shell within 0.02 m 0.996; wrote /home/thanhnc/gauss_ws/data/uags_results/nor/tab2/val/004.json
+       ncc [  I]: g_ap 21.3 g_auroc 79.3 p_ap 27.1 p_auroc 40.4 fa 18.9 rec 58.3 (N = 4)
+     depth [  D]: g_ap 39.1 g_auroc 83.0 p_ap 28.9 p_auroc 39.8 fa 0.9 rec 5.8 (N = 4)
+      feat [  F]: g_ap 61.8 g_auroc 85.6 p_ap 30.0 p_auroc 39.8 fa 17.3 rec 79.6 (N = 4)
+  normlift [  F]: g_ap 28.4 g_auroc 88.4 p_ap 28.7 p_auroc 40.6 fa 0.4 rec 0.0 (N = 4)
+dispersion [  F]: g_ap 56.9 g_auroc 92.5 p_ap 29.6 p_auroc 39.5 fa 0.7 rec 29.6 (N = 4)
+      ours [F+D]: g_ap 47.6 g_auroc 86.9 p_ap 30.3 p_auroc 40.0 fa 5.4 rec 41.0 (N = 4)
+     fused [F+D]: g_ap 61.3 g_auroc 87.2 p_ap 30.4 p_auroc 39.6 fa nan rec nan (N = 4)
+scenes ['001', '002', '003', '004']: unobserved 99.5% (pooled 99.5%), stale observed 325 per scene, Kept 59.0%; replay ok True

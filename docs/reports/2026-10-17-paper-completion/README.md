@@ -1,10 +1,9 @@
 # Complete the UAGS paper
 2026-10-17 | root: /home/thanhnc/gauss_ws/src/uags | git: master@9358007 (+ uncommitted NOR loader work) | [all reports](../INDEX.md)
 Follows: [Replica Table I](../2026-09-29-replica-tab1/README.md)
-Verdict: IN PROGRESS -- NOR change benchmark built (commit 25ccc6c); validation run started 2026-10-18 10:53
+Verdict: IN PROGRESS -- Table II measured on the NOR test (N=10, once): ours + depth best at the Gaussian level; NormLift drop best at the pixel level
 Key result: views figure (Replica test, N=6): u_epi ranks reducible errors better than u_ale at M=10 (0.35 vs 0.90 x random, 6/6 scenes); u_ale ranks irreducible errors better than u_epi at M=90 (0.48 vs 0.83, 6/6) ([log](logs/views_test.txt), [wins](logs/views_test_wins.txt))
 Attempts: n/a | Time: started 2026-10-17 10:44 JST
-Running: `STAGE=val scripts/nor_tab2.sh` | PID 627181 | /home/thanhnc/gauss_ws/data/uags_results/nor/tab2/run_val.20261018.log | 2026-10-18 10:53
 
 ## 0 Context
 - Ask (user, 2026-10-17): "now we need to complete the paper". Target: RA-L submission 2026-11-27 (8 pages, IEEEtran journal).
@@ -67,6 +66,21 @@ Running: `STAGE=val scripts/nor_tab2.sh` | PID 627181 | /home/thanhnc/gauss_ws/d
 
 Problem: only 0.5% of the Gaussians are scored (a full view needs >= 9.7 px of splat mass; the maps hit the 1M cap), and
 70% of the covered pixels are never scored, so every pixel AUROC is below 50. This is why D7 compares the "relmax" weight.
+
+## Table II, object removal test (N=10, run once, relmax; [rows](logs/nor_tab2_test.tex))
+| Row | G AP | G AUROC | P AP | P AUROC | FA | Rec |
+|---|---|---|---|---|---|---|
+| NCC | 30.4 | 75.3 | 48.0 | 72.5 | 12.4 | 46.3 |
+| Depth residual | 57.4 | 89.3 | 39.7 | 67.5 | 0.6 | 22.8 |
+| Feature residual k=2 | 56.6 | 87.6 | 57.8 | 78.6 | 13.7 | 75.6 |
+| NormLift drop | 63.8 | 91.6 | **65.8** | **82.0** | 4.1 | 41.0 |
+| Dispersion (ours) | 18.4 | 53.2 | 45.8 | 66.4 | 0.5 | 8.0 |
+| Ours | 53.4 | 87.2 | 57.2 | 77.8 | 6.2 | 56.8 |
+| Ours + depth | **75.0** | **92.3** | 61.8 | 78.2 | -- | -- |
+
+Baseline wins: NormLift drop beats ours alone in G AP in 7/10 scenes and is best at the pixel level. Kept 4.8%.
+Command: `VARIANT=relmax FIELD_CONFIG='{"change_weight": "relmax", "fast_min": 0.5, "slow_min": 0.5}' STAGE=test scripts/nor_tab2.sh`
+(commit 2a9d578; first attempt stopped at scene 006 by a 3.5 GB mapping cap, restarted with 5.5 GB; 005 reused).
 
 ## 3 Attempts (object removal, validation only)
 | # | Idea | Result (val, N=4) | Critic |

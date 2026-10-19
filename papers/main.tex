@@ -136,8 +136,8 @@ needs. Each Gaussian holds a von Mises--Fisher posterior over the direction of
 its vision-language feature. Each keyframe counts as at most one observation
 per Gaussian, because the pixels of one view are strongly correlated. The same
 sufficient statistics give an epistemic uncertainty, from the weighted number
-of views, and an aleatoric uncertainty, from a bias-corrected agreement of the
-views. Little evidence and conflicting evidence thus stay separate. We detect
+of views, and an aleatoric uncertainty, from an agreement of the views that
+does not shrink with the amount of evidence. Little evidence and conflicting evidence thus stay separate. We detect
 change with a known feature residual and set its threshold per scene, without
 labels, from the map's own mapping pass. A Gaussian that fails the test is
 reset. When depth is available, it rejoins the robust map only after new views
@@ -219,9 +219,8 @@ Fig.~\ref{fig:pipeline} shows one keyframe update. Our contributions are:
 \item \textbf{A directional posterior with view-level evidence.} Each Gaussian
 keeps a vMF posterior, the directional counterpart of Dirichlet semantic
 mapping, that receives one weighted observation per view. Its epistemic
-read-out is the weighted number of views. Its aleatoric read-out is a
-bias-corrected agreement of the views that does not shrink with the amount of
-evidence.
+read-out is the weighted number of views. Its aleatoric read-out is an
+agreement of the views that does not shrink with the amount of evidence.
 \item \textbf{Change handling in the Bayesian bookkeeping.} The threshold of
 the residual is a quantile of the map's own mapping-pass scores, per history
 length. This targets a nominal per-view false-alarm rate on static content
@@ -261,7 +260,7 @@ It factors the norm of the un-normalized mean into within-view and cross-view
 consistency. On static scenes it scores reliability by that norm, shrunk by a
 Kish count~\cite{kish1965survey} of effective views. We reuse the gradient
 identity and NormLift's per-view mean. We differ in three ways. Our cross-view
-agreement is bias-corrected and does not shrink with the amount of evidence.
+agreement does not shrink with the amount of evidence.
 It enters a vMF posterior with a predictive whose calibration we test. We also
 handle scene change.
 

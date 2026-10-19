@@ -1,7 +1,7 @@
 # Complete the UAGS paper
 2026-10-17 | root: /home/thanhnc/gauss_ws/src/uags | git: master@9358007 (+ uncommitted NOR loader work) | [all reports](../INDEX.md)
 Follows: [Replica Table I](../2026-09-29-replica-tab1/README.md)
-Verdict: IN PROGRESS -- every table and figure is filled and the paper is 8 pages; running: ScanNet held-out Table I; open: push
+Verdict: IN PROGRESS -- every table and figure is filled; ScanNet held-out test added to Table I; paper 8 pages; open: independent check of the ScanNet edit, push
 Key result: views figure (Replica test, N=6): u_epi ranks reducible errors better than u_ale at M=10 (0.35 vs 0.90 x random, 6/6 scenes); u_ale ranks irreducible errors better than u_epi at M=90 (0.48 vs 0.83, 6/6) ([log](logs/views_test.txt), [wins](logs/views_test_wins.txt))
 Attempts: n/a | Time: started 2026-10-17 10:44 JST
 
@@ -184,9 +184,20 @@ selection 697a4ac8). Fits: held-out PSNR 17.5-30.4. Rows: [v1 rows](logs/scannet
 - v2 rows (not selected, second look): P4 vote predictive mIoU 68.1, ECE 6.7, NLL 0.59, AURC 9.5.
 - CSS (closed set) is behind ours in every column here (on Replica it led most columns).
 
+## Paper: ScanNet in Table I (2026-10-20)
+| Change | Why | Evidence |
+|---|---|---|
+| Table I = Replica and ScanNet side by side, means only (`make_tables.py tab1pair`, new, marks per dataset) | two stacked blocks with std made the paper 9 pages (66 lines over); side by side adds no height | [rows](logs/tab1pair_rows.tex); tab1 output byte-identical on 3 files after the refactor; tests/test_make_tables_pair.py |
+| std moved to the caption (mIoU std over scenes 2.3-4.9 Replica, 9.7-10.5 ScanNet) and per-scene win counts in the text | scenes differ more than rows; paired counts say more than std | [wins](logs/scannet_test_wins.txt) |
+| ScanNet setup paragraph, results paragraph, abstract, intro, limitations ("margins smaller than the spread between scenes; evaluation frames close to mapping frames"), conclusion | report the held-out result honestly, incl. P2's AURC loss in 8/8 scenes | paper commits 189b4d4, b1dfcec |
+| Removed "(fixed-threshold row of Table IV)" | Table IV has no such row since the NOR block replaced it (error found while cutting) | papers/main.tex threshold paragraph |
+| `\bibliography{ieeectl,ref}` (was `{ref}`), dash for repeated names off | the IEEE "more than six authors -> et al." control entry was written but never loaded (Replica ref listed 25 authors) | bibtex: 0 warnings |
+| Text tightened (captions, roadmap, related work, method prose, ablation, run time, limitations, conclusion); no number removed | back to 8 pages | build: 8 pages, 0 warnings |
+
 ## 7 Open issues
 - Fit time in the run-time sentence is from the first machine (RTX 5070 Ti); the paper names that card.
-- ScanNet held-out Table I: running (see above). Adding it to the paper needs space (the paper is at 8 pages).
+- ScanNet (Table I): ours best or tied on every mean, but wins only 3-5 of 8 scenes against averaging; P2 loses AURC in
+  8/8 scenes. Stated in the text and limitations.
 - Table I on Replica: ours best in 6/7 open-vocabulary columns, by small margins; the pre-registered v2 predictives
   did not win on validation (attempt 03). No further Replica change is planned (test already seen).
 - NOR timing not in the paper (time_field.py passes no dataset part; the file is frozen for the NOR evals).

@@ -923,8 +923,7 @@ Fig.~\ref{fig:qual} shows examples.
 $u^{\mathrm{epi}}$ (epi) and $u^{\mathrm{ale}}$ (ale) against the 0/1 error
 of the full map (the split into $e_{\mathrm{red}}$ and $e_{\mathrm{irr}}$ is
 Fig.~\ref{fig:views}). AP at the Gaussian (G) and pixel (P) level. Kept: share of stale
-Gaussians in the robust set after the update. All metrics except NLL in \%.
-\todo{replace placeholders.}}
+Gaussians in the robust set after the update. All metrics except NLL in \%.}
 \label{tab:ablation}
 \footnotesize
 \setlength{\tabcolsep}{3.5pt}
@@ -949,13 +948,14 @@ Pixel-level variant & 27.9 & 8.1 & 1.01 & 16.5 & 8.8\\
 \cmidrule(lr){2-3}
 Variant & G & P & FA$\downarrow$ & Rec.$\uparrow$ & Kept$\downarrow$\\
 \midrule
-\textbf{Full method}            & \ph & \ph & \ph & \ph & \ph\\
-No persistence ($k=1$)         & \ph & \ph & \ph & \ph & \ph\\
-Two buckets, $\lambda=0.5$     & \ph & \ph & \ph & \ph & \ph\\
-Pooled null                    & \ph & \ph & \ph & \ph & \ph\\
-Per-Gaussian max null          & \ph & \ph & \ph & \ph & \ph\\
-Re-admission without depth     & \ph & \ph & \ph & \ph & \ph\\
-Centered features              & \ph & \ph & \ph & \ph & \ph\\
+%% ours row of each ablation run (nor/tab2_<variant>/change_test.json, test N=10, once);
+%% log: docs/reports/2026-10-17-paper-completion/logs/nor_tab3_test.txt
+\textbf{Full method} & 53.4 & 57.2 & 6.2 & 56.8 & 4.8\\
+No persistence ($k=1$) & 47.5 & 51.3 & 7.3 & 56.1 & 5.3\\
+Pooled null & 53.6 & 56.9 & 4.6 & 46.8 & 6.5\\
+Per-Gaussian max null & 53.2 & 56.5 & 2.6 & 32.6 & 8.6\\
+Re-admission without depth & 53.4 & 57.2 & 6.2 & 56.8 & 9.5\\
+Centered features & 48.2 & 51.1 & 4.4 & 43.5 & 4.6\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -971,7 +971,8 @@ $\lVert\R\rVert/(W_1+c_0)$, or by the shrunk mean length
 $\tilde r=\bar r-(1-\bar r)/(W_1+1)$. Note that $\tilde r=1$ whenever
 $\bar r=1$, so $\tilde r$ does not correct the one-view case. \emph{Centered
 features} subtract the scene-mean feature before the dispersion and the
-change test. The full method uses P2, the predictive with the lowest
+change test. The \emph{pixel-level variant} turns every part off: it counts
+pixels, uses $\tilde r$ and has no change test. The full method uses P2, the predictive with the lowest
 validation NLL (Table~\ref{tab:replica}). On Replica only the agreement
 read-out matters much. Shrinking the agreement with the prior raises the
 aleatoric AUSE from 8.5 to 14.8, since it mixes the amount of evidence into
@@ -982,17 +983,17 @@ of views leaves mIoU and the epistemic AUSE unchanged and ranks errors slightly
 worse (8.8). It lowers the test ECE (8.1 vs 8.7) but raised the validation ECE
 (5.2 vs 4.9). Centering lowers the aleatoric AUSE a little on both splits (8.3
 vs 8.5 on test, 4.7 vs 5.0 on validation). The bottom block uses the
-object-removal scenes. The persistence and bucket rows vary $k$ and the retention $\lambda$ of
-the change test. The threshold rows replace the history-conditioned null by
-one pooled null per scene or by a null of per-Gaussian maxima over the mapping
-pass.
-\emph{Re-admission without depth} re-admits a Gaussian after the views alone.
-The \emph{pixel-level variant} turns every part off. It counts pixels, uses
-$\tilde r$, has no change test, forgets by decaying the evidence of Gaussians
-with low $\bar r$, and scores change by $1-\bar r$. We keep a part only if
-removing it hurts on the validation scenes. \todo{interpret once
-measured, then rename the method and adjust the claims to the parts that
-remain.}
+object-removal scenes. The persistence row sets $k=1$. The threshold rows
+replace the history-conditioned null by one pooled null per scene or by a null
+of per-Gaussian maxima over the mapping pass. \emph{Re-admission without depth}
+re-admits a Gaussian after the views alone. Persistence matters most for the change test: with $k=1$
+the AP drops by six points at both levels. The history-conditioned null keeps
+the ranking of the other nulls (AP 53.4 vs 53.6 and 53.2) but finds more
+stale Gaussians at its threshold (Rec.\ 56.8 vs 46.8 and 32.6), at more false
+alarms (6.2 vs 4.6 and 2.6\%). Without the depth check, twice as many stale
+Gaussians return to the robust set (9.5 vs 4.8\%). Centering, which helped
+the aleatoric read-out on Replica, hurts the change test (AP 48.2), so it
+stays off.
 
 %% Run time and memory: the former Table IV is parked in parked_sections.tex.
 %% Hardware from nvidia-smi and lscpu on the mapping machine (2026-09-29).

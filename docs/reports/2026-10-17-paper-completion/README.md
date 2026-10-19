@@ -144,6 +144,11 @@ keyframe on the RTX 4070 Ti; the NOR timing failed (time_field.py passes no data
   640x480 depth. tests/test_scannet_sens_export.py.
 - Chain started 2026-10-19 ~12:40: download -> export + unzip -> `V2_ROWS=1 STAGE=val scripts/scannet_tab1.sh`
   (MAP_NEED 7000, EVAL_NEED 7500, DISTILL_NEED 7000 for the 12 GB card). Log: /home/thanhnc/gauss_ws/data/uags_results/scannet/chain.log.
+- Download done 12:43:49 (14 GB); every export has one label image per frame (scene0000_00: 5578, scene0062_00: 730, ...).
+- After validation exits 0, a second chain builds the test maps and fields only (`EVAL=0 STAGE=test`; no distillation,
+  no evaluation). The single test evaluation starts by hand after the validation check. Log: .../scannet/chain2.log.
+- Frozen until the test evaluation: scripts/ usplat/ configs/ (the test stage refuses code that differs from the
+  validation commit). Paper and report edits are allowed.
 
 ## 7 Open issues
 - Fit time in the run-time sentence is from the first machine (RTX 5070 Ti); the paper names that card.

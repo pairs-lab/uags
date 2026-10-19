@@ -302,13 +302,11 @@ updates its scene memory where the discrepancy of matched scene-graph nodes, a
 position term plus a feature-cosine term, exceeds a fixed threshold. Chu and
 Kim~\cite{chu2026semantic} let a language model pick stable objects to
 localize in changing indoor scenes. Our change score is the same kind of
-feature residual as that of CL-Splats and the semantic term of MIF. It is one
-minus the cosine between all earlier evidence of a Gaussian and the current
-view, and a change must persist over two views. We differ in the threshold and
-the response. The threshold is a quantile of the map's own mapping-pass scores
-per history size, so it needs no labels. A detection resets the Gaussian's
-semantic evidence, and new views with a depth check gate its return. Unlike
-CL-Splats, GaussianUpdate and VG-Mapping, we keep geometry fixed.
+feature residual as that of CL-Splats and the semantic term of MIF. We differ
+in the threshold, a quantile of the map's own mapping-pass scores that needs no
+labels, and in the response: a detection resets the Gaussian's semantic
+evidence, and a depth check gates its return. Unlike CL-Splats, GaussianUpdate
+and VG-Mapping, we keep geometry fixed.
 
 %% ============================================================================
 \section{Method}
@@ -650,25 +648,19 @@ Back-Projection~\cite{joseph2025gradbp}, with no uncertainty of its own.
 Kish effective views $N_{\mathrm{eff}}$ over the per-view pixel masses
 $m_{v,n}$, factors the feature norm into a within-view and a cross-view
 consistency $C_{\mathrm{inter}}$, and scores reliability as
-$\mathcal{R}=\lVert\mathbf{f}\rVert N_{\mathrm{eff}}/(N_{\mathrm{eff}}+1)$. We
-implement it as its paper defines it, without its KNN voting refinement.
-It defines no epistemic or aleatoric uncertainty, so from its quantities we
-build the scores $1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$
-and $1-\mathcal{R}$. \emph{Feature 3DGS}~\cite{zhou2024feature} and
-\emph{LEGaussians}~\cite{shi2024legaussians} train the features (Adam at their
-rate $10^{-3}$, at most 30k iterations, stopped when the loss gains less than
-1\% over 5k). Feature 3DGS fits a feature per Gaussian with an $L_1$ rendering
-loss. LEGaussians renders an 8-D code decoded into 128 feature codes and
-learns $u\in[0,1]$ per Gaussian, which down-weights a pixel's cross-entropy at
-the price $\lambda_u\bar U$ ($\lambda_u\in\{1,2,4\}$ chosen on validation,
-its paper: 1; no smoothing term). For reference only, we also show
-CSS~\cite{wilson2025css}, a closed-set Dirichlet posterior in which each pixel
-votes for the class whose text is closest to its feature. It is told the
-classes present in the evaluation frames at mapping time, which an
-open-vocabulary map does not know, so we do not rank it (its prior
-$\alpha_0\in\{0.01,0.1,1,10\}$ is chosen by validation NLL). We composite
-its variance with linear splat weights, as for every other channel, whereas
-CSS uses squared weights.
+$\mathcal{R}=\lVert\mathbf{f}\rVert N_{\mathrm{eff}}/(N_{\mathrm{eff}}+1)$
+(without its KNN voting). From its quantities we build the scores
+$1/(1+N_{\mathrm{eff}})$, $1-C_{\mathrm{inter}}$ and $1-\mathcal{R}$.
+\emph{Feature 3DGS}~\cite{zhou2024feature} and
+\emph{LEGaussians}~\cite{shi2024legaussians} train the features (Adam,
+$10^{-3}$, at most 30k iterations, early stop). Feature 3DGS fits a feature
+per Gaussian with an $L_1$ loss. LEGaussians decodes an 8-D code into 128
+feature codes and learns $u\in[0,1]$ per Gaussian at the price
+$\lambda_u\bar U$ ($\lambda_u\in\{1,2,4\}$ chosen on validation). For
+reference only, we show CSS~\cite{wilson2025css}, a closed-set Dirichlet
+posterior over per-pixel class votes. It is told the classes of the
+evaluation frames at mapping time, so we do not rank it (prior
+$\alpha_0\in\{0.01,0.1,1,10\}$ chosen by validation NLL).
 
 \textbf{Change baselines.} A residual compares an update view with the map
 rendered at the same pose. We lift every residual to the Gaussians with the
@@ -779,27 +771,19 @@ CSS~\cite{wilson2025css}\reimpl, closed set & 28.5{\scriptsize$\,\pm\,$3.3} & 77
 %% P2 < P0 on AURC 6/6, ECE 3/6; P1 < P0 on NLL 1/6, ECE 2/6, AURC 2/6.
 %% LEGaussians lambda_u: validation mean AUSE of its own u is 19.46, 19.88,
 %% 17.32 for l1/l2/l4; random order on test: mean 20.6.
-In Table~\ref{tab:replica}, P0 renders the view-weighted mean of the pixel
-features that averaging uses and matches averaging (28.0 vs 27.9 mIoU), a
-parity check. NormLift differs from averaging only in its uncertainty, and P2
-changes only the confidence of the P0 labels. Every map row except
-LEGaussians beats the 2D features in mean mIoU, P0 on four of six scenes.
-The posterior mean is a negative result: P1 does not lower NLL or ECE against
-P0, and its lower mean AURC holds on two scenes. P2 keeps the NLL of P0 and
-lowers mean AURC from 13.8 to 12.2 (lower on all six scenes), but mean ECE
-from 9.9 to 8.7 (lower on only three). Against averaging, P2 is lower on 3, 5, 6 and 6 of the six scenes
-in ECE, NLL, Brier and AURC. P2 has the lowest mean ECE, Brier and AURC among
-the open-vocabulary rows. The closed-set CSS reference receives the scene's
-classes at mapping time and uses per-pixel class votes, so its results do
-not establish an open-vocabulary comparison. Our $u^{\mathrm{ale}}$ ranks the
-errors on par with NormLift's $1-C_{\mathrm{inter}}$ (AUSE 8.5 vs 8.8, lower
-on three of six scenes) and better than the CSS variance on four.
-LEGaussians' $\lambda_u=4$ has the lowest validation AUSE of its own $u$
-(17.3 vs 19.5 and 19.9 at $\lambda_u=1,2$); its test AUSE is near that of a
-random order (19.7 vs 20.6). A vote predictive read from the same posterior
-lowers the test ECE to 6.3 but raises NLL to 1.06 and AURC to 16.4; it lost to
-P2 on validation NLL, our selection rule fixed in advance, so Table~\ref{tab:replica}
-keeps P2.
+In Table~\ref{tab:replica}, P0 renders the view-weighted mean of the
+features that averaging uses and matches it (28.0 vs 27.9 mIoU), a parity
+check; NormLift differs from averaging only in its uncertainty. Every map row
+except LEGaussians beats the 2D features. The posterior mean P1 does not lower
+NLL or ECE against P0. P2 keeps the NLL of P0 and lowers AURC from 13.8 to 12.2
+(on all six scenes) and ECE from 9.9 to 8.7 (on three). It has the lowest ECE,
+Brier and AURC of the open-vocabulary rows, and against averaging it is lower
+on 3, 5, 6 and 6 of the six scenes in ECE, NLL, Brier and AURC. Our
+$u^{\mathrm{ale}}$ ranks the errors on par with NormLift's
+$1-C_{\mathrm{inter}}$ (AUSE 8.5 vs 8.8), while the learned $u$ of LEGaussians
+is near a random order (19.7 vs 20.6). A vote predictive read from the same
+posterior lowers the test ECE to 6.3 but raises NLL to 1.06 and AURC to 16.4;
+it lost to P2 on validation NLL, our selection rule fixed in advance.
 
 %% Figure: scripts/plot_views.py --stage test (relative scale), from
 %% views/views_test.json and tab1/eval_test.json; per-scene wins:
@@ -890,18 +874,7 @@ flags 56.8\% of the stale Gaussians at 6.2\% false alarms, against 75.6\% at
 13.7\% for the feature residual and 22.8\% at 0.6\% for the depth residual.
 After the update, 4.8\% of the stale Gaussians are still in our robust set.
 The dispersion $1-\hat\rho$ alone does not detect a removal (AP 18.4).
-Fig.~\ref{fig:qual} shows examples.
 
-\begin{figure}[t]
-  \centering
-  \fbox{\parbox[c][0.45\linewidth][c]{0.92\linewidth}{\centering\footnotesize
-  \todo{Qualitative figure. Top row: one object-removal validation frame
-  after the removal. Bottom row: one Replica frame. Columns: image, query
-  result, $u^{\mathrm{epi}}$, $u^{\mathrm{ale}}$, change score $\bar c$ with the
-  flagged Gaussians.}}}
-  \caption{Qualitative results. \todo{caption once the figure exists.}}
-  \label{fig:qual}
-\end{figure}
 
 %% ----------------------------------------------------------------------------
 \subsection{Ablations}

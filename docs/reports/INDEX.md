@@ -3,7 +3,8 @@
 Every table and figure of the paper is measured and filled ([report](2026-10-17-paper-completion/README.md)); 8 pages.
 Table I: ours best in 6/7 open-vocabulary columns (P2; the pre-registered v2 predictives did not beat it on validation).
 Table II (object removal, N=10): ours + depth best at the Gaussian level (AP 75.0); NormLift drop best at the pixel level.
-Open: final review pass, "bias-corrected" claim wording, push from this machine. Last updated 2026-10-19.
+Running: ScanNet held-out Table I (pre-registered 2026-10-10; 10 scans downloaded and exported, validation stage next).
+Open: final review pass, push from this machine (4 local commits). Last updated 2026-10-19.
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|

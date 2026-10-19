@@ -134,6 +134,16 @@ keyframe on the RTX 4070 Ti; the NOR timing failed (time_field.py passes no data
 - Space: Algorithm 1 removed; related work, setup, metrics, results and ablation text tightened (all numbers kept); 8 pages.
 - Cleanup (user-approved): 55 files, 46 GB of NOR ablation and default-variant fields deleted; relmax fields kept.
 
+## ScanNet held-out set (Table I, pre-registered 2026-10-10, never run before)
+- /home/thanhnc/hesfm_dataset/ScanNet holds 10 other scenes (HESFM subset), none of the 10 the UAGS prereg fixed
+  (configs/scannet_{val,test}.json), so the registered scenes were downloaded to /home/thanhnc/gauss_ws/data/scannet
+  (.sens, 2D label zip, .txt; curl with resume, as fetch_subset.sh).
+- SensReader is Python 2 only and this machine's Python 2 lacks numpy/cv2/imageio: scripts/scannet_sens_export.py is a
+  Python 3 port (streams frames; keeps the stored JPEG bytes). scene0000_00: 5578 frames in 48 s, 1296x968 colour,
+  640x480 depth. tests/test_scannet_sens_export.py.
+- Chain started 2026-10-19 ~12:40: download -> export + unzip -> `V2_ROWS=1 STAGE=val scripts/scannet_tab1.sh`
+  (MAP_NEED 7000, EVAL_NEED 7500, DISTILL_NEED 7000 for the 12 GB card). Log: /home/thanhnc/gauss_ws/data/uags_results/scannet/chain.log.
+
 ## 7 Open issues
 - Paper at 8 pages; the qualitative figure placeholder was dropped for space (no qualitative figure in the paper).
 - Fit time in the run-time sentence is from the first machine (RTX 5070 Ti); the paper names that card.

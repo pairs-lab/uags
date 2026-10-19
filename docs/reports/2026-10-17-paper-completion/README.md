@@ -123,6 +123,17 @@ Two buckets (lambda = 0.5): not scored, its recent bucket breaks the shared cove
 needed EVAL_NEED 8500 (first try ran out of memory). Run time: [time_office_0.log](logs/time_office_0.log), 109.9 ms per
 keyframe on the RTX 4070 Ti; the NOR timing failed (time_field.py passes no dataset part) and is not in the paper.
 
+## Per-class IoU table and uncertainty figure (user request 2026-10-19)
+- Table II of the paper (tab:perclass), CSS-paper layout: classes present in >= 5 of the 6 Replica test scenes (rule fixed
+  before reading cells); vent and wall-plug are 0 for every row and become a caption note; IoU 0 is never marked; P1 row
+  dropped (negative predictive, stays in Table I). `scripts/make_tables.py perclass eval_test_224fe1e.json --val ...`
+  ([rows](logs/perclass_rows.tex)); tests/test_make_tables_perclass.py. Ours leads on ceiling (80.9) and chair (70.7) and mIoU;
+  others lead elsewhere by 0.1-2.1 points.
+- Fig. 3 (fig:qual): scripts/render_qual.py on room_0 (test), frame 29 = most e_red pixels by `--list-frames`
+  ([frames](logs/qual_frames_room_0.json), [meta](logs/qual_room_0_f29.json)); 30-frame field mapped as replica_views.sh.
+- Space: Algorithm 1 removed; related work, setup, metrics, results and ablation text tightened (all numbers kept); 8 pages.
+- Cleanup (user-approved): 55 files, 46 GB of NOR ablation and default-variant fields deleted; relmax fields kept.
+
 ## 7 Open issues
 - Paper at 8 pages; the qualitative figure placeholder was dropped for space (no qualitative figure in the paper).
 - Fit time in the run-time sentence is from the first machine (RTX 5070 Ti); the paper names that card.

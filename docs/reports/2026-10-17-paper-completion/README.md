@@ -149,6 +149,15 @@ keyframe on the RTX 4070 Ti; the NOR timing failed (time_field.py passes no data
   no evaluation). The single test evaluation starts by hand after the validation check. Log: .../scannet/chain2.log.
 - Frozen until the test evaluation: scripts/ usplat/ configs/ (the test stage refuses code that differs from the
   validation commit). Paper and report edits are allowed.
+- Validation stage 12:46-17:29 (commit 71b163b, clean). Fits: held-out PSNR 19.4 (scene0000_00), 20.5 (scene0062_00);
+  every row covers 99.9% of the labeled pixels ([chain lines](logs/scannet_val_chain.txt)).
+- Selection by the fixed rules ([selection](logs/scannet_selection_val.json)): LEGaussians lambda_u = 1, CSS alpha0 = 0.1;
+  v2 rules keep ours P2 (no v2 predictive has a lower pooled validation NLL).
+- Validation means, N=2 ([rows](logs/scannet_val_rows.txt), `eval_val.json` summary): mIoU averaging 71.3, ours P2 71.1;
+  ECE P2 2.74 vs averaging 3.56; NLL 0.410 vs 0.409; AURC 3.20 vs 2.93; AUSE u_ale 3.83 vs NormLift 1-C_inter 3.39.
+  So on validation ours wins ECE only; averaging and NormLift lead the other columns by small margins.
+- Sanity check before the test (by hand, 17:35): no broken scene, all rows in a plausible range. Test queued:
+  chain2 (maps and fields, EVAL=0) -> chain3 (`STAGE=test`, once; then `STAGE=table`). Logs: .../scannet/chain{2,3}.log.
 
 ## 7 Open issues
 - Fit time in the run-time sentence is from the first machine (RTX 5070 Ti); the paper names that card.

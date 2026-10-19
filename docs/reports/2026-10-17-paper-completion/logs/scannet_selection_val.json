@@ -1,0 +1,251 @@
+{
+ "status": "ok",
+ "eval_val": "/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_val.json",
+ "eval_val_sha256": "072c82ce4b0b2a500982ce6cfbe15c6b9eea1e516fc58bd53051469262ecfa6c",
+ "git": "71b163b1173513339610c381938a44f535803308",
+ "eval_val_git": {
+  "repo": "/home/thanhnc/gauss_ws/src/uags",
+  "commit": "71b163b1173513339610c381938a44f535803308",
+  "branch": "master",
+  "dirty": false,
+  "dirty_tracked": false,
+  "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "diff_bytes": 0,
+  "code_sha256": "cd372fb85148700fa88095e3492d3f9f5beb43e555e5ff26d95f5a6adc36f8e6",
+  "exclude": [
+   "**/*.pyc",
+   "docs/**",
+   "papers/**",
+   "outputs/**"
+  ],
+  "untracked": []
+ },
+ "protocol": {
+  "configs": {
+   "configs/scannet_test.json": "e53375d287b6e7f5a426bb4d10932bbce60eb1dcc6166670f51bfd63059791b5",
+   "configs/scannet_v2_prereg.json": "c3cab9f2d64c5b634a4e2e075f433441e0105edbf7a452154212e4ce8651a568",
+   "configs/scannet_val.json": "98d04f1f865a4cc11ead67400c200fb5b81e13dcd76eb4ee8feb720a01a3ab7c",
+   "configs/vocab_scannet.json": "cb1374abcff56c0f1abdc7126a4b97e5d5551017b92058dbb588ff72d52c9c7f"
+  },
+  "css_frames": "eval_s20o5",
+  "downscale": 2,
+  "eval_offset": 5,
+  "eval_stride": 20,
+  "iters": 30000,
+  "map_extra": "",
+  "map_stride": 10,
+  "prep_factor": 2,
+  "tau_cov": 0.5
+ },
+ "v2_rows": true,
+ "eval_argv": [
+  "scripts/eval_seg.py",
+  "--vocab",
+  "configs/vocab_scannet.json",
+  "--row-factory",
+  "usplat.baselines:row_factory,usplat.distill:row_factory",
+  "--extractor",
+  "lseg",
+  "--dataset",
+  "scannet",
+  "--stride",
+  "20",
+  "--downscale",
+  "2",
+  "--tau-cov",
+  "0.5",
+  "--text-cache",
+  "/home/thanhnc/gauss_ws/data/uags_fields/scannet/text_cache_lseg.pt",
+  "--with-2d",
+  "--v2-rows",
+  "--val-scenes",
+  "configs/scannet_val.json",
+  "--scenes",
+  "configs/scannet_val.json",
+  "--out",
+  "/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_val.json"
+ ],
+ "betas_rows": [
+  "2d_features",
+  "averaging",
+  "css",
+  "css_a0.01",
+  "css_a0.1",
+  "css_a10",
+  "f3dgs",
+  "legs_l1",
+  "legs_l2",
+  "legs_l4",
+  "normlift",
+  "ours_P0",
+  "ours_P1",
+  "ours_P1_c0.01",
+  "ours_P1_c0.03",
+  "ours_P1_c0.1",
+  "ours_P1_c0.3",
+  "ours_P1_c1",
+  "ours_P2",
+  "ours_P2p1",
+  "ours_P3_b10",
+  "ours_P3_b20",
+  "ours_P3_b40",
+  "ours_P4_a0.01_s0.5",
+  "ours_P4_a0.01_s1",
+  "ours_P4_a0.01_s2",
+  "ours_P4_a0.1_s0.5",
+  "ours_P4_a0.1_s1",
+  "ours_P4_a0.1_s2",
+  "ours_P4_a1_s0.5",
+  "ours_P4_a1_s1",
+  "ours_P4_a1_s2",
+  "ours_P4_inf",
+  "ours_P4_rbar",
+  "ours_scalar",
+  "viewcount"
+ ],
+ "field_identities": [
+  "9f91fada8c067437f284ee577ea85af4bda9841d0abdae2957f05d107b81d0c5"
+ ],
+ "choices": {
+  "css": "css_a0.1",
+  "p3": "ours_P3_b20",
+  "legs": "legs_l1"
+ },
+ "v2": {
+  "prereg": {
+   "path": "/home/thanhnc/gauss_ws/src/uags/configs/scannet_v2_prereg.json",
+   "sha256": "c3cab9f2d64c5b634a4e2e075f433441e0105edbf7a452154212e4ce8651a568",
+   "registered": "2026-10-10"
+  },
+  "validation": {
+   "path": "/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_val.json",
+   "sha256": "072c82ce4b0b2a500982ce6cfbe15c6b9eea1e516fc58bd53051469262ecfa6c",
+   "run_id": "c56431b9c40047f2ad8abead3631e07e",
+   "git": {
+    "repo": "/home/thanhnc/gauss_ws/src/uags",
+    "commit": "71b163b1173513339610c381938a44f535803308",
+    "branch": "master",
+    "dirty": false,
+    "dirty_tracked": false,
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diff_bytes": 0,
+    "code_sha256": "cd372fb85148700fa88095e3492d3f9f5beb43e555e5ff26d95f5a6adc36f8e6",
+    "exclude": [
+     "**/*.pyc",
+     "docs/**",
+     "papers/**",
+     "outputs/**"
+    ],
+    "untracked": []
+   },
+   "scenes": [
+    "scene0000_00",
+    "scene0062_00"
+   ]
+  },
+  "metric": {
+   "name": "nll",
+   "variant": "all",
+   "pooling": "pixels",
+   "text": "validation NLL in nats with the coverage rule (variant 'all'), pooled over the labelled pixels of all validation scenes: sum_s n_s NLL_s / sum_s n_s, n_s = labelled pixels of scene s; temperatures fit by eval_seg.py on the same validation scenes (one per row, as in v1)"
+  },
+  "tie": {
+   "tol": 0.0001,
+   "rule": "candidates within tol nats of the lowest value tie; the tie goes to the one listed first; lists run from the reference setting outward (P1: c0 = 1, the FieldConfig default; P4: lambda = 1, the vMF moment match, then alpha0 = 1, the flat Dirichlet of CSS's default; @ours_v2: the v1 predictive ours_P2 first, so a v2 row must beat it by more than tol)"
+  },
+  "choices": {
+   "@p1": {
+    "row": "ours_P1_c0.01",
+    "values": {
+     "ours_P1_c1": [
+      "ours_P1_c1",
+      0.5570621991912552
+     ],
+     "ours_P1_c0.3": [
+      "ours_P1_c0.3",
+      0.5529232203104554
+     ],
+     "ours_P1_c0.1": [
+      "ours_P1_c0.1",
+      0.5509935016196205
+     ],
+     "ours_P1_c0.03": [
+      "ours_P1_c0.03",
+      0.5499404814232771
+     ],
+     "ours_P1_c0.01": [
+      "ours_P1_c0.01",
+      0.54948256421011
+     ]
+    }
+   },
+   "@p4": {
+    "row": "ours_P4_a0.01_s2",
+    "values": {
+     "ours_P4_a1_s1": [
+      "ours_P4_a1_s1",
+      0.6573502147780976
+     ],
+     "ours_P4_a0.1_s1": [
+      "ours_P4_a0.1_s1",
+      0.6025573133353236
+     ],
+     "ours_P4_a0.01_s1": [
+      "ours_P4_a0.01_s1",
+      0.5802396668691284
+     ],
+     "ours_P4_a1_s0.5": [
+      "ours_P4_a1_s0.5",
+      0.6787807102041494
+     ],
+     "ours_P4_a0.1_s0.5": [
+      "ours_P4_a0.1_s0.5",
+      0.6252845627131353
+     ],
+     "ours_P4_a0.01_s0.5": [
+      "ours_P4_a0.01_s0.5",
+      0.6053315124269883
+     ],
+     "ours_P4_a1_s2": [
+      "ours_P4_a1_s2",
+      0.6229206230380969
+     ],
+     "ours_P4_a0.1_s2": [
+      "ours_P4_a0.1_s2",
+      0.5701367084776704
+     ],
+     "ours_P4_a0.01_s2": [
+      "ours_P4_a0.01_s2",
+      0.5513806988271589
+     ]
+    }
+   },
+   "@ours_v2": {
+    "row": "ours_P2",
+    "values": {
+     "ours_P2": [
+      "ours_P2",
+      0.5472519952831041
+     ],
+     "ours_P2p1": [
+      "ours_P2p1",
+      0.5475678015617002
+     ],
+     "@p1": [
+      "ours_P1_c0.01",
+      0.54948256421011
+     ],
+     "@p4": [
+      "ours_P4_a0.01_s2",
+      0.5513806988271589
+     ]
+    }
+   }
+  },
+  "chosen": {
+   "@p1": "ours_P1_c0.01",
+   "@p4": "ours_P4_a0.01_s2",
+   "@ours_v2": "ours_P2"
+  }
+ }
+}

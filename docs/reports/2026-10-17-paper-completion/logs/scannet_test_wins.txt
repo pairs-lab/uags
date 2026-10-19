@@ -1,0 +1,43 @@
+ScanNet test, per scene, from /home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_test.json
+scene          | P0 mIoU avg mIoU | P2 ECE avg ECE | P2 NLL  avg NLL | P2 Brier avg | P2 AURC P0 AURC avg | u_ale  1-Cinter
+scene0070_00 |  62.00  59.30 |  2.92  2.47 | 0.3990 0.4325 | 17.25 19.39 |  5.64  4.79  5.16 | None None
+scene0097_00 |  68.60  68.59 | 19.07 18.78 | 0.9457 0.9648 | 42.50 42.68 |  5.77  5.76  5.70 | None None
+scene0140_00 |  68.52  69.06 |  2.13  2.02 | 0.4061 0.3947 | 17.79 17.23 |  4.45  3.84  3.77 | None None
+scene0200_00 |  73.47  72.36 |  0.90  2.62 | 0.3512 0.3650 | 17.36 18.03 |  3.93  3.67  3.68 | None None
+scene0347_00 |  76.32  76.05 | 10.92 10.22 | 0.6924 0.6851 | 29.45 29.57 |  8.71  7.21  7.19 | None None
+scene0400_00 |  86.17  86.17 |  1.68  2.60 | 0.1246 0.1275 |  5.60  5.54 |  0.43  0.33  0.32 | None None
+scene0590_00 |  58.28  58.81 |  5.52  5.28 | 0.5432 0.5350 | 23.65 23.14 |  6.67  5.49  5.27 | None None
+scene0645_00 |  50.60  51.14 |  5.36  5.37 | 0.6108 0.5879 | 23.50 22.72 |  4.53  4.04  4.04 | None None
+
+wins / ties / losses over 8 scenes:
+  mIoU P0>avg            5 / 0 / 3
+  acc P0>avg             3 / 0 / 5
+  ECE P2<avg             3 / 0 / 5
+  NLL P2<avg             4 / 0 / 4
+  Brier P2<avg           4 / 0 / 4
+  AURC P2<avg            0 / 0 / 8
+  AURC P0<avg            2 / 0 / 6
+  ECE P2<P0              3 / 0 / 5
+  NLL P0<avg             4 / 0 / 4
+
+exact means (summary):
+  averaging    mIoU 67.685 acc 86.339 ECE 6.170 NLL 0.5116 Brier 22.287 AURC 4.391
+  ours_P0      mIoU 67.994 acc 86.504 ECE 6.364 NLL 0.5099 Brier 22.107 AURC 4.392
+  ours_P2      mIoU 67.994 acc 86.504 ECE 6.063 NLL 0.5091 Brier 22.138 AURC 5.016
+  ours_P1      mIoU 67.937 acc 86.483 ECE 6.970 NLL 0.5222 Brier 22.475 AURC 4.765
+  css_a0.1     mIoU 67.288 acc 86.264 ECE 7.033 NLL 0.6040 Brier 22.901 AURC 8.931
+  f3dgs        mIoU 64.964 acc 85.119 ECE 7.384 NLL 0.5713 Brier 24.618 AURC 5.684
+  legs_l1      mIoU 62.257 acc 83.631 ECE 8.104 NLL 0.6283 Brier 26.844 AURC 6.318
+  2d_features  mIoU 62.478 acc 83.731 ECE 8.775 NLL 0.6376 Brier 27.351 AURC 7.184
+
+AUSE of own uncertainty vs 0/1 error, per scene (x100): ours u_ale (P2 row) | NormLift 1-C_inter | NormLift 1-R | LEGaussians u
+scene0070_00 |   5.17 |   6.05 |   5.75 |  10.20
+scene0097_00 |  28.24 |  29.23 |  35.51 |  20.88
+scene0140_00 |   3.58 |   3.53 |   5.03 |   8.71
+scene0200_00 |   7.05 |   7.97 |  10.64 |  11.74
+scene0347_00 |  11.00 |  10.74 |  15.81 |  11.21
+scene0400_00 |   0.82 |   0.67 |   1.77 |   2.04
+scene0590_00 |   6.29 |   4.82 |  10.01 |  10.10
+scene0645_00 |   3.68 |   3.08 |   6.50 |  11.23
+u_ale < 1-C_inter in 3 / ties 0 / worse 5 of 8 scenes
+means: {'u_ale': 8.229, 'normlift_1-Cinter': 8.262, 'normlift_1-R': 11.377, 'legs_u': 10.763, 'css_var': 9.384}

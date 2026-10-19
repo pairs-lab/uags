@@ -159,6 +159,31 @@ keyframe on the RTX 4070 Ti; the NOR timing failed (time_field.py passes no data
 - Sanity check before the test (by hand, 17:35): no broken scene, all rows in a plausible range. Test queued:
   chain2 (maps and fields, EVAL=0) -> chain3 (`STAGE=test`, once; then `STAGE=table`). Logs: .../scannet/chain{2,3}.log.
 
+## ScanNet test (N=8, run once 2026-10-19 18:24 - 2026-10-20 00:22)
+Command: `STAGE=test scripts/scannet_tab1.sh` (chain3, after `EVAL=0 STAGE=test` maps; one attempt in look_test.json,
+selection 697a4ac8). Fits: held-out PSNR 17.5-30.4. Rows: [v1 rows](logs/scannet_tab1_rows.tex) (paper), [v2 rows](logs/scannet_tab1_v2_rows.tex),
+[per scene](logs/scannet_test_scene_rows.txt), [wins](logs/scannet_test_wins.txt). Results file:
+/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_test.json (2.2 MB). Mean over 8 scenes, %; NLL in nats:
+
+| Row | mIoU | Acc | ECE | NLL | Brier | AURC | AUSE_u |
+|---|---|---|---|---|---|---|---|
+| 2D features | 62.5 | 83.7 | 8.8 | 0.64 | 27.4 | 7.2 | -- |
+| Averaging | 67.7 | 86.3 | 6.2 | **0.51** | 22.3 | **4.4** | -- |
+| NormLift 1-C_inter / 1-R | = averaging | | | | | | 8.3 / 11.4 |
+| Feature 3DGS | 65.0 | 85.1 | 7.4 | 0.57 | 24.6 | 5.7 | -- |
+| LEGaussians (l_u = 1) | 62.3 | 83.6 | 8.1 | 0.63 | 26.8 | 6.3 | 10.8 |
+| Ours P0 | **68.0** | **86.5** | 6.4 | **0.51** | **22.1** | **4.4** | **8.2** |
+| Ours P1 | 67.9 | 86.5 | 7.0 | 0.52 | 22.5 | 4.8 | 8.2 |
+| Ours P2 | as P0 | | **6.1** | **0.51** | **22.1** | 5.0 | **8.2** |
+| CSS (closed set, not ranked) | 67.3 | 86.3 | 7.0 | 0.60 | 22.9 | 8.9 | 9.4 |
+
+- Ours best or tied in every column of the mean, but small margins: against averaging, P0 mIoU higher in 5/8 scenes,
+  P2 ECE lower in 3/8, NLL 4/8, Brier 4/8; u_ale AUSE below NormLift 1-C_inter in 3/8 (8.23 vs 8.26).
+- Baseline wins: P2 has a higher AURC than averaging in 8/8 scenes (5.0 vs 4.4; P0 ties at 4.39). On Replica P2 lowered
+  AURC in 6/6: this effect does not transfer.
+- v2 rows (not selected, second look): P4 vote predictive mIoU 68.1, ECE 6.7, NLL 0.59, AURC 9.5.
+- CSS (closed set) is behind ours in every column here (on Replica it led most columns).
+
 ## 7 Open issues
 - Fit time in the run-time sentence is from the first machine (RTX 5070 Ti); the paper names that card.
 - ScanNet held-out Table I: running (see above). Adding it to the paper needs space (the paper is at 8 pages).

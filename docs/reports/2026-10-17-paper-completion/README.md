@@ -1,7 +1,7 @@
 # Complete the UAGS paper
 2026-10-17 | root: /home/thanhnc/gauss_ws/src/uags | git: master@9358007 (+ uncommitted NOR loader work) | [all reports](../INDEX.md)
 Follows: [Replica Table I](../2026-09-29-replica-tab1/README.md)
-Verdict: IN PROGRESS -- every table and figure is filled and the paper is 8 pages; open: final review, the "bias-corrected" wording, push
+Verdict: IN PROGRESS -- every table and figure is filled and the paper is 8 pages; running: ScanNet held-out Table I; open: push
 Key result: views figure (Replica test, N=6): u_epi ranks reducible errors better than u_ale at M=10 (0.35 vs 0.90 x random, 6/6 scenes); u_ale ranks irreducible errors better than u_epi at M=90 (0.48 vs 0.83, 6/6) ([log](logs/views_test.txt), [wins](logs/views_test_wins.txt))
 Attempts: n/a | Time: started 2026-10-17 10:44 JST
 
@@ -108,6 +108,7 @@ Where a baseline wins on val: depth residual beats ours alone in G AP (80.1 vs 6
 | Table marks | `CUDA_VISIBLE_DEVICES="" python3 -m pytest tests/test_make_tables_marks.py tests/test_make_tables_tab3.py` | 16 passed; paper rows equal the old rows after removing the marks (checked in the edit script) | PASS |
 | Independent number check of the paper (subagent, read-only) | recomputed every cell and count from the raw JSONs; re-ran make_tables tab1/tab2/tab3 (byte-identical rows) | ~375 numbers: 2 wrong ("16 real scenes" -> 14 used; 0.35 -> 0.34), 5 wording/unit fixes (nearly unchanged, 27% is a per-scene mean, GiB, persistence among the change-test parts, 101 classes); all fixed 2026-10-19 | PASS after fixes |
 | Paper compiles, page count | pdflatex + bibtex on a copy of papers/ | 8 pages after the object-removal text replaced RIO10 and the CSS change rows went; 1 undefined citation (weder2023removing, bib entry pending from the NOR workflow) | PASS (8 pages) / FAIL (citation) |
+| Paper compiles, recheck 2026-10-19 12:50 (commit 72be4ba) | pdflatex, bibtex, pdflatex x2 on a copy of papers/ | 8 pages; 0 warnings in main.log; no undefined citation or reference | PASS |
 
 ## Table III, object-removal block (test, N=10, ablations of the final method; [log](logs/nor_tab3_test.txt))
 | Variant | G AP | P AP | FA | Rec | Kept |
@@ -145,14 +146,14 @@ keyframe on the RTX 4070 Ti; the NOR timing failed (time_field.py passes no data
   (MAP_NEED 7000, EVAL_NEED 7500, DISTILL_NEED 7000 for the 12 GB card). Log: /home/thanhnc/gauss_ws/data/uags_results/scannet/chain.log.
 
 ## 7 Open issues
-- Paper at 8 pages; the qualitative figure placeholder was dropped for space (no qualitative figure in the paper).
 - Fit time in the run-time sentence is from the first machine (RTX 5070 Ti); the paper names that card.
-- Claim wording: "bias-corrected agreement" is in the abstract, contributions and related work, but Table III shows no
-  measured gain from the correction. Needs an author decision (keep as a few-view property, or drop the claim).
-- Stale-content benchmark on NOR: loader, driver, pipeline being built (workflow wf_2faa1219-1f0); then GPU runs.
-- Improvement plan (workflow wf_067f2900-c19, CPU only): ideas for the predictive, the channels and the change test, judged for legitimacy;
-  experiments then run on validation scenes only. CSS (closed vocabulary) will likely stay ahead on calibration.
-- Push: no GitHub credentials on this machine.
+- ScanNet held-out Table I: running (see above). Adding it to the paper needs space (the paper is at 8 pages).
+- Table I on Replica: ours best in 6/7 open-vocabulary columns, by small margins; the pre-registered v2 predictives
+  did not win on validation (attempt 03). No further Replica change is planned (test already seen).
+- NOR timing not in the paper (time_field.py passes no dataset part; the file is frozen for the NOR evals).
+- Push: no GitHub credentials on this machine; the user pushes.
+- Resolved 2026-10-19: "bias-corrected" claim reworded to what is measured (d8a34f8); qualitative uncertainty figure
+  added (166f2f2); NOR benchmark filled (Table II, Table III block).
 
 ## 8 Files
 - Code: [scripts/plot_views.py](../../../scripts/plot_views.py), [tests/test_plot_views.py](../../../tests/test_plot_views.py),

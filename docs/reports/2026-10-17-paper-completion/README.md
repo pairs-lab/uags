@@ -87,6 +87,7 @@ Command: `VARIANT=relmax FIELD_CONFIG='{"change_weight": "relmax", "fast_min": 0
 |---|---|---|---|
 | 01 | default change weight "view" | ours P AP 30.3; 0.5% of Gaussians scored; P AUROC < 50 for every row | Bad: the test reaches almost no Gaussian of a 1M map |
 | 03 | Table I v2 (pre-registered 2026-10-10): P4 vote predictive, P1 prior grid, P2 on P1, read-outs of the v1 fields | pooled val NLL: P2 0.800 (kept), P2-on-P1 0.809, P1 c0=0.01 0.811, P4 best 0.854 ([selection](logs/tab1_v2_selection_val.json), [rows](logs/tab1_v2_val_rows.txt)) | Bad: no v2 row beats P2 on validation; Table I unchanged. P4 lowers ECE on room_2 (2.6 vs 2.7) but costs NLL |
+| 03b | Table I v2, test (second look, selection fixed: P2) | not selected rows on test: P4 vote predictive mIoU 28.2, ECE 6.3 (P2: 8.7), NLL 1.06 (P2: 1.00), AURC 16.4 (P2: 12.2); P2 on P1 ECE 8.5, NLL 1.01 ([rows](logs/tab1_v2_test_rows.tex)) | P4 is better calibrated on test but lost on validation NLL, the pre-registered rule; Table I keeps P2 (test numbers never change a choice) |
 | 02 | change weight "relmax", fast_min = slow_min = 0.5 (D7) | ours P AP **68.3**; 61% of Gaussians scored; Kept 10.3% (was 59.0%) ([rows](logs/nor_tab2_val_relmax.tex), [summary](logs/nor_val_relmax_summary.txt)) | Good: chosen by the D7 rule (higher pixel AP of ours) |
 
 Relmax validation rows (%): G AP / G AUROC / P AP / P AUROC / FA / Rec. NCC 36.3/82.4/58.2/78.4/10.1/49.3; depth

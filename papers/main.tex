@@ -796,7 +796,10 @@ errors on par with NormLift's $1-C_{\mathrm{inter}}$ (AUSE 8.5 vs 8.8, lower
 on three of six scenes) and better than the CSS variance on four.
 LEGaussians' $\lambda_u=4$ has the lowest validation AUSE of its own $u$
 (17.3 vs 19.5 and 19.9 at $\lambda_u=1,2$); its test AUSE is near that of a
-random order (19.7 vs 20.6).
+random order (19.7 vs 20.6). A vote predictive read from the same posterior
+lowers the test ECE to 6.3 but raises NLL to 1.06 and AURC to 16.4; it lost to
+P2 on validation NLL, our selection rule fixed in advance, so Table~\ref{tab:replica}
+keeps P2.
 
 %% Figure: scripts/plot_views.py --stage test (relative scale), from
 %% views/views_test.json and tab1/eval_test.json; per-scene wins:

@@ -1,0 +1,8 @@
+ours keys: ['kept', 'kept_after_mapping', 'changed_end_fa', 'changed_end_rec', 'n_resets']
+variant          G_AP  P_AP   FA   Rec  Kept  N   (ours row, NOR test, %)
+full (relmax)     53.4  57.2  6.2  56.8   4.8 10
+k=1               47.5  51.3  7.3  56.1   5.3 10
+pooled null       53.6  56.9  4.6  46.8   6.5 10
+max null          53.2  56.5  2.6  32.6   8.6 10
+no depth readmit  53.4  57.2  6.2  56.8   9.5 10
+centred          missing

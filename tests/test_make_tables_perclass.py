@@ -37,7 +37,7 @@ def test_perclass_columns_cells_and_marks(tmp_path):
     head = next(l for l in tex.splitlines() if l.startswith("Method"))
     assert head.index("wall") < head.index("door") and "lamp" not in head and "vent" not in head
     assert "% zero for every row (no column): vent" in tex
-    ours = next(l for l in tex.splitlines() if l.startswith("Ours P0")).split(" & ")
+    ours = next(l for l in tex.splitlines() if l.startswith("Ours (P0")).split(" & ")
     # wall: mean of 0.85, 0.65, 0.75 = 75.0 (best of the ranked rows); door: mean of .55, .75
     assert ours[1] == "\\textbf{75.0}" and ours[2] == "\\textbf{65.0}"
     assert ours[3].startswith("\\textbf{35.0}")                       # mIoU column

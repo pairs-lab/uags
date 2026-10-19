@@ -106,6 +106,7 @@ Where a baseline wins on val: depth residual beats ours alone in G AP (80.1 vs 6
 | Table III exact values (r_bar vs full, test) | python read of tab3/eval_test.json summary | ECE 8.648 vs 8.683, NLL 0.9945 vs 0.9955, AUSE ale 8.450 vs 8.498 | PASS (backs the "0.05" sentence) |
 | I2 eval unchanged | -- | no eval code changed; plot_views only reads the JSON files | PASS |
 | Table marks | `CUDA_VISIBLE_DEVICES="" python3 -m pytest tests/test_make_tables_marks.py tests/test_make_tables_tab3.py` | 16 passed; paper rows equal the old rows after removing the marks (checked in the edit script) | PASS |
+| Independent number check of the paper (subagent, read-only) | recomputed every cell and count from the raw JSONs; re-ran make_tables tab1/tab2/tab3 (byte-identical rows) | ~375 numbers: 2 wrong ("16 real scenes" -> 14 used; 0.35 -> 0.34), 5 wording/unit fixes (nearly unchanged, 27% is a per-scene mean, GiB, persistence among the change-test parts, 101 classes); all fixed 2026-10-19 | PASS after fixes |
 | Paper compiles, page count | pdflatex + bibtex on a copy of papers/ | 8 pages after the object-removal text replaced RIO10 and the CSS change rows went; 1 undefined citation (weder2023removing, bib entry pending from the NOR workflow) | PASS (8 pages) / FAIL (citation) |
 
 ## Table III, object-removal block (test, N=10, ablations of the final method; [log](logs/nor_tab3_test.txt))

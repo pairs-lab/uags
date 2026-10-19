@@ -10,6 +10,7 @@ plotted: AUSE / random-ranking AUSE per scene (1 = random, 0 = oracle), mean +- 
 |---|---|---|---|---|---|---|
 | e_red | ours, u_epi | ours_P0/u_epi | 0.345 +- 0.208 | 0.372 +- 0.186 | 0.416 +- 0.220 | -- |
 | e_red | ours, u_ale | ours_P0/u_ale | 0.901 +- 0.096 | 0.564 +- 0.134 | 0.280 +- 0.121 | -- |
+| e_red | ours P2, 1 - max p | ours_P2/msp | 0.188 +- 0.159 | 0.087 +- 0.078 | 0.045 +- 0.042 | -- |
 | e_red | averaging, 1 - max p | averaging/msp | 0.189 +- 0.159 | 0.084 +- 0.072 | 0.051 +- 0.055 | -- |
 | e_red | NormLift, 1/(1+N_eff) | normlift/normlift_epi | 0.393 +- 0.258 | 0.476 +- 0.289 | 0.513 +- 0.218 | -- |
 | e_red | NormLift, 1 - C_inter | normlift/normlift_1-Cinter | 0.492 +- 0.133 | 0.313 +- 0.145 | 0.195 +- 0.064 | -- |
@@ -17,6 +18,7 @@ plotted: AUSE / random-ranking AUSE per scene (1 = random, 0 = oracle), mean +- 
 | e_red | view count, 1/(1+n_vis) | viewcount/viewcount | 0.432 +- 0.261 | 0.606 +- 0.394 | 0.579 +- 0.236 | -- |
 | e_irr | ours, u_epi | ours_P0/u_epi | 0.848 +- 0.406 | 0.835 +- 0.385 | 0.826 +- 0.350 | 0.822 +- 0.336 |
 | e_irr | ours, u_ale | ours_P0/u_ale | 1.072 +- 0.240 | 0.786 +- 0.183 | 0.484 +- 0.198 | 0.421 +- 0.154 |
+| e_irr | ours P2, 1 - max p | ours_P2/msp | 0.518 +- 0.134 | 0.466 +- 0.162 | 0.443 +- 0.180 | 0.437 +- 0.188 |
 | e_irr | averaging, 1 - max p | averaging/msp | 0.616 +- 0.227 | 0.565 +- 0.258 | 0.530 +- 0.253 | 0.522 +- 0.258 |
 | e_irr | NormLift, 1/(1+N_eff) | normlift/normlift_epi | 1.054 +- 0.323 | 1.032 +- 0.250 | 1.006 +- 0.257 | 1.002 +- 0.254 |
 | e_irr | NormLift, 1 - C_inter | normlift/normlift_1-Cinter | 0.662 +- 0.194 | 0.467 +- 0.181 | 0.458 +- 0.229 | 0.432 +- 0.192 |
@@ -27,6 +29,7 @@ plotted: AUSE / random-ranking AUSE per scene (1 = random, 0 = oracle), mean +- 
 |---|---|---|---|---|---|---|
 | e_red | ours, u_epi | ours_P0/u_epi | 2.349 +- 1.911 | 0.453 +- 0.326 | 0.256 +- 0.261 | -- |
 | e_red | ours, u_ale | ours_P0/u_ale | 5.235 +- 2.912 | 0.672 +- 0.363 | 0.155 +- 0.152 | -- |
+| e_red | ours P2, 1 - max p | ours_P2/msp | 1.371 +- 1.506 | 0.119 +- 0.135 | 0.032 +- 0.039 | -- |
 | e_red | averaging, 1 - max p | averaging/msp | 1.420 +- 1.633 | 0.120 +- 0.137 | 0.041 +- 0.058 | -- |
 | e_red | NormLift, 1/(1+N_eff) | normlift/normlift_epi | 2.661 +- 2.817 | 0.595 +- 0.569 | 0.292 +- 0.300 | -- |
 | e_red | NormLift, 1 - C_inter | normlift/normlift_1-Cinter | 2.549 +- 1.164 | 0.366 +- 0.194 | 0.112 +- 0.098 | -- |
@@ -34,6 +37,7 @@ plotted: AUSE / random-ranking AUSE per scene (1 = random, 0 = oracle), mean +- 
 | e_red | view count, 1/(1+n_vis) | viewcount/viewcount | 2.875 +- 2.854 | 0.753 +- 0.716 | 0.339 +- 0.334 | -- |
 | e_irr | ours, u_epi | ours_P0/u_epi | 15.734 +- 12.417 | 16.120 +- 12.542 | 16.512 +- 12.136 | 16.584 +- 11.838 |
 | e_irr | ours, u_ale | ours_P0/u_ale | 19.427 +- 10.205 | 14.793 +- 7.904 | 9.967 +- 7.073 | 8.602 +- 5.608 |
+| e_irr | ours P2, 1 - max p | ours_P2/msp | 9.335 +- 4.431 | 9.127 +- 5.576 | 9.047 +- 6.027 | 8.936 +- 5.947 |
 | e_irr | averaging, 1 - max p | averaging/msp | 11.343 +- 6.412 | 11.078 +- 7.319 | 10.779 +- 7.275 | 10.682 +- 7.311 |
 | e_irr | NormLift, 1/(1+N_eff) | normlift/normlift_epi | 18.814 +- 10.806 | 19.300 +- 10.428 | 19.461 +- 10.745 | 19.518 +- 10.591 |
 | e_irr | NormLift, 1 - C_inter | normlift/normlift_1-Cinter | 11.762 +- 5.383 | 9.136 +- 5.510 | 9.446 +- 7.344 | 8.873 +- 6.452 |
@@ -42,18 +46,18 @@ plotted: AUSE / random-ranking AUSE per scene (1 = random, 0 = oracle), mean +- 
 
 | target | errors of row | quantity | M=10 | M=30 | M=90 | M=180 |
 |---|---|---|---|---|---|---|
-| e_red | ours_P0 | random AUSE x100 | 5.683 +- 2.853 | 1.120 +- 0.358 | 0.457 +- 0.312 | -- |
-| e_red | ours_P0 | target share % | 6.096 +- 3.116 | 1.179 +- 0.377 | 0.481 +- 0.328 | -- |
-| e_red | ours_P0 | smallest target count | 144629 | 39928 | 10324 | -- |
+| e_red | ours_P0 = ours_P2 | random AUSE x100 | 5.683 +- 2.853 | 1.120 +- 0.358 | 0.457 +- 0.312 | -- |
+| e_red | ours_P0 = ours_P2 | target share % | 6.096 +- 3.116 | 1.179 +- 0.377 | 0.481 +- 0.328 | -- |
+| e_red | ours_P0 = ours_P2 | smallest target count | 144629 | 39928 | 10324 | -- |
 | e_red | averaging = normlift = viewcount | random AUSE x100 | 5.714 +- 2.853 | 1.142 +- 0.393 | 0.484 +- 0.320 | -- |
 | e_red | averaging = normlift = viewcount | target share % | 6.130 +- 3.119 | 1.202 +- 0.414 | 0.509 +- 0.337 | -- |
 | e_red | averaging = normlift = viewcount | smallest target count | 145229 | 40925 | 12669 | -- |
-| e_irr | ours_P0 | random AUSE x100 | 17.303 +- 5.247 | 17.927 +- 5.607 | 18.562 +- 5.897 | 18.754 +- 5.922 |
-| e_irr | ours_P0 | target share % | 20.388 +- 7.104 | 21.323 +- 7.741 | 22.250 +- 8.243 | 22.518 +- 8.299 |
-| e_irr | ours_P0 | smallest target count | 701222 | 738240 | 751480 | 762217 |
+| e_irr | ours_P0 = ours_P2 | random AUSE x100 | 17.303 +- 5.247 | 17.927 +- 5.607 | 18.562 +- 5.897 | 18.754 +- 5.922 |
+| e_irr | ours_P0 = ours_P2 | target share % | 20.388 +- 7.104 | 21.323 +- 7.741 | 22.250 +- 8.243 | 22.518 +- 8.299 |
+| e_irr | ours_P0 = ours_P2 | smallest target count | 701222 | 738240 | 751480 | 762217 |
 | e_irr | averaging = normlift = viewcount | random AUSE x100 | 17.363 +- 5.304 | 17.941 +- 5.637 | 18.620 +- 5.941 | 18.825 +- 5.955 |
 | e_irr | averaging = normlift = viewcount | target share % | 20.481 +- 7.199 | 21.348 +- 7.789 | 22.342 +- 8.327 | 22.630 +- 8.376 |
 | e_irr | averaging = normlift = viewcount | smallest target count | 700507 | 737864 | 751123 | 762694 |
 
-wrote /home/thanhnc/gauss_ws/src/uags/papers/figs/views.pdf
-wrote /home/thanhnc/gauss_ws/data/uags_results/views/plots/views_test.png
+wrote /tmp/claude-1000/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/views_check/views.pdf
+wrote /tmp/claude-1000/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/views_check/views.png

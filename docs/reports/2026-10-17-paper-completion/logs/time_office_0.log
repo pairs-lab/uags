@@ -1,0 +1,17 @@
+[gpu_gate] 2026-10-19 11:32:14 free 10550 MiB >= 9048; running: python3 scripts/time_field.py --field /home/thanhnc/gauss_ws/data/uags_fields/office_0_lseg.pt --fit-maps /home/thanhnc/gauss_ws/data/uags_maps/*_seq1.pt --out /home/thanhnc/gauss_ws/data/uags_results/timing/time_office_0.json
+office_0: 620290 Gaussians, 179 mapping keyframes (saved run: 179); timing 179, the first 3 not counted, on cuda/gsplat
+ms per keyframe, ours: extract 69.93 +- 2.70 | project 2.35 +- 0.21 | render_backward 20.39 +- 6.00 | stats 16.72 +- 2.44 | other 0.48 +- 0.23 | total 109.86 +- 7.65
+ms per keyframe added by the baselines: hooks 2.31 +- 0.36 | css 13.57 +- 2.93
+peak GPU MiB: {'extract': {'allocated': 1909.4501953125, 'reserved': 6272.0}, 'map': {'allocated': 1533.17431640625, 'reserved': 6272.0}, 'map_with_baselines': {'allocated': 1815.03955078125, 'reserved': 6272.0}, 'peak_allocated': 1909.4501953125}
+field state: 844.3 B per Gaussian (324.3 without the change-test buckets, 284.0 without the change test)
+3D-GS fit: 4.55 +- 0.65 min per scene (N = 8, GPUs ['NVIDIA GeForce RTX 5070 Ti'])
+WARNING: the mapping code changed since the field was built
+WARNING: the fit times come from ['NVIDIA GeForce RTX 5070 Ti'], the timing from NVIDIA GeForce RTX 4070 Ti
+%% scripts/time_field.py: office_0 (replica_semnerf), 176 keyframes counted after 3 warm-up, cuda/gsplat, /home/thanhnc/gauss_ws/data/uags_fields/office_0_lseg.pt
+%%   ms not in the text: project $2.3\pm0.2$, other $0.5\pm0.2$, tokens to the CPU $9.7\pm3.6$, hooks (averaging/NormLift, view count) $2.3\pm0.4$
+%%   peak GPU MiB (torch allocator): extraction 1909, update 1533, update with the baselines 1815
+%%   field state per Gaussian (saved): 844 B; without the change-test buckets 324 B; without the change test 284 B; posterior sums 272 B; in memory (every tensor) 1135 B
+%%   WARNING: the mapping code changed since the field was built
+%%   WARNING: the fit times come from ['NVIDIA GeForce RTX 5070 Ti'], the timing from NVIDIA GeForce RTX 4070 Ti
+We time one validation scene per dataset on one NVIDIA GeForce RTX 4070 Ti with an Intel Core i7-13700KF and no other job running. On Replica, a keyframe takes $109.9\pm7.6$\,ms in total: $69.9\pm2.7$\,ms for LSeg feature extraction, $20.4\pm6.0$\,ms for the render and backward pass, and $16.7\pm2.4$\,ms for the statistics, change test and re-admission. Peak GPU memory is 1.9\,GB. Averaging and NormLift reuse the sums of our backward pass and add no render or backward pass. CSS needs its own backward pass for the class votes, which adds $13.6\pm2.9$\,ms. Fitting the 3D-GS map takes $4.5\pm0.6$\,min per scene, and the field state takes 844 bytes per Gaussian.
+wrote /home/thanhnc/gauss_ws/data/uags_results/timing/time_office_0.json

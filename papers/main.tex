@@ -968,18 +968,17 @@ Gaussians return to the robust set (9.5 vs 4.8\%). Centering, which helped
 the aleatoric read-out on Replica, hurts the change test (AP 48.2), so it
 stays off.
 
-%% Run time and memory: the former Table IV is parked in parked_sections.tex.
-%% Hardware from nvidia-smi and lscpu on the mapping machine (2026-09-29).
-%% Keep it only if the timing runs on this machine.
-\textbf{Run time and memory.} We time one validation scene per dataset on one
-NVIDIA GeForce RTX 5070 Ti with an Intel Core i5-14600KF and no other job
-running. On Replica (object removal), a keyframe takes \ph\ (\ph)\,ms in total: \ph\
-(\ph)\,ms for LSeg feature extraction, \ph\ (\ph)\,ms for the render and
-backward pass, and \ph\ (\ph)\,ms for the statistics, change test and
-re-admission. Peak GPU memory is \ph\,GB. Averaging and NormLift reuse the
-sums of our backward pass and add no render or backward pass. Fitting the 3D-GS
-map takes \ph\,min per scene, and the field state takes \ph{} bytes per
-Gaussian.
+%% Run time and memory: scripts/time_field.py on office_0 (2026-10-19), log
+%% docs/reports/2026-10-17-paper-completion/logs/time_office_0.log (fit time from
+%% the first machine's fit logs, as the tool warns).
+\textbf{Run time and memory.} We time one Replica validation scene on an
+NVIDIA GeForce RTX 4070 Ti with an Intel Core i7-13700KF and no other compute
+job. A keyframe takes $109.9\pm7.6$\,ms in total: $69.9\pm2.7$\,ms for LSeg
+feature extraction, $20.4\pm6.0$\,ms for the render and backward pass, and
+$16.7\pm2.4$\,ms for the statistics, change test and re-admission. Peak GPU
+memory is 1.9\,GB. Averaging and NormLift reuse the sums of our backward pass
+and add $2.3$\,ms. The field state takes 844 bytes per Gaussian. Fitting a
+Replica map took $4.5\pm0.6$\,min on an RTX 5070 Ti.
 
 %% ----------------------------------------------------------------------------
 \subsection{Limitations}

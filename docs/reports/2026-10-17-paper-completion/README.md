@@ -1,7 +1,7 @@
 # Complete the UAGS paper
 2026-10-17 | root: /home/thanhnc/gauss_ws/src/uags | git: master@9358007 (+ uncommitted NOR loader work) | [all reports](../INDEX.md)
 Follows: [Replica Table I](../2026-09-29-replica-tab1/README.md)
-Verdict: IN PROGRESS -- every table and figure is filled; ScanNet held-out test added to Table I; paper 8 pages; open: independent check of the ScanNet edit, push
+Verdict: IN PROGRESS -- every table and figure is filled; ScanNet held-out test added to Table I and checked independently; paper 8 pages; open: push
 Key result: views figure (Replica test, N=6): u_epi ranks reducible errors better than u_ale at M=10 (0.35 vs 0.90 x random, 6/6 scenes); u_ale ranks irreducible errors better than u_epi at M=90 (0.48 vs 0.83, 6/6) ([log](logs/views_test.txt), [wins](logs/views_test_wins.txt))
 Attempts: n/a | Time: started 2026-10-17 10:44 JST
 
@@ -109,6 +109,8 @@ Where a baseline wins on val: depth residual beats ours alone in G AP (80.1 vs 6
 | Independent number check of the paper (subagent, read-only) | recomputed every cell and count from the raw JSONs; re-ran make_tables tab1/tab2/tab3 (byte-identical rows) | ~375 numbers: 2 wrong ("16 real scenes" -> 14 used; 0.35 -> 0.34), 5 wording/unit fixes (nearly unchanged, 27% is a per-scene mean, GiB, persistence among the change-test parts, 101 classes); all fixed 2026-10-19 | PASS after fixes |
 | Paper compiles, page count | pdflatex + bibtex on a copy of papers/ | 8 pages after the object-removal text replaced RIO10 and the CSS change rows went; 1 undefined citation (weder2023removing, bib entry pending from the NOR workflow) | PASS (8 pages) / FAIL (citation) |
 | Paper compiles, recheck 2026-10-19 12:50 (commit 72be4ba) | pdflatex, bibtex, pdflatex x2 on a copy of papers/ | 8 pages; 0 warnings in main.log; no undefined citation or reference | PASS |
+| ScanNet edit, independent check (subagent, read-only, 2026-10-20) | recomputed every Table I cell and mark from the JSONs, every ScanNet count, protocol facts (OpenGaussian scene list and 19 classes from its eval_scannet.py; 30 Hz from .sens timestamps), each shortened sentence | 112/112 cells and all marks match; counts exact; 2 FAIL fixed: abstract tied "best" to 14 scenes (test N=10), Fig. 4 text "the two counts" had no antecedent and listed 1.00/1.19 in reverse order (N_eff 1.002, view count 1.191, [views_test.txt](logs/views_test.txt)); notes applied: "mean and, where shown, std"; ScanNet keyframes kept 70-94% (map logs); two of the five mIoU wins are < 0.01 (now stated) | PASS after fixes |
+| Paper compiles after the ScanNet edit (commit after the check fixes) | pdflatex, bibtex, pdflatex x2 on a copy of papers/ (fresh ieeectl.bib) | 8 pages; 0 warnings; bibtex 0 warnings | PASS |
 
 ## Table III, object-removal block (test, N=10, ablations of the final method; [log](logs/nor_tab3_test.txt))
 | Variant | G AP | P AP | FA | Rec | Kept |

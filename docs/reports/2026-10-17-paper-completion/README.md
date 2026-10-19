@@ -1,7 +1,7 @@
 # Complete the UAGS paper
 2026-10-17 | root: /home/thanhnc/gauss_ws/src/uags | git: master@9358007 (+ uncommitted NOR loader work) | [all reports](../INDEX.md)
 Follows: [Replica Table I](../2026-09-29-replica-tab1/README.md)
-Verdict: IN PROGRESS -- Table II measured on the NOR test (N=10, once): ours + depth best at the Gaussian level; NormLift drop best at the pixel level
+Verdict: IN PROGRESS -- every table and figure is filled and the paper is 8 pages; open: final review, the "bias-corrected" wording, push
 Key result: views figure (Replica test, N=6): u_epi ranks reducible errors better than u_ale at M=10 (0.35 vs 0.90 x random, 6/6 scenes); u_ale ranks irreducible errors better than u_epi at M=90 (0.48 vs 0.83, 6/6) ([log](logs/views_test.txt), [wins](logs/views_test_wins.txt))
 Attempts: n/a | Time: started 2026-10-17 10:44 JST
 
@@ -108,9 +108,23 @@ Where a baseline wins on val: depth residual beats ours alone in G AP (80.1 vs 6
 | Table marks | `CUDA_VISIBLE_DEVICES="" python3 -m pytest tests/test_make_tables_marks.py tests/test_make_tables_tab3.py` | 16 passed; paper rows equal the old rows after removing the marks (checked in the edit script) | PASS |
 | Paper compiles, page count | pdflatex + bibtex on a copy of papers/ | 8 pages after the object-removal text replaced RIO10 and the CSS change rows went; 1 undefined citation (weder2023removing, bib entry pending from the NOR workflow) | PASS (8 pages) / FAIL (citation) |
 
+## Table III, object-removal block (test, N=10, ablations of the final method; [log](logs/nor_tab3_test.txt))
+| Variant | G AP | P AP | FA | Rec | Kept |
+|---|---|---|---|---|---|
+| Full method | 53.4 | 57.2 | 6.2 | 56.8 | 4.8 |
+| No persistence (k=1) | 47.5 | 51.3 | 7.3 | 56.1 | 5.3 |
+| Pooled null | 53.6 | 56.9 | 4.6 | 46.8 | 6.5 |
+| Per-Gaussian max null | 53.2 | 56.5 | 2.6 | 32.6 | 8.6 |
+| Re-admission without depth | 53.4 | 57.2 | 6.2 | 56.8 | 9.5 |
+| Centred features | 48.2 | 51.1 | 4.4 | 43.5 | 4.6 |
+
+Two buckets (lambda = 0.5): not scored, its recent bucket breaks the shared coverage rule (eval refused). Centred features
+needed EVAL_NEED 8500 (first try ran out of memory). Run time: [time_office_0.log](logs/time_office_0.log), 109.9 ms per
+keyframe on the RTX 4070 Ti; the NOR timing failed (time_field.py passes no dataset part) and is not in the paper.
+
 ## 7 Open issues
-- Page limit: 8 pages now; Table II numbers, the qualitative figure and the timing sentence still to fill.
-- Timing run deferred: the desktop's graphics load the GPU at 11-76% (no compute jobs); measure when the screen is idle.
+- Paper at 8 pages; the qualitative figure placeholder was dropped for space (no qualitative figure in the paper).
+- Fit time in the run-time sentence is from the first machine (RTX 5070 Ti); the paper names that card.
 - Claim wording: "bias-corrected agreement" is in the abstract, contributions and related work, but Table III shows no
   measured gain from the correction. Needs an author decision (keep as a few-view property, or drop the claim).
 - Stale-content benchmark on NOR: loader, driver, pipeline being built (workflow wf_2faa1219-1f0); then GPU runs.

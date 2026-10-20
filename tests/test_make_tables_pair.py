@@ -97,3 +97,64 @@ def test_pair_refuses_other_rows(tmp_path):
     with pytest.raises(SystemExit, match="two test files"):
         mt.tab1pair([a_test], [a_test])
     print("PASS tab1pair refusals: different rows, one dataset only")
+
+
+def _pc_write(path, iou, bump_shift=0.0):
+    """A per-class eval file: iou = {scene: {class: value}}; rows differ by a fixed bump."""
+    rows = ["2d_features", "averaging", "f3dgs", "legs_l1", "ours_P0", "css"]
+    bump = {"2d_features": -0.1, "averaging": 0.0, "f3dgs": 0.01, "legs_l1": -0.2,
+            "ours_P0": 0.05 + bump_shift, "css": 0.2}
+    scenes = {s: dict(rows={r: {"all": {"iou": {c: v + bump[r] for c, v in d.items()}}}
+                            for r in rows}) for s, d in iou.items()}
+    summary = {r: {"all": dict(miou=dict(mean=0.3 + bump[r], std=0.01, n=len(iou), n_nan=0))}
+               for r in rows}
+    path.write_text(json.dumps(dict(status="ok", metrics=dict(scenes=scenes, summary=summary))))
+    return str(path)
+
+
+def _rows(tex):
+    return [ln for ln in tex.splitlines() if " & " in ln and not ln.startswith("Method")]
+
+
+def test_perclasspair_groups_colours_and_marks(tmp_path):
+    a = _pc_write(tmp_path / "a.json", {"s0": {"wall": 0.8, "door": 0.5}, "s1": {"wall": 0.6, "door": 0.7}})
+    b = _pc_write(tmp_path / "b.json", {"s0": {"bed": 0.4, "wall": 0.7}, "s1": {"bed": 0.6, "wall": 0.5},
+                                        "s2": {"bed": 0.5}}, bump_shift=-0.06)
+    pair = mt.perclasspair([a, b], [None, None], min_scenes=2)   # no --val: default choices
+    single = [mt.perclass(a, min_scenes=2), mt.perclass(b, min_scenes=2)]
+    rows, srows = _rows(pair), [_rows(t) for t in single]
+    assert len(rows) == len(srows[0]) == len(srows[1]) == 6
+    for k, line in enumerate(rows):                        # group cells = perclass cells
+        cells = line.rstrip("\\").split(" & ")
+        want = srows[0][k].rstrip("\\").split(" & ")
+        want2 = srows[1][k].rstrip("\\").split(" & ")
+        assert cells[0] == want[0] == want2[0]
+        assert cells[1:] == want[1:] + want2[1:], (line, srows[0][k], srows[1][k])
+    head = next(ln for ln in pair.splitlines() if ln.startswith("Method"))
+    col = dict((c, x) for x, c in re.findall(r"\\cellcolor\[HTML\]\{(\w+)\}\\rotatebox\{90\}"
+                                             r"\{\\textcolor\{white\}\{([^}]*)\}\}", head))
+    pairs = re.findall(r"\\cellcolor\[HTML\]\{(\w+)\}\\rotatebox\{90\}\{\\textcolor\{white\}\{([^}]*)\}\}", head)
+    assert [c for _, c in pairs] == ["door", "wall", "bed", "wall"] or \
+        [c for _, c in pairs] == ["wall", "door", "bed", "wall"]
+    assert len({x for x, c in pairs if c == "wall"}) == 1            # one colour per class
+    assert col["bed"] not in {col["wall"], col["door"]}               # a new class: a new colour
+    assert head.count("mIoU") == 2
+    lines = pair.splitlines()
+    css = [i for i, ln in enumerate(lines) if ln.startswith("CSS")][0]
+    assert lines[css - 1] == "\\midrule" and "\\textbf" not in lines[css] \
+        and "\\underline" not in lines[css]
+    ours = next(ln for ln in rows if ln.startswith("Ours")).rstrip("\\").split(" & ")
+    assert ours[3] == "\\textbf{35.0}"              # dataset A mIoU: ours best
+    assert ours[-1] == "29.0"                          # dataset B: third (31.0, 30.0), no mark
+    print("PASS perclasspair: perclass cells per group, one colour per class, marks per dataset")
+
+
+def test_perclasspair_refuses_other_rows(tmp_path):
+    a = _pc_write(tmp_path / "a.json", {"s0": {"wall": 0.8}, "s1": {"wall": 0.6}})
+    d = json.loads(pathlib.Path(a).read_text())
+    del d["metrics"]["summary"]["f3dgs"]
+    b = tmp_path / "b.json"
+    b.write_text(json.dumps(d))
+    with pytest.raises(SystemExit, match="same rows"):
+        mt.perclasspair([a, str(b)], [None, None], min_scenes=2)
+    print("PASS perclasspair refusal: different rows")

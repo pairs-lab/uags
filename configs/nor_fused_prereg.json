@@ -1,0 +1,14 @@
+{
+ "registered": "2026-10-21, before any fused-baseline score was computed on any scene",
+ "purpose": "Fair baselines for the fused row of Table III (tab:change): every change row X is fused with the depth residual by the same rule as 'Ours fused with depth residual'.",
+ "rows": ["ncc+depth", "feat+depth", "normlift+depth", "dispersion+depth"],
+ "fuse_rule": "usplat.change_baselines.fuse_rank([s_X, s_depth], mask=observed): equal-weight average of mid-ranks, NaN ranked lowest; the code path of eval_change_nor.py for the paper's fused row",
+ "metrics": ["gaussian AP", "gaussian AUROC", "pixel AP", "pixel AUROC"],
+ "metric_rules": "as Table III: Gaussian level over the observed Gaussians with NaN last; pixel level by rendering the per-Gaussian scores into every update keyframe (eval_change_nor.pixel_level)",
+ "stages": {"validation": ["001", "002", "003", "004"], "test": ["005", "006", "007", "008", "009", "010", "011", "013", "014", "015"]},
+ "test_runs": "once; the reproduction of every Table III cell within the measured run-to-run tolerance is checked first, and a failed check stops the run",
+ "statistics": "exact two-sided sign test over the 10 test scenes (ties dropped) of 'ours+depth' against each of the 4 fused baselines, at Gaussian AP and pixel AP (8 tests, family F2), Holm-adjusted; also x/10 and the median paired difference",
+ "claim_rule": "The sentence 'ours fused with depth ranks stale Gaussians best' may stay only if its test mean Gaussian AP is the highest of the 5 fused rows, and it then carries x/10 against each fused row. Otherwise the abstract, introduction and results state the measured comparison instead.",
+ "report_all": "every fused row is reported per scene and as mean +- std, whatever the outcome",
+ "disclosure": "an additional evaluation on the NOR test scenes (after Table III and the Table IV ablation passes); stated in the paper"
+}

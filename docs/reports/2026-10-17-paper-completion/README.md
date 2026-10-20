@@ -196,6 +196,14 @@ selection 697a4ac8). Fits: held-out PSNR 17.5-30.4. Rows: [v1 rows](logs/scannet
 | `\bibliography{ieeectl,ref}` (was `{ref}`), dash for repeated names off | the IEEE "more than six authors -> et al." control entry was written but never loaded (Replica ref listed 25 authors) | bibtex: 0 warnings |
 | Text tightened (captions, roadmap, related work, method prose, ablation, run time, limitations, conclusion); no number removed | back to 8 pages | build: 8 pages, 0 warnings |
 
+## Paper: ScanNet per-class table (user request 2026-10-20)
+| Change | Evidence |
+|---|---|
+| Table II = per-class IoU, Replica (9 classes) and ScanNet (7 classes) side by side; classes in >= 5 test scenes (the existing rule, unchanged); one colour per class in both groups (`make_tables.py perclasspair`, new) | [rows](logs/perclasspair_rows.tex); old `perclass` and `tab1` outputs byte-identical (cmp with the committed script); tests/test_make_tables_pair.py (27 table tests pass) |
+| ScanNet per class: ours leads cabinet 72.0, chair 70.4, bed 90.1, ties window 57.0; averaging leads floor, wall, door by 0.2-0.4 | [rows](logs/perclasspair_rows.tex) |
+| Space: the taller Table II pushed Table III off page 6 (IEEEtran full-width float limit 0.8 of the page) and the chain made 9 pages; fixed by "mIoU" header in the pair table (the tallest rotated cell) and a shorter Table I caption | build: Tables I-III on page 6, IV on page 7 |
+| References: `\bibliography{ref}` came back from the editor (outside my edits); user chose to keep it and put the IEEE control entry (more than six authors -> et al., no dash) at the top of ref.bib; the preamble writer of ieeectl.bib removed | build: 8 pages, 0 LaTeX / 0 BibTeX warnings, 13 refs with et al., no generated file |
+
 ## 7 Open issues
 - Fit time in the run-time sentence is from the first machine (RTX 5070 Ti); the paper names that card.
 - ScanNet (Table I): ours best or tied on every mean, but wins only 3-5 of 8 scenes against averaging; P2 loses AURC in

@@ -7,6 +7,15 @@
 % JMLR, OpenReview, RSS/BMVC proceedings, arXiv and Open Library. CVF pages are used for CVPR/ICCV;
 % an IEEE DOI is given only where the IEEE Xplore pages equal the CVF pages (CVPR/ICCV 2023+).
 
+% IEEEtran.bst control entry, cited by \bstctlcite{IEEEexample:BSTcontrol} in main.tex:
+% more than six authors -> first author et al. (IEEE style); no dash for repeated author lists.
+@IEEEtranBSTCTL{IEEEexample:BSTcontrol,
+  CTLuse_forced_etal       = "yes",
+  CTLmax_names_forced_etal = "6",
+  CTLnames_show_etal       = "1",
+  CTLdash_repeated_names   = "no"
+}
+
 % ---------------------------------------------------------------- cited in the draft
 @article{kerbl2023,
   author  = {Kerbl, Bernhard and Kopanas, Georgios and Leimk{\"u}hler, Thomas and Drettakis, George},

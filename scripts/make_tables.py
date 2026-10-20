@@ -913,12 +913,12 @@ def perclass(path, val=None, variant="all", min_scenes=PERCLASS_MIN_SCENES):
     return "\n".join(lines)
 
 
-def _perclass_head(classes, colors):
+def _perclass_head(classes, colors, miou="mIoU (\\%)"):
     """Header cells: one coloured, rotated class name per column (colors: one per class, in
-    order), then the rotated mIoU column."""
+    order), then the rotated mIoU column (header text `miou`)."""
     return " & ".join(f"\\cellcolor[HTML]{{{colors[i % len(colors)]}}}"
                       f"\\rotatebox{{90}}{{\\textcolor{{white}}{{{c}}}}}"
-                      for i, c in enumerate(classes)) + " & \\rotatebox{90}{\\textbf{mIoU (\\%)}}"
+                      for i, c in enumerate(classes)) + f" & \\rotatebox{{90}}{{\\textbf{{{miou}}}}}"
 
 
 def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES):
@@ -944,7 +944,8 @@ def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES):
     n1, n2 = len(groups[0][1]), len(groups[1][1])
     lines.append(f"% columns: {n1} classes + mIoU | {n2} classes + mIoU "
                  f"(tabular: @{{}}l*{{{n1}}}{{c}}|c*{{{n2}}}{{c}}|c@{{}}); header row:")
-    lines.append("Method & " + " & ".join(_perclass_head(g[1], [color[c] for c in g[1]])
+    # "mIoU" without "(%)": the tallest rotated header sets the row height (caption gives the unit)
+    lines.append("Method & " + " & ".join(_perclass_head(g[1], [color[c] for c in g[1]], "mIoU")
                                           for g in groups) + "\\\\")
     for i, (label, rk) in enumerate(zip(groups[0][2], groups[0][4])):
         if not rk:

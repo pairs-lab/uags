@@ -1,7 +1,7 @@
 # Complete the UAGS paper
 2026-10-17 | root: /home/thanhnc/gauss_ws/src/uags | git: master@9358007 (+ uncommitted NOR loader work) | [all reports](../INDEX.md)
 Follows: [Replica Table I](../2026-09-29-replica-tab1/README.md)
-Verdict: IN PROGRESS -- every table and figure is filled; ScanNet held-out test added to Table I and checked independently; paper 8 pages; open: push
+Verdict: DONE -- every table and figure is filled; ScanNet held-out test in Tables I and II, checked independently; paper 8 pages (2026-10-20). Next step: [figures and video](../2026-10-20-figures-video/README.md)
 Key result: views figure (Replica test, N=6): u_epi ranks reducible errors better than u_ale at M=10 (0.35 vs 0.90 x random, 6/6 scenes); u_ale ranks irreducible errors better than u_epi at M=90 (0.48 vs 0.83, 6/6) ([log](logs/views_test.txt), [wins](logs/views_test_wins.txt))
 Attempts: n/a | Time: started 2026-10-17 10:44 JST
 

@@ -1,0 +1,192 @@
+{
+ "scene": "room_0",
+ "dataset_label": "Replica",
+ "frame": 18,
+ "index": 180,
+ "h": 240,
+ "w": 320,
+ "n_frames": 90,
+ "rows": [
+  "ours_P2",
+  "normlift",
+  "f3dgs",
+  "legs_l4"
+ ],
+ "legs": "legs_l4",
+ "own_channels": {
+  "ours_P2": "u_ale",
+  "normlift": "normlift_1-Cinter",
+  "legs_l4": "legs_u"
+ },
+ "columns": {
+  "2d_features": "2d_features",
+  "f3dgs": "f3dgs",
+  "normlift": "normlift",
+  "legs": "legs_l4",
+  "ours_P2": "ours_P2"
+ },
+ "table_rows": {
+  "2d_features": "2d_features",
+  "f3dgs": "f3dgs",
+  "normlift": "averaging",
+  "legs": "legs_l4",
+  "ours_P2": "ours_P2"
+ },
+ "pool_sizes": {
+  "ours_P2": 5524546,
+  "normlift": 6821957,
+  "legs_l4": 6821957
+ },
+ "betas_used": {
+  "ours_P2": {
+   "beta0": 45.557463992815094,
+   "a": 0.36058766622030924,
+   "b": 11.826138130129648,
+   "g": 0.05489957571289264
+  },
+  "normlift": 35.99961356115293,
+  "f3dgs": 34.66228124301143,
+  "legs_l4": 33.94123413809171,
+  "2d_features": 33.47062078569728
+ },
+ "betas": "D/uags_results/tab1/eval_val.json",
+ "betas_sha256": "3ffbd57fbc90b940ef2304e4d26f5d8907d3e9015c5e622944378c8eca994a48",
+ "table": "D/uags_results/tab1/eval_test.json",
+ "table_sha256": "db35dfbd757f8df505bd2133cd4e1be271e16d64f901aa4cfd0cc2ea477b2df0",
+ "tokens": "D/uags_results/qual/compare/test/tok_room_0_f18.pt",
+ "tokens_image_sha256": "d7bb2a6ee9cce75a8b2d4c9ece9db95b4f0bfb8b1772c6975710113c482984ed",
+ "field_identity": "2afa0cef5156e7168d73a51ca815c23ee4bfad44429334e2e947bd2d626cbafd",
+ "class_names": [
+  "basket",
+  "blanket",
+  "blinds",
+  "book",
+  "cabinet",
+  "candle",
+  "chair",
+  "cushion",
+  "ceiling",
+  "door",
+  "floor",
+  "indoor-plant",
+  "lamp",
+  "picture",
+  "pillar",
+  "plant-stand",
+  "plate",
+  "pot",
+  "sofa",
+  "stool",
+  "switch",
+  "table",
+  "vase",
+  "vent",
+  "wall",
+  "wall-plug",
+  "window",
+  "rug"
+ ],
+ "rows_queried": [
+  "ours_P2",
+  "normlift",
+  "f3dgs",
+  "legs_l4"
+ ],
+ "repro": {
+  "status": "PASS",
+  "tol": 0.002,
+  "max_abs_delta": 7.532736839843679e-07,
+  "rows": {
+   "ours_P2": {
+    "miou_published": 0.2694234796283839,
+    "miou_rescored": 0.2694237892972208,
+    "miou_delta": 3.0966883685090707e-07,
+    "channel": "u_ale",
+    "ause_published": 0.09419203954409171,
+    "ause_rescored": 0.09419186250315235,
+    "ause_delta": -1.770409393531125e-07
+   },
+   "normlift": {
+    "miou_published": 0.27012621259024444,
+    "miou_rescored": 0.270126310762285,
+    "miou_delta": 9.817204055240225e-08,
+    "channel": "normlift_1-Cinter",
+    "ause_published": 0.07768153191295867,
+    "ause_rescored": 0.07768144830320987,
+    "ause_delta": -8.36097487910692e-08
+   },
+   "f3dgs": {
+    "miou_published": 0.2781762818979983,
+    "miou_rescored": 0.2781755286243143,
+    "miou_delta": -7.532736839843679e-07
+   },
+   "legs_l4": {
+    "miou_published": 0.2472951332438586,
+    "miou_rescored": 0.24729520179025283,
+    "miou_delta": 6.854639422737563e-08,
+    "channel": "legs_u",
+    "ause_published": 0.24863273167879563,
+    "ause_rescored": 0.24863255395522804,
+    "ause_delta": -1.77723567584831e-07
+   }
+  },
+  "averaging_equals_normlift": true,
+  "n_views_published": 90,
+  "n_frames": 90
+ },
+ "confident": {
+  "median_u_ale": 0.007265166379511356,
+  "median_u_epi": 0.18112622201442719,
+  "n_frames": 90,
+  "top5": [
+   {
+    "frame": 62,
+    "index": 620,
+    "confident_errors": 3251,
+    "covered_wrong": 24991,
+    "covered": 76694
+   },
+   {
+    "frame": 59,
+    "index": 590,
+    "confident_errors": 3077,
+    "covered_wrong": 26383,
+    "covered": 76759
+   },
+   {
+    "frame": 60,
+    "index": 600,
+    "confident_errors": 3017,
+    "covered_wrong": 23122,
+    "covered": 76710
+   },
+   {
+    "frame": 61,
+    "index": 610,
+    "confident_errors": 2942,
+    "covered_wrong": 23820,
+    "covered": 76611
+   },
+   {
+    "frame": 33,
+    "index": 330,
+    "confident_errors": 2787,
+    "covered_wrong": 28240,
+    "covered": 76800
+   }
+  ]
+ },
+ "text_cache": "D/uags_results/qual/text_cache_lseg_replica.pt",
+ "text_cache_sha256": "d583386e329a1e5061a860dc2de3a0f36ea6362c80ad7198d22e39a23cb323f9",
+ "git_head": "af70b11",
+ "script_sha256": "a7ee664be4dfb98d8a2c69fbb374192197d34d2b1c5d1b8625f6232a3cfc7358",
+ "timing": {
+  "load_s": 52.922229290008545,
+  "pass_s": 20.28490138053894,
+  "metrics_s": 7.759391784667969,
+  "wall_s": 154.79846715927124
+ },
+ "gpu_reserved_mib": 3836,
+ "peak_alloc_mib": 1473.2353515625,
+ "reserved_mib": 3854.0
+}

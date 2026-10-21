@@ -1,0 +1,190 @@
+{
+ "scene": "office_3",
+ "dataset_label": "Replica",
+ "frame": 15,
+ "index": 150,
+ "h": 240,
+ "w": 320,
+ "n_frames": 90,
+ "rows": [
+  "ours_P2",
+  "normlift",
+  "f3dgs",
+  "legs_l4"
+ ],
+ "legs": "legs_l4",
+ "own_channels": {
+  "ours_P2": "u_ale",
+  "normlift": "normlift_1-Cinter",
+  "legs_l4": "legs_u"
+ },
+ "columns": {
+  "2d_features": "2d_features",
+  "f3dgs": "f3dgs",
+  "normlift": "normlift",
+  "legs": "legs_l4",
+  "ours_P2": "ours_P2"
+ },
+ "table_rows": {
+  "2d_features": "2d_features",
+  "f3dgs": "f3dgs",
+  "normlift": "averaging",
+  "legs": "legs_l4",
+  "ours_P2": "ours_P2"
+ },
+ "pool_sizes": {
+  "ours_P2": 5837960,
+  "normlift": 6633320,
+  "legs_l4": 6633320
+ },
+ "betas_used": {
+  "ours_P2": {
+   "beta0": 45.557463992815094,
+   "a": 0.36058766622030924,
+   "b": 11.826138130129648,
+   "g": 0.05489957571289264
+  },
+  "normlift": 35.99961356115293,
+  "f3dgs": 34.66228124301143,
+  "legs_l4": 33.94123413809171,
+  "2d_features": 33.47062078569728
+ },
+ "betas": "D/uags_results/tab1/eval_val.json",
+ "betas_sha256": "3ffbd57fbc90b940ef2304e4d26f5d8907d3e9015c5e622944378c8eca994a48",
+ "table": "D/uags_results/tab1/eval_test.json",
+ "table_sha256": "db35dfbd757f8df505bd2133cd4e1be271e16d64f901aa4cfd0cc2ea477b2df0",
+ "tokens": "D/uags_results/qual/compare/test/tok_office_3_f15.pt",
+ "tokens_image_sha256": "3bcaf341f3afa198b1e230a0df8bb854dd6cdaa65ed11e9ae830c78174c98cce",
+ "field_identity": "2afa0cef5156e7168d73a51ca815c23ee4bfad44429334e2e947bd2d626cbafd",
+ "class_names": [
+  "bench",
+  "bin",
+  "blinds",
+  "bottle",
+  "box",
+  "camera",
+  "chair",
+  "clock",
+  "cushion",
+  "ceiling",
+  "desk-organizer",
+  "door",
+  "floor",
+  "lamp",
+  "panel",
+  "pipe",
+  "sofa",
+  "switch",
+  "table",
+  "tablet",
+  "tissue-paper",
+  "tv-stand",
+  "vent",
+  "wall",
+  "wall-plug",
+  "window"
+ ],
+ "rows_queried": [
+  "ours_P2",
+  "normlift",
+  "f3dgs",
+  "legs_l4"
+ ],
+ "repro": {
+  "status": "PASS",
+  "tol": 0.002,
+  "max_abs_delta": 2.4948870175345306e-07,
+  "rows": {
+   "ours_P2": {
+    "miou_published": 0.24362216439842282,
+    "miou_rescored": 0.24362216439842282,
+    "miou_delta": 0.0,
+    "channel": "u_ale",
+    "ause_published": 0.034738253257287875,
+    "ause_rescored": 0.03473825862397883,
+    "ause_delta": 5.3666909527461115e-09
+   },
+   "normlift": {
+    "miou_published": 0.2432112691029778,
+    "miou_rescored": 0.2432112691029778,
+    "miou_delta": 0.0,
+    "channel": "normlift_1-Cinter",
+    "ause_published": 0.03188722987045644,
+    "ause_rescored": 0.031887229870456536,
+    "ause_delta": 9.71445146547012e-17
+   },
+   "f3dgs": {
+    "miou_published": 0.24646876798934142,
+    "miou_rescored": 0.24646876798934142,
+    "miou_delta": 0.0
+   },
+   "legs_l4": {
+    "miou_published": 0.21679112142997253,
+    "miou_rescored": 0.21679087194127078,
+    "miou_delta": -2.4948870175345306e-07,
+    "channel": "legs_u",
+    "ause_published": 0.13712578933615918,
+    "ause_rescored": 0.13712578933615918,
+    "ause_delta": 0.0
+   }
+  },
+  "averaging_equals_normlift": true,
+  "n_views_published": 90,
+  "n_frames": 90
+ },
+ "confident": {
+  "median_u_ale": 0.002855875063687563,
+  "median_u_epi": 0.1199493519961834,
+  "n_frames": 90,
+  "top5": [
+   {
+    "frame": 38,
+    "index": 380,
+    "confident_errors": 3353,
+    "covered_wrong": 28271,
+    "covered": 73947
+   },
+   {
+    "frame": 37,
+    "index": 370,
+    "confident_errors": 2352,
+    "covered_wrong": 20143,
+    "covered": 73848
+   },
+   {
+    "frame": 8,
+    "index": 80,
+    "confident_errors": 1876,
+    "covered_wrong": 11352,
+    "covered": 68587
+   },
+   {
+    "frame": 77,
+    "index": 770,
+    "confident_errors": 1704,
+    "covered_wrong": 14380,
+    "covered": 72949
+   },
+   {
+    "frame": 78,
+    "index": 780,
+    "confident_errors": 1664,
+    "covered_wrong": 14285,
+    "covered": 72231
+   }
+  ]
+ },
+ "text_cache": "D/uags_results/qual/text_cache_lseg_replica.pt",
+ "text_cache_sha256": "d583386e329a1e5061a860dc2de3a0f36ea6362c80ad7198d22e39a23cb323f9",
+ "git_head": "af70b11",
+ "script_sha256": "a7ee664be4dfb98d8a2c69fbb374192197d34d2b1c5d1b8625f6232a3cfc7358",
+ "timing": {
+  "load_s": 21.00399351119995,
+  "pass_s": 13.60591197013855,
+  "metrics_s": 5.56160831451416,
+  "wall_s": 41.54521346092224
+ },
+ "gpu_reserved_mib": 3836,
+ "peak_alloc_mib": 1290.23486328125,
+ "reserved_mib": 3856.0
+}

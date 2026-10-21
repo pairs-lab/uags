@@ -1,0 +1,9 @@
+replica_val: office_0 -> frame 29 (index 290, 13 classes); 90 frames, 0 skipped, 8.1 s
+replica_val: room_2 -> frame 14 (index 140, 11 classes); 90 frames, 0 skipped, 6.6 s
+scannet_val: scene0000_00 -> frame 150 (index 3005, 8 classes); 279 frames, 0 skipped, 26.7 s
+scannet_val: scene0062_00 -> frame 16 (index 325, 5 classes); 37 frames, 0 skipped, 3.6 s
+wrote D/uags_results/qual/select/static_val.json
+
+real	0m47.651s
+user	6m3.970s
+sys	0m5.422s

@@ -1,0 +1,85 @@
+{
+ "blocks": [
+  "room_1_f66.pt",
+  "scene0140_00_f57.pt"
+ ],
+ "block_sha256": [
+  "e617a863a2467231a57a214740f015ac641c69169aba34b98886ee258c5aa891",
+  "cdcf8b4d7646c8e050736378e5b817e55b4f8521a1d1a143b6b9cde83e41c5fe"
+ ],
+ "info": [
+  {
+   "scene": "room_1",
+   "frame": 66,
+   "legend": [
+    "wall",
+    "ceiling",
+    "blinds",
+    "bed",
+    "rug",
+    "cabinet",
+    "floor",
+    "blanket",
+    "lamp",
+    "picture",
+    "book",
+    "window",
+    "indoor-plant",
+    "vase",
+    "basket",
+    "comforter"
+   ],
+   "miou": {
+    "2d_features": 0.23357718836611197,
+    "f3dgs": 0.26409124584271954,
+    "normlift": 0.2666217801024165,
+    "legs": 0.21039569809308659,
+    "ours_P2": 0.26785727374604734
+   },
+   "ause": {
+    "normlift": 0.10997382059772251,
+    "legs": 0.21767823414243043,
+    "ours_P2": 0.10261890201186673
+   },
+   "legend_left_out": {
+    "door": 25,
+    "wall-plug": 76
+   }
+  },
+  {
+   "scene": "scene0140_00",
+   "frame": 57,
+   "legend": [
+    "chair",
+    "floor",
+    "wall",
+    "table",
+    "cabinet",
+    "door",
+    "window",
+    "picture"
+   ],
+   "miou": {
+    "2d_features": 0.6934834784756939,
+    "f3dgs": 0.6955081979498554,
+    "normlift": 0.6905821736452955,
+    "legs": 0.672893109670818,
+    "ours_P2": 0.6852059528626404
+   },
+   "ause": {
+    "normlift": 0.035333054383269474,
+    "legs": 0.08707550099816046,
+    "ours_P2": 0.03581570080038984
+   },
+   "legend_left_out": {}
+  }
+ ],
+ "caption": "Segmentation and own uncertainty of every method on Replica room\\_1 (frame 66) and ScanNet scene0140\\_00 (frame 57). Each scene is the test scene with the lower-median per-scene mIoU of ours P2 in Table~\\ref{tab:replica}, and each frame is the evaluation frame with the most ground-truth classes that cover at least 0.5\\% of its labeled pixels; both rules read only the published table and the labels and were fixed before rendering. Row 1: the 3DGS render and the labels (black: no decision); row 2: the ground truth and the errors (vermillion: wrong; black: not scored); row 3: each method's own uncertainty, NormLift's $1-C_{\\mathrm{inter}}$, the learned $u$ of LEGaussians and our $u^{\\mathrm{ale}}$, as its rank among the covered labeled pixels with a defined value in all evaluation frames of the scene (grey: undefined; black: not covered). The 2D features and Feature 3DGS have no own uncertainty (-- in Table~\\ref{tab:replica}); we show no P2 confidence. Numbers are per-scene values over all evaluation frames, read from Table~\\ref{tab:replica}: mIoU (row 1) and the AUSE of the own uncertainty (row 3), in \\%. LEGaussians $\\lambda_u$ = 4 (Replica), 1 (ScanNet), chosen on validation. On room\\_1, ours has the highest mIoU (26.8). On room\\_1, $u^{\\mathrm{ale}}$ has the lowest AUSE of the own uncertainties (10.3 vs 11.0, 21.8). On scene0140\\_00, ours (68.5 mIoU) is below Feature 3DGS (69.6), the 2D features (69.3) and averaging (69.1). On scene0140\\_00, NormLift's $1-C_{\\mathrm{inter}}$ ranks the errors slightly better than $u^{\\mathrm{ale}}$ (AUSE 3.5 vs 3.6).",
+ "outputs": [
+  "qual_compare.pdf",
+  "qual_compare.png",
+  "qual_compare.txt"
+ ],
+ "script_sha256": "a7ee664be4dfb98d8a2c69fbb374192197d34d2b1c5d1b8625f6232a3cfc7358",
+ "git_head": "af70b11"
+}

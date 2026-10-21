@@ -1,0 +1,13 @@
+[run] 2026-10-21 14:40:07 git af70b11 qual_compare.py sha256 a7ee664be4df purpose=TEST tokens, supplementary
+[gpu_gate] 2026-10-21 14:40:07 free 7426 MiB >= 5524; running: python3 scripts/qual_compare.py --stage tokens --vocab configs/vocab_replica.json --scenes configs/replica_test.json --extractor lseg --dataset replica_semnerf --stride 10 --downscale 2 --target room_0:18,office_1:25,office_2:75,office_3:15,office_4:29 --out-dir D/uags_results/qual/compare/test
+reserved 3836 MiB of GPU memory
+room_0 frame 18 (index 180): tokens (60, 80, 512) -> D/uags_results/qual/compare/test/tok_room_0_f18.pt (87.7 s)
+office_1 frame 25 (index 250): tokens (60, 80, 512) -> D/uags_results/qual/compare/test/tok_office_1_f25.pt (12.1 s)
+office_2 frame 75 (index 750): tokens (60, 80, 512) -> D/uags_results/qual/compare/test/tok_office_2_f75.pt (46.8 s)
+office_3 frame 15 (index 150): tokens (60, 80, 512) -> D/uags_results/qual/compare/test/tok_office_3_f15.pt (8.9 s)
+office_4 frame 29 (index 290): tokens (60, 80, 512) -> D/uags_results/qual/compare/test/tok_office_4_f29.pt (15.7 s)
+{"stage": "tokens", "outputs": ["D/uags_results/qual/compare/test/tok_room_0_f18.pt", "D/uags_results/qual/compare/test/tok_office_1_f25.pt", "D/uags_results/qual/compare/test/tok_office_2_f75.pt", "D/uags_results/qual/compare/test/tok_office_3_f15.pt", "D/uags_results/qual/compare/test/tok_office_4_f29.pt"], "gpu_reserved_mib": 3836, "peak_alloc_mib": 1873.73046875, "reserved_mib": 3856.0, "wall_s": 171.5851092338562}
+
+real	3m1.836s
+user	11m18.955s
+sys	0m7.973s

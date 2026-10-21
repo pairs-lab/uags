@@ -1,0 +1,173 @@
+{
+ "scene": "scene0070_00",
+ "dataset_label": "ScanNet",
+ "frame": 46,
+ "index": 925,
+ "h": 242,
+ "w": 324,
+ "n_frames": 66,
+ "rows": [
+  "ours_P2",
+  "normlift",
+  "f3dgs",
+  "legs_l1"
+ ],
+ "legs": "legs_l1",
+ "own_channels": {
+  "ours_P2": "u_ale",
+  "normlift": "normlift_1-Cinter",
+  "legs_l1": "legs_u"
+ },
+ "columns": {
+  "2d_features": "2d_features",
+  "f3dgs": "f3dgs",
+  "normlift": "normlift",
+  "legs": "legs_l1",
+  "ours_P2": "ours_P2"
+ },
+ "table_rows": {
+  "2d_features": "2d_features",
+  "f3dgs": "f3dgs",
+  "normlift": "averaging",
+  "legs": "legs_l1",
+  "ours_P2": "ours_P2"
+ },
+ "pool_sizes": {
+  "ours_P2": 3944599,
+  "normlift": 4265857,
+  "legs_l1": 4265857
+ },
+ "betas_used": {
+  "ours_P2": {
+   "beta0": 34.58050344675894,
+   "a": -0.795529917491603,
+   "b": -2.063556096144412,
+   "g": 0.14212396699586669
+  },
+  "normlift": 38.65970394632828,
+  "f3dgs": 34.05941735860966,
+  "legs_l1": 34.160437461103754,
+  "2d_features": 31.831978475377507
+ },
+ "betas": "D/uags_results/scannet_tab1/eval_val.json",
+ "betas_sha256": "072c82ce4b0b2a500982ce6cfbe15c6b9eea1e516fc58bd53051469262ecfa6c",
+ "table": "D/uags_results/scannet_tab1/eval_test.json",
+ "table_sha256": "d5c26ee3b169af3206ddaf8a78ba0739676b1b7bf55139df4c12de629f4cb19c",
+ "tokens": "D/uags_results/qual/compare/test/tok_scene0070_00_f46.pt",
+ "tokens_image_sha256": "de6fc0627d0b6f0da262dfbd63018e4b9c84f9991ff31f8429bfde007e75cabf",
+ "field_identity": "9f91fada8c067437f284ee577ea85af4bda9841d0abdae2957f05d107b81d0c5",
+ "class_names": [
+  "wall",
+  "floor",
+  "cabinet",
+  "bed",
+  "chair",
+  "table",
+  "window",
+  "picture",
+  "curtain"
+ ],
+ "rows_queried": [
+  "ours_P2",
+  "normlift",
+  "f3dgs",
+  "legs_l1"
+ ],
+ "repro": {
+  "status": "PASS",
+  "tol": 0.002,
+  "max_abs_delta": 0.0,
+  "rows": {
+   "ours_P2": {
+    "miou_published": 0.6200094570290052,
+    "miou_rescored": 0.6200094570290052,
+    "miou_delta": 0.0,
+    "channel": "u_ale",
+    "ause_published": 0.05174513968849959,
+    "ause_rescored": 0.05174513968849959,
+    "ause_delta": 0.0
+   },
+   "normlift": {
+    "miou_published": 0.5930081171708734,
+    "miou_rescored": 0.5930081171708734,
+    "miou_delta": 0.0,
+    "channel": "normlift_1-Cinter",
+    "ause_published": 0.06046316337772284,
+    "ause_rescored": 0.06046316337772284,
+    "ause_delta": 0.0
+   },
+   "f3dgs": {
+    "miou_published": 0.5564269102916829,
+    "miou_rescored": 0.5564269102916829,
+    "miou_delta": 0.0
+   },
+   "legs_l1": {
+    "miou_published": 0.5355693962031229,
+    "miou_rescored": 0.5355693962031229,
+    "miou_delta": 0.0,
+    "channel": "legs_u",
+    "ause_published": 0.1020382438604965,
+    "ause_rescored": 0.1020382438604965,
+    "ause_delta": 0.0
+   }
+  },
+  "averaging_equals_normlift": true,
+  "n_views_published": 66,
+  "n_frames": 66
+ },
+ "confident": {
+  "median_u_ale": 0.020302772521972656,
+  "median_u_epi": 0.12315737456083298,
+  "n_frames": 66,
+  "top5": [
+   {
+    "frame": 45,
+    "index": 905,
+    "confident_errors": 458,
+    "covered_wrong": 7078,
+    "covered": 63356
+   },
+   {
+    "frame": 7,
+    "index": 145,
+    "confident_errors": 436,
+    "covered_wrong": 9079,
+    "covered": 68173
+   },
+   {
+    "frame": 56,
+    "index": 1125,
+    "confident_errors": 410,
+    "covered_wrong": 12707,
+    "covered": 65834
+   },
+   {
+    "frame": 5,
+    "index": 105,
+    "confident_errors": 407,
+    "covered_wrong": 5088,
+    "covered": 68281
+   },
+   {
+    "frame": 44,
+    "index": 885,
+    "confident_errors": 398,
+    "covered_wrong": 11051,
+    "covered": 70509
+   }
+  ]
+ },
+ "text_cache": "D/uags_results/qual/text_cache_lseg_scannet.pt",
+ "text_cache_sha256": "a9fb49d6b44ed173082f6057652209a832378037b41cb0722ffa819885edf8cb",
+ "git_head": "af70b11",
+ "script_sha256": "a7ee664be4dfb98d8a2c69fbb374192197d34d2b1c5d1b8625f6232a3cfc7358",
+ "timing": {
+  "load_s": 12.840860366821289,
+  "pass_s": 8.121992111206055,
+  "metrics_s": 3.497983932495117,
+  "wall_s": 25.846025466918945
+ },
+ "gpu_reserved_mib": 3836,
+ "peak_alloc_mib": 1329.822265625,
+ "reserved_mib": 3856.0
+}

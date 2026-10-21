@@ -1,0 +1,15 @@
+[run] 2026-10-21 14:43:09 git af70b11 qual_compare.py sha256 a7ee664be4df purpose=TEST tokens, supplementary
+[gpu_gate] 2026-10-21 14:43:10 free 7304 MiB >= 5524; running: python3 scripts/qual_compare.py --stage tokens --vocab configs/vocab_scannet.json --scenes configs/scannet_test.json --extractor lseg --dataset scannet --stride 20 --downscale 2 --target scene0070_00:46,scene0097_00:2,scene0200_00:36,scene0347_00:0,scene0400_00:0,scene0590_00:104,scene0645_00:156 --out-dir D/uags_results/qual/compare/test
+reserved 3836 MiB of GPU memory
+scene0070_00 frame 46 (index 925): tokens (61, 81, 512) -> D/uags_results/qual/compare/test/tok_scene0070_00_f46.pt (104.5 s)
+scene0097_00 frame 2 (index 45): tokens (61, 81, 512) -> D/uags_results/qual/compare/test/tok_scene0097_00_f2.pt (1.9 s)
+scene0200_00 frame 36 (index 725): tokens (61, 81, 512) -> D/uags_results/qual/compare/test/tok_scene0200_00_f36.pt (18.7 s)
+scene0347_00 frame 0 (index 5): tokens (61, 81, 512) -> D/uags_results/qual/compare/test/tok_scene0347_00_f0.pt (0.7 s)
+scene0400_00 frame 0 (index 5): tokens (61, 81, 512) -> D/uags_results/qual/compare/test/tok_scene0400_00_f0.pt (0.8 s)
+scene0590_00 frame 104 (index 2085): tokens (61, 81, 512) -> D/uags_results/qual/compare/test/tok_scene0590_00_f104.pt (53.6 s)
+scene0645_00 frame 156 (index 3125): tokens (61, 81, 512) -> D/uags_results/qual/compare/test/tok_scene0645_00_f156.pt (64.7 s)
+{"stage": "tokens", "outputs": ["D/uags_results/qual/compare/test/tok_scene0070_00_f46.pt", "D/uags_results/qual/compare/test/tok_scene0097_00_f2.pt", "D/uags_results/qual/compare/test/tok_scene0200_00_f36.pt", "D/uags_results/qual/compare/test/tok_scene0347_00_f0.pt", "D/uags_results/qual/compare/test/tok_scene0400_00_f0.pt", "D/uags_results/qual/compare/test/tok_scene0590_00_f104.pt", "D/uags_results/qual/compare/test/tok_scene0645_00_f156.pt"], "gpu_reserved_mib": 3836, "peak_alloc_mib": 1915.24169921875, "reserved_mib": 3856.0, "wall_s": 245.8943064212799}
+
+real	4m14.649s
+user	23m33.107s
+sys	0m10.728s

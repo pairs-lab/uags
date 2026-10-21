@@ -1,0 +1,188 @@
+{
+ "scene": "office_0",
+ "dataset_label": "Replica",
+ "frame": 29,
+ "index": 290,
+ "h": 240,
+ "w": 320,
+ "n_frames": 90,
+ "rows": [
+  "ours_P2",
+  "normlift",
+  "f3dgs",
+  "legs_l4"
+ ],
+ "legs": "legs_l4",
+ "own_channels": {
+  "ours_P2": "u_ale",
+  "normlift": "normlift_1-Cinter",
+  "legs_l4": "legs_u"
+ },
+ "columns": {
+  "2d_features": "2d_features",
+  "f3dgs": "f3dgs",
+  "normlift": "normlift",
+  "legs": "legs_l4",
+  "ours_P2": "ours_P2"
+ },
+ "table_rows": {
+  "2d_features": "2d_features",
+  "f3dgs": "f3dgs",
+  "normlift": "averaging",
+  "legs": "legs_l4",
+  "ours_P2": "ours_P2"
+ },
+ "pool_sizes": {
+  "ours_P2": 4990196,
+  "normlift": 5523819,
+  "legs_l4": 5523819
+ },
+ "betas_used": {
+  "ours_P2": {
+   "beta0": 45.557463992815094,
+   "a": 0.36058766622030924,
+   "b": 11.826138130129648,
+   "g": 0.05489957571289264
+  },
+  "normlift": 35.99961356115293,
+  "f3dgs": 34.66228124301143,
+  "legs_l4": 33.94123413809171,
+  "2d_features": 33.47062078569728
+ },
+ "betas": "D/uags_results/tab1/eval_val.json",
+ "betas_sha256": "3ffbd57fbc90b940ef2304e4d26f5d8907d3e9015c5e622944378c8eca994a48",
+ "table": "D/uags_results/tab1/eval_val.json",
+ "table_sha256": "3ffbd57fbc90b940ef2304e4d26f5d8907d3e9015c5e622944378c8eca994a48",
+ "tokens": "D/uags_results/qual/compare/val/tok_office_0_f29.pt",
+ "tokens_image_sha256": "a3dab66a73f4b975b5f2246e158004855e67da3d77be62baba51a02cb33c2e32",
+ "field_identity": "2afa0cef5156e7168d73a51ca815c23ee4bfad44429334e2e947bd2d626cbafd",
+ "class_names": [
+  "bin",
+  "blinds",
+  "camera",
+  "chair",
+  "clock",
+  "ceiling",
+  "desk-organizer",
+  "door",
+  "floor",
+  "indoor-plant",
+  "lamp",
+  "panel",
+  "pillar",
+  "plant-stand",
+  "sofa",
+  "switch",
+  "table",
+  "tablet",
+  "tissue-paper",
+  "tv-screen",
+  "vent",
+  "wall",
+  "wall-plug",
+  "rug"
+ ],
+ "rows_queried": [
+  "ours_P2",
+  "normlift",
+  "f3dgs",
+  "legs_l4"
+ ],
+ "repro": {
+  "status": "PASS",
+  "tol": 0.002,
+  "max_abs_delta": 1.1349511380709387e-07,
+  "rows": {
+   "ours_P2": {
+    "miou_published": 0.3002158031849734,
+    "miou_rescored": 0.30021581243887824,
+    "miou_delta": 9.253904864614526e-09,
+    "channel": "u_ale",
+    "ause_published": 0.06382256108332797,
+    "ause_rescored": 0.06382256108332728,
+    "ause_delta": -6.938893903907228e-16
+   },
+   "normlift": {
+    "miou_published": 0.2994830970845573,
+    "miou_rescored": 0.29948314015022404,
+    "miou_delta": 4.306566675493784e-08,
+    "channel": "normlift_1-Cinter",
+    "ause_published": 0.06401143280085148,
+    "ause_rescored": 0.06401143280085192,
+    "ause_delta": 4.440892098500626e-16
+   },
+   "f3dgs": {
+    "miou_published": 0.2947124308515735,
+    "miou_rescored": 0.2947125443466873,
+    "miou_delta": 1.1349511380709387e-07
+   },
+   "legs_l4": {
+    "miou_published": 0.2705548119099364,
+    "miou_rescored": 0.2705548119099364,
+    "miou_delta": 0.0,
+    "channel": "legs_u",
+    "ause_published": 0.18148366839149904,
+    "ause_rescored": 0.18148366839149904,
+    "ause_delta": 0.0
+   }
+  },
+  "averaging_equals_normlift": true,
+  "n_views_published": 90,
+  "n_frames": 90
+ },
+ "confident": {
+  "median_u_ale": 0.014185982290655375,
+  "median_u_epi": 0.12384489923715591,
+  "n_frames": 90,
+  "top5": [
+   {
+    "frame": 43,
+    "index": 430,
+    "confident_errors": 2470,
+    "covered_wrong": 19847,
+    "covered": 69173
+   },
+   {
+    "frame": 42,
+    "index": 420,
+    "confident_errors": 2402,
+    "covered_wrong": 17238,
+    "covered": 69787
+   },
+   {
+    "frame": 44,
+    "index": 440,
+    "confident_errors": 2187,
+    "covered_wrong": 21110,
+    "covered": 68709
+   },
+   {
+    "frame": 41,
+    "index": 410,
+    "confident_errors": 2133,
+    "covered_wrong": 14128,
+    "covered": 71104
+   },
+   {
+    "frame": 45,
+    "index": 450,
+    "confident_errors": 1972,
+    "covered_wrong": 20308,
+    "covered": 66609
+   }
+  ]
+ },
+ "text_cache": "D/uags_results/qual/text_cache_lseg_replica.pt",
+ "text_cache_sha256": "d583386e329a1e5061a860dc2de3a0f36ea6362c80ad7198d22e39a23cb323f9",
+ "git_head": "af70b11",
+ "script_sha256": "869046b1fa46b694b4ee86281ca76f9f8dd1c90304803f6cb62cba0b80f1c898",
+ "timing": {
+  "load_s": 76.44777417182922,
+  "pass_s": 134.84031796455383,
+  "metrics_s": 394.4971628189087,
+  "wall_s": 702.5049939155579
+ },
+ "gpu_reserved_mib": 3836,
+ "peak_alloc_mib": 922.87548828125,
+ "reserved_mib": 3856.0
+}

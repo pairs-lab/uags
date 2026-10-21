@@ -1,0 +1,12 @@
+[run] 2026-10-21 09:59:45 git af70b11 qual_compare.py sha256 c4e03be27cd1 purpose=validation tokens
+[gpu_gate] 2026-10-21 09:59:45 waiting: free 4181 MiB < 5524 or lock busy
+[... 93 more gate-wait lines]
+[gpu_gate] 2026-10-21 10:09:06 free 8306 MiB >= 5524; running: python3 scripts/qual_compare.py --stage tokens --vocab configs/vocab_scannet.json --scenes configs/scannet_val.json --extractor lseg --dataset scannet --stride 20 --downscale 2 --target scene0000_00:150,scene0062_00:16 --out-dir D/uags_results/qual/compare/val
+reserved 3836 MiB of GPU memory
+scene0000_00 frame 150 (index 3005): tokens (61, 81, 512) -> D/uags_results/qual/compare/val/tok_scene0000_00_f150.pt (180.5 s)
+scene0062_00 frame 16 (index 325): tokens (61, 81, 512) -> D/uags_results/qual/compare/val/tok_scene0062_00_f16.pt (17.6 s)
+{"stage": "tokens", "outputs": ["D/uags_results/qual/compare/val/tok_scene0000_00_f150.pt", "D/uags_results/qual/compare/val/tok_scene0062_00_f16.pt"], "gpu_reserved_mib": 3836, "peak_alloc_mib": 1915.24169921875, "reserved_mib": 3856.0, "wall_s": 198.7912220954895}
+
+real	12m46.167s
+user	22m43.802s
+sys	0m20.826s

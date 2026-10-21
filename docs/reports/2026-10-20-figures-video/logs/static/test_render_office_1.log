@@ -1,0 +1,8 @@
+[run] 2026-10-21 14:50:02 git af70b11 qual_compare.py sha256 a7ee664be4df purpose=TEST render, supplementary
+[gpu_gate] 2026-10-21 14:50:02 free 7495 MiB >= 5524; running: python3 scripts/qual_compare.py --stage render --vocab configs/vocab_replica.json --scenes configs/replica_test.json --extractor lseg --dataset replica_semnerf --stride 10 --downscale 2 --tau-cov 0.5 --scene office_1 --frame 25 --select D/uags_results/qual/select/static.json --legs legs_l4 --betas D/uags_results/tab1/eval_val.json --table D/uags_results/tab1/eval_test.json --text-cache D/uags_results/qual/text_cache_lseg_replica.pt --row-factory usplat.baselines:row_factory,usplat.distill:row_factory --dataset-label Replica --out-dir D/uags_results/qual/compare/test
+reserved 3836 MiB of GPU memory
+office_1 frame 25: repro PASS (max |delta| 0.00000); pools {'ours_P2': 5192353, 'normlift': 5577280, 'legs_l4': 5577280}; wrote D/uags_results/qual/compare/test/office_1_f25.pt
+
+real	1m44.162s
+user	12m1.103s
+sys	0m15.911s

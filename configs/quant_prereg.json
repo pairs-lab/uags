@@ -1,0 +1,89 @@
+{
+ "name": "Quantitative statistics and reporting rules (package 1): R0-R2 and test family F1",
+ "registered": "2026-10-21, before any new evaluation run of package 1",
+ "status": "Every test split covered here (Replica, ScanNet and NeRF-Object-Removal test) had ALREADY been evaluated and read when this file was written (quant_review.md, section 1h). F1 is therefore a declared family over results already seen: its tests are descriptive and post hoc. No primary test is declared. scripts/quant_stats.py reads the family from this file and refuses a family that differs from it.",
+ "source": "docs/reports/2026-10-20-figures-video/logs/design/quant_review.md (review-corrected design v2, 2026-10-21): section 2 (R0-R2) and section 1a (F1)",
+ "rules": {
+  "R0": "Report everything. Every analysis that runs is reported, in the main text or the appendix, whatever its outcome.",
+  "R1": [
+   "Tests and effect sizes.",
+   "The unit is the scene. Use one paired test everywhere: the exact two-sided sign test, ties dropped.",
+   "Wilcoxon appears only as a complete secondary column, never picked per cell.",
+   "The effect size is the median paired difference in the metric's own unit. Relative gains appear only as medians.",
+   "No \"primary\" test is declared on results already seen.",
+   "\"Significant\" means Holm-adjusted p < 0.05 within a declared family: F1: the 20 tests of 1a. F2: ours+depth vs each of the 4 new fused rows, at G-AP and P-AP (8 tests). F3: package-2 claims, each declared in its own prereg before it runs.",
+   "Always print the per-dataset x/N."
+  ],
+  "R2": "Aggregation. Show the per-scene mean and the pixel-pooled value side by side. Claim a calibration difference only if it holds under both and in x/N."
+ },
+ "significance": {"adjustment": "holm", "alpha": 0.05, "within": "one declared family"},
+ "families": {
+  "F1": {
+   "text": "the 20 tests of 1a: ours vs each of 4 baselines on 5 Table I metrics, paired over the 14 test scenes (Replica 6 + ScanNet 8)",
+   "label": "post hoc summary over results already seen; the per-dataset x/N is the main description, the pooled 14-scene test mixes a synthetic and a real dataset",
+   "records": {
+    "replica": "uags_results/tab1/eval_test.json (identical to docs/reports/2026-09-29-replica-tab1/logs/eval_test_224fe1e.json, the source of Table I)",
+    "scannet": "uags_results/scannet_tab1/eval_test.json"
+   },
+   "scenes": {"replica": 6, "scannet": 8, "pooled": 14},
+   "values": "metrics.scenes[s].rows[r].all[metric] (variant all: the coverage rule, uncovered pixels count as wrong)",
+   "ours_rows": {"miou": "ours_P0", "ece": "ours_P2", "nll": "ours_P2", "brier": "ours_P2", "aurc": "ours_P2"},
+   "ours_rows_text": "mIoU uses ours_P0 (P0 and P2 share labels). The other columns use ours_P2.",
+   "baselines": {
+    "averaging": "averaging",
+    "f3dgs": "f3dgs",
+    "legs": {"replica": "legs_l4", "scannet": "legs_l1", "rule": "lambda_u chosen on validation (scripts/make_tables.py choose --key legs)"},
+    "2d_features": "2d_features"
+   },
+   "metrics": {
+    "miou": {"better": "higher", "unit": "points (x100)"},
+    "ece": {"better": "lower", "unit": "points (x100)"},
+    "nll": {"better": "lower", "unit": "nats"},
+    "brier": {"better": "lower", "unit": "points (x100)"},
+    "aurc": {"better": "lower", "unit": "points (x100)"}
+   },
+   "difference": "per scene, signed so that positive = ours better: (baseline - ours) for lower-is-better metrics, (ours - baseline) for mIoU",
+   "test": "exact two-sided sign test over the 14 pooled scenes, ties (difference exactly 0) dropped",
+   "adjustment": "Holm over these 20 tests",
+   "effect_size": "median paired difference over the 14 scenes, in the metric's own unit; per-dataset medians and x/N also printed",
+   "secondary": "Wilcoxon signed-rank p (scipy.stats.wilcoxon, zeros dropped) for all 20 tests, as a complete column",
+   "tests": [
+    {"id": "F1.01", "baseline": "averaging", "metric": "miou"},
+    {"id": "F1.02", "baseline": "averaging", "metric": "ece"},
+    {"id": "F1.03", "baseline": "averaging", "metric": "nll"},
+    {"id": "F1.04", "baseline": "averaging", "metric": "brier"},
+    {"id": "F1.05", "baseline": "averaging", "metric": "aurc"},
+    {"id": "F1.06", "baseline": "f3dgs", "metric": "miou"},
+    {"id": "F1.07", "baseline": "f3dgs", "metric": "ece"},
+    {"id": "F1.08", "baseline": "f3dgs", "metric": "nll"},
+    {"id": "F1.09", "baseline": "f3dgs", "metric": "brier"},
+    {"id": "F1.10", "baseline": "f3dgs", "metric": "aurc"},
+    {"id": "F1.11", "baseline": "legs", "metric": "miou"},
+    {"id": "F1.12", "baseline": "legs", "metric": "ece"},
+    {"id": "F1.13", "baseline": "legs", "metric": "nll"},
+    {"id": "F1.14", "baseline": "legs", "metric": "brier"},
+    {"id": "F1.15", "baseline": "legs", "metric": "aurc"},
+    {"id": "F1.16", "baseline": "2d_features", "metric": "miou"},
+    {"id": "F1.17", "baseline": "2d_features", "metric": "ece"},
+    {"id": "F1.18", "baseline": "2d_features", "metric": "nll"},
+    {"id": "F1.19", "baseline": "2d_features", "metric": "brier"},
+    {"id": "F1.20", "baseline": "2d_features", "metric": "aurc"}
+   ]
+  },
+  "F2": {
+   "text": "ours+depth vs each of the 4 new fused rows, at G-AP and P-AP (8 tests)",
+   "declared_in": "configs/nor_fused_prereg.json",
+   "status": "not run by this package (needs the GPU dump of package 1, step 2-3)"
+  },
+  "F3": {
+   "text": "package-2 claims, each declared in its own prereg before it runs",
+   "status": "none declared yet"
+  }
+ },
+ "aggregation": {
+  "calibration": "ECE as the mean over scenes AND pooled over pixels from the stored 15-bin reliability bins (metrics.scenes[s].rows[r].all.reliability: count, conf, acc); NLL and Brier as the scene mean AND pixel-weighted (n_pixels); both are always shown side by side",
+  "check": "each scene's ECE recomputed from its bins must equal the stored ECE (scripts/quant_stats.py seg stops otherwise)",
+  "claim_rule": "a calibration difference is written only if it has the same sign under both aggregations and ours is better in more than half of the scenes of that dataset (x/N)"
+ },
+ "descriptive": "Every other p-value printed by scripts/quant_stats.py (per-dataset sign tests, P0 in place of P2, averaging vs the trained baselines, NOR paired comparisons, views comparisons) is descriptive: unadjusted, never called significant, always shown with x/N."
+}

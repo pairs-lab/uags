@@ -1,0 +1,3159 @@
+{
+ "_command": "python3 scripts/quant_stats.py views --views $RES/views/views_test.json --tab1 $RES/tab1/eval_test.json --scannet-tab1 $RES/scannet_tab1/eval_test.json --json docs/reports/2026-10-20-figures-video/logs/quant/views.json --tex docs/reports/2026-10-20-figures-video/logs/quant/views.tex",
+ "_vars": {
+  "RES": "../../data/uags_results",
+  "NORD": "../../data/nerf_object_removal/nerf-object-removal"
+ },
+ "inputs": {
+  "views": {
+   "path": "$RES/views/views_test.json",
+   "sha256": "182836bf164ad383904aa4b4eed4f913f8ceed991ad0b4ac6fdfc2690def4e72"
+  },
+  "tab1": {
+   "path": "$RES/tab1/eval_test.json",
+   "sha256": "db35dfbd757f8df505bd2133cd4e1be271e16d64f901aa4cfd0cc2ea477b2df0"
+  },
+  "scannet_tab1": {
+   "path": "$RES/scannet_tab1/eval_test.json",
+   "sha256": "d5c26ee3b169af3206ddaf8a78ba0739676b1b7bf55139df4c12de629f4cb19c"
+  }
+ },
+ "scale": "AUSE / AUSE of a random ranking of the same errors (plot_views.py views_relative, full_relative; 20 bins): 1 = random, 0 = oracle, lower is better. first lower x/N = scenes where the first signal ranks better",
+ "replica": {
+  "scenes": [
+   "room_0",
+   "room_1",
+   "office_1",
+   "office_2",
+   "office_3",
+   "office_4"
+  ],
+  "ks": [
+   10,
+   30,
+   90
+  ],
+  "points": [
+   {
+    "M": 10,
+    "target": "e_red",
+    "comparison": "u_epi vs u_ale",
+    "mean_first": 0.34473111471991347,
+    "mean_second": 0.9011918426747397,
+    "first": [
+     0.6286779742877148,
+     0.2683351049002441,
+     0.5813084192304244,
+     0.09832607405021376,
+     0.11203317793715575,
+     0.3797059379137281
+    ],
+    "second": [
+     0.9713963822826348,
+     0.9709110407306757,
+     0.6937307749544542,
+     0.9015142386574697,
+     0.9224118249443333,
+     0.9471867944788707
+    ],
+    "wins": 6,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.03125,
+    "median_diff": 0.6350283961977871
+   },
+   {
+    "M": 10,
+    "target": "e_red",
+    "comparison": "P2 1-max p vs averaging 1-max p",
+    "mean_first": 0.18840904048552018,
+    "mean_second": 0.18900286912546563,
+    "first": [
+     0.4886447964224974,
+     0.1752352626200084,
+     0.28444815184503947,
+     0.03600516253107342,
+     0.035563257872462894,
+     0.11055761162203939
+    ],
+    "second": [
+     0.5176109987790001,
+     0.19047521147455193,
+     0.2062259379310713,
+     0.04542528250962742,
+     0.052720688770208,
+     0.12155909528833514
+    ],
+    "wins": 5,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": 0.013120716260419635
+   },
+   {
+    "M": 10,
+    "target": "e_red",
+    "comparison": "u_epi vs NormLift 1/(1+N_eff)",
+    "mean_first": 0.34473111471991347,
+    "mean_second": 0.3929428150001075,
+    "first": [
+     0.6286779742877148,
+     0.2683351049002441,
+     0.5813084192304244,
+     0.09832607405021376,
+     0.11203317793715575,
+     0.3797059379137281
+    ],
+    "second": [
+     0.9177695208099972,
+     0.1902049454209686,
+     0.5042431512418604,
+     0.17661890444508666,
+     0.2591163154971239,
+     0.30970405258560874
+    ],
+    "wins": 3,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 1.0,
+    "median_diff": 0.004145472533376771
+   },
+   {
+    "M": 10,
+    "target": "e_red",
+    "comparison": "u_ale vs NormLift 1-C_inter",
+    "mean_first": 0.9011918426747397,
+    "mean_second": 0.4917332964055972,
+    "first": [
+     0.9713963822826348,
+     0.9709110407306757,
+     0.6937307749544542,
+     0.9015142386574697,
+     0.9224118249443333,
+     0.9471867944788707
+    ],
+    "second": [
+     0.3534288468488454,
+     0.6113593822983486,
+     0.5023328030515518,
+     0.6460869364869581,
+     0.5574527752556239,
+     0.2797390344922555
+    ],
+    "wins": 0,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.03125,
+    "median_diff": -0.36225535406051823
+   },
+   {
+    "M": 10,
+    "target": "e_irr",
+    "comparison": "u_ale vs u_epi",
+    "mean_first": 1.07246216650583,
+    "mean_second": 0.8483418640611817,
+    "first": [
+     0.9917549101449248,
+     0.9713906586266178,
+     1.6060286423833494,
+     0.9932021585610443,
+     0.929388342106431,
+     0.943008287212613
+    ],
+    "second": [
+     0.7832687103387049,
+     0.42629120995683,
+     1.6967848948641184,
+     0.8921697480022236,
+     0.6689448787851185,
+     0.6225917424200953
+    ],
+    "wins": 1,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": -0.23446483156376613
+   },
+   {
+    "M": 10,
+    "target": "e_irr",
+    "comparison": "P2 1-max p vs averaging 1-max p",
+    "mean_first": 0.5177894813230033,
+    "mean_second": 0.6162200128215347,
+    "first": [
+     0.6043658903395653,
+     0.6731321033389959,
+     0.5947003289274786,
+     0.5682503548561852,
+     0.33578515719963087,
+     0.3305030532761642
+    ],
+    "second": [
+     0.6236756527084562,
+     1.0080409239257064,
+     0.7354409352340905,
+     0.6272465078561098,
+     0.3526442658554303,
+     0.3502717913494153
+    ],
+    "wins": 6,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.03125,
+    "median_diff": 0.03938244553658782
+   },
+   {
+    "M": 10,
+    "target": "e_irr",
+    "comparison": "u_epi vs NormLift 1/(1+N_eff)",
+    "mean_first": 0.8483418640611817,
+    "mean_second": 1.053665270765891,
+    "first": [
+     0.7832687103387049,
+     0.42629120995683,
+     1.6967848948641184,
+     0.8921697480022236,
+     0.6689448787851185,
+     0.6225917424200953
+    ],
+    "second": [
+     0.9264218198477037,
+     0.7932793979803553,
+     1.65646358347226,
+     1.0988253094413012,
+     1.1900025960252238,
+     0.6569989178285016
+    ],
+    "wins": 5,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": 0.17490433547403816
+   },
+   {
+    "M": 10,
+    "target": "e_irr",
+    "comparison": "u_ale vs NormLift 1-C_inter",
+    "mean_first": 1.07246216650583,
+    "mean_second": 0.6620862680498173,
+    "first": [
+     0.9917549101449248,
+     0.9713906586266178,
+     1.6060286423833494,
+     0.9932021585610443,
+     0.929388342106431,
+     0.943008287212613
+    ],
+    "second": [
+     0.8560818252755331,
+     0.958558580389279,
+     0.516617679753483,
+     0.697677186474572,
+     0.4221865287341914,
+     0.5213958076718455
+    ],
+    "wins": 0,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.03125,
+    "median_diff": -0.3585687258136199
+   },
+   {
+    "M": 30,
+    "target": "e_red",
+    "comparison": "u_epi vs u_ale",
+    "mean_first": 0.3722417528490703,
+    "mean_second": 0.5638007326292254,
+    "first": [
+     0.6462129057070292,
+     0.28666698052532186,
+     0.5321156145991005,
+     0.45099712278260223,
+     0.12669502608845057,
+     0.19076286739191795
+    ],
+    "second": [
+     0.7945474182922865,
+     0.5865873253858361,
+     0.36880747236793066,
+     0.6034523984639106,
+     0.44821742013219235,
+     0.5811923611331966
+    ],
+    "wins": 5,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": 0.22618781027091134
+   },
+   {
+    "M": 30,
+    "target": "e_red",
+    "comparison": "P2 1-max p vs averaging 1-max p",
+    "mean_first": 0.08747544393748685,
+    "mean_second": 0.08410431860124483,
+    "first": [
+     0.23591310290092282,
+     0.08969147120451307,
+     0.12493006857642487,
+     0.015775103484798412,
+     0.007219581896914647,
+     0.05132333556134738
+    ],
+    "second": [
+     0.2273641588614432,
+     0.10531076019276657,
+     0.07957728492416927,
+     0.01820260286931409,
+     0.007714957411356154,
+     0.06645614734841972
+    ],
+    "wins": 4,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.6875,
+    "median_diff": 0.0014614374494785931
+   },
+   {
+    "M": 30,
+    "target": "e_red",
+    "comparison": "u_epi vs NormLift 1/(1+N_eff)",
+    "mean_first": 0.3722417528490703,
+    "mean_second": 0.47591760743127925,
+    "first": [
+     0.6462129057070292,
+     0.28666698052532186,
+     0.5321156145991005,
+     0.45099712278260223,
+     0.12669502608845057,
+     0.19076286739191795
+    ],
+    "second": [
+     1.011396991777285,
+     0.2756120943832122,
+     0.7009997597296942,
+     0.3711577214077265,
+     0.3140109616663907,
+     0.18232811562336707
+    ],
+    "wins": 3,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 1.0,
+    "median_diff": 0.0802246966810214
+   },
+   {
+    "M": 30,
+    "target": "e_red",
+    "comparison": "u_ale vs NormLift 1-C_inter",
+    "mean_first": 0.5638007326292254,
+    "mean_second": 0.31330446746413887,
+    "first": [
+     0.7945474182922865,
+     0.5865873253858361,
+     0.36880747236793066,
+     0.6034523984639106,
+     0.44821742013219235,
+     0.5811923611331966
+    ],
+    "second": [
+     0.26780555483693447,
+     0.431381106429027,
+     0.48525437147065464,
+     0.10824389378371999,
+     0.15502037856413683,
+     0.4321214997003601
+    ],
+    "wins": 1,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": -0.2242016302624323
+   },
+   {
+    "M": 30,
+    "target": "e_irr",
+    "comparison": "u_ale vs u_epi",
+    "mean_first": 0.7862124717514751,
+    "mean_second": 0.835258877403083,
+    "first": [
+     0.8136914897516883,
+     0.6074634335664028,
+     1.1673279609704164,
+     0.7078735143117718,
+     0.6627417406065219,
+     0.7581766913020496
+    ],
+    "second": [
+     0.7464861728417035,
+     0.4490966313971996,
+     1.6562961613399902,
+     0.8234471183369495,
+     0.6638609793765254,
+     0.6723662011261292
+    ],
+    "wins": 3,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 1.0,
+    "median_diff": -0.03304303906999062
+   },
+   {
+    "M": 30,
+    "target": "e_irr",
+    "comparison": "P2 1-max p vs averaging 1-max p",
+    "mean_first": 0.4658746537991287,
+    "mean_second": 0.5652061613264364,
+    "first": [
+     0.4957689464852678,
+     0.6423233550294987,
+     0.7046383073768688,
+     0.35353005833989687,
+     0.3193281304589165,
+     0.27965912510432295
+    ],
+    "second": [
+     0.5237656971490475,
+     1.0130698567596312,
+     0.7872999794986529,
+     0.4571622495475946,
+     0.33670659933764163,
+     0.2732325856660505
+    ],
+    "wins": 5,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": 0.05532921139278191
+   },
+   {
+    "M": 30,
+    "target": "e_irr",
+    "comparison": "u_epi vs NormLift 1/(1+N_eff)",
+    "mean_first": 0.835258877403083,
+    "mean_second": 1.0323555379491505,
+    "first": [
+     0.7464861728417035,
+     0.4490966313971996,
+     1.6562961613399902,
+     0.8234471183369495,
+     0.6638609793765254,
+     0.6723662011261292
+    ],
+    "second": [
+     0.9899833543084735,
+     0.8191634191416746,
+     1.5574481327129708,
+     0.9110318856419106,
+     1.0726109253458493,
+     0.8438955105440237
+    ],
+    "wins": 5,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": 0.20751324544233224
+   },
+   {
+    "M": 30,
+    "target": "e_irr",
+    "comparison": "u_ale vs NormLift 1-C_inter",
+    "mean_first": 0.7862124717514751,
+    "mean_second": 0.4671978634463107,
+    "first": [
+     0.8136914897516883,
+     0.6074634335664028,
+     1.1673279609704164,
+     0.7078735143117718,
+     0.6627417406065219,
+     0.7581766913020496
+    ],
+    "second": [
+     0.4029856770342429,
+     0.7427391171226849,
+     0.6589711632081681,
+     0.3365143075404688,
+     0.2189204953778606,
+     0.4430564203944388
+    ],
+    "wins": 1,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": -0.3910325097443742
+   },
+   {
+    "M": 90,
+    "target": "e_red",
+    "comparison": "u_epi vs u_ale",
+    "mean_first": 0.4160326564179205,
+    "mean_second": 0.2797483030859653,
+    "first": [
+     0.6615605689009086,
+     0.3531866229231047,
+     0.726204983657549,
+     0.20924988461531435,
+     0.12018493502781535,
+     0.425808943382831
+    ],
+    "second": [
+     0.5132472071204267,
+     0.32299375603889363,
+     0.2902159943110308,
+     0.1703838153639293,
+     0.1465700147004103,
+     0.23507903098110125
+    ],
+    "wins": 1,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": -0.0935897155159335
+   },
+   {
+    "M": 90,
+    "target": "e_red",
+    "comparison": "P2 1-max p vs averaging 1-max p",
+    "mean_first": 0.0445468629044584,
+    "mean_second": 0.05083945525821696,
+    "first": [
+     0.1209587675617859,
+     0.04976348615360337,
+     0.06825828343438838,
+     0.0014001812285921343,
+     0.0006761535662801114,
+     0.026224305482100474
+    ],
+    "second": [
+     0.1518729173768331,
+     0.04659679850153957,
+     0.09072033593169289,
+     0.00032274236584729473,
+     0.001404222058427304,
+     0.014119715314961628
+    ],
+    "wins": 3,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 1.0,
+    "median_diff": -0.00017468518529882354
+   },
+   {
+    "M": 90,
+    "target": "e_red",
+    "comparison": "u_epi vs NormLift 1/(1+N_eff)",
+    "mean_first": 0.4160326564179205,
+    "mean_second": 0.5132438135428401,
+    "first": [
+     0.6615605689009086,
+     0.3531866229231047,
+     0.726204983657549,
+     0.20924988461531435,
+     0.12018493502781535,
+     0.425808943382831
+    ],
+    "second": [
+     0.9014789088256793,
+     0.5931441778435343,
+     0.4238708414473765,
+     0.569558927601596,
+     0.18894478600500433,
+     0.4024652395338504
+    ],
+    "wins": 4,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.6875,
+    "median_diff": 0.1543390954509798
+   },
+   {
+    "M": 90,
+    "target": "e_red",
+    "comparison": "u_ale vs NormLift 1-C_inter",
+    "mean_first": 0.2797483030859653,
+    "mean_second": 0.1947302358171581,
+    "first": [
+     0.5132472071204267,
+     0.32299375603889363,
+     0.2902159943110308,
+     0.1703838153639293,
+     0.1465700147004103,
+     0.23507903098110125
+    ],
+    "second": [
+     0.25100934598185753,
+     0.18309292275872927,
+     0.29234301921288375,
+     0.1493233272065233,
+     0.0950161254026837,
+     0.197596674340271
+    ],
+    "wins": 1,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": -0.04451812296927843
+   },
+   {
+    "M": 90,
+    "target": "e_irr",
+    "comparison": "u_ale vs u_epi",
+    "mean_first": 0.4836555903624041,
+    "mean_second": 0.826390888724387,
+    "first": [
+     0.5157015375035455,
+     0.45244635980044473,
+     0.8995298054112288,
+     0.3545223313361062,
+     0.30572780599510707,
+     0.37400570212799195
+    ],
+    "second": [
+     0.7766298523461562,
+     0.4743893007554054,
+     1.5749695032549458,
+     0.7719122572188616,
+     0.6427345017825442,
+     0.717709916988409
+    ],
+    "wins": 6,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.03125,
+    "median_diff": 0.3403554553239271
+   },
+   {
+    "M": 90,
+    "target": "e_irr",
+    "comparison": "P2 1-max p vs averaging 1-max p",
+    "mean_first": 0.44348253971210055,
+    "mean_second": 0.5300905487819542,
+    "first": [
+     0.4014826614057391,
+     0.6368471462848324,
+     0.7387829421196483,
+     0.3174436557426408,
+     0.30439699262943265,
+     0.26194184009031063
+    ],
+    "second": [
+     0.46010492624953964,
+     0.97479068353182,
+     0.759543197059251,
+     0.38639441553754456,
+     0.3371207595806909,
+     0.26258931073287917
+    ],
+    "wins": 6,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.03125,
+    "median_diff": 0.04567301589752937
+   },
+   {
+    "M": 90,
+    "target": "e_irr",
+    "comparison": "u_epi vs NormLift 1/(1+N_eff)",
+    "mean_first": 0.826390888724387,
+    "mean_second": 1.0061052978132572,
+    "first": [
+     0.7766298523461562,
+     0.4743893007554054,
+     1.5749695032549458,
+     0.7719122572188616,
+     0.6427345017825442,
+     0.717709916988409
+    ],
+    "second": [
+     0.972940884367965,
+     0.7439442334348807,
+     1.535328957287274,
+     0.9488205128789604,
+     1.0372510254833054,
+     0.7983461734271572
+    ],
+    "wins": 5,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": 0.1866096438409538
+   },
+   {
+    "M": 90,
+    "target": "e_irr",
+    "comparison": "u_ale vs NormLift 1-C_inter",
+    "mean_first": 0.4836555903624041,
+    "mean_second": 0.45833679930343046,
+    "first": [
+     0.5157015375035455,
+     0.45244635980044473,
+     0.8995298054112288,
+     0.3545223313361062,
+     0.30572780599510707,
+     0.37400570212799195
+    ],
+    "second": [
+     0.32281221768273743,
+     0.6005780751668728,
+     0.8942957246813533,
+     0.42142271801677056,
+     0.22337923731817183,
+     0.28753282295467714
+    ],
+    "wins": 2,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.6875,
+    "median_diff": -0.04379132470340538
+   },
+   {
+    "M": "full",
+    "target": "e_irr",
+    "comparison": "u_ale vs u_epi",
+    "mean_first": 0.4207055425136655,
+    "mean_second": 0.8217255835661973,
+    "first": [
+     0.3896588038446564,
+     0.4974010339902795,
+     0.7243845248873094,
+     0.33772200313317485,
+     0.2876912226591294,
+     0.28737566656744323
+    ],
+    "second": [
+     0.7928044470928151,
+     0.4871599650570272,
+     1.5386349286346392,
+     0.7443251646824238,
+     0.6356190970858531,
+     0.7318098988444252
+    ],
+    "wins": 5,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": 0.4048744023987038
+   },
+   {
+    "M": "full",
+    "target": "e_irr",
+    "comparison": "P2 1-max p vs averaging 1-max p",
+    "mean_first": 0.43672899381585145,
+    "mean_second": 0.5218383981877873,
+    "first": [
+     0.36322820442054715,
+     0.694365401077511,
+     0.6998174190779792,
+     0.3155718101835349,
+     0.30879992472301127,
+     0.23859120341252557
+    ],
+    "second": [
+     0.4282124017491101,
+     0.9778924887164622,
+     0.7523610460781603,
+     0.39080869556483433,
+     0.337251970404362,
+     0.24450378661379474
+    ],
+    "wins": 6,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.03125,
+    "median_diff": 0.058763912164372045
+   },
+   {
+    "M": "full",
+    "target": "e_irr",
+    "comparison": "u_epi vs NormLift 1/(1+N_eff)",
+    "mean_first": 0.8217255835661973,
+    "mean_second": 1.0017488978368279,
+    "first": [
+     0.7928044470928151,
+     0.4871599650570272,
+     1.5386349286346392,
+     0.7443251646824238,
+     0.6356190970858531,
+     0.7318098988444252
+    ],
+    "second": [
+     0.9583883503465934,
+     0.7302759214715807,
+     1.5210534128496835,
+     0.9514535855218664,
+     1.044888088092316,
+     0.8044340287389263
+    ],
+    "wins": 5,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 0.21875,
+    "median_diff": 0.18635616204661049
+   },
+   {
+    "M": "full",
+    "target": "e_irr",
+    "comparison": "u_ale vs NormLift 1-C_inter",
+    "mean_first": 0.4207055425136655,
+    "mean_second": 0.4322651601170022,
+    "first": [
+     0.3896588038446564,
+     0.4974010339902795,
+     0.7243845248873094,
+     0.33772200313317485,
+     0.2876912226591294,
+     0.28737566656744323
+    ],
+    "second": [
+     0.3218170305192625,
+     0.5315628242343821,
+     0.8075114153565154,
+     0.40450936815309363,
+     0.26345652271320374,
+     0.26473379972555616
+    ],
+    "wins": 3,
+    "n": 6,
+    "ties": 0,
+    "sign_p": 1.0,
+    "median_diff": 0.005759961701107735
+   }
+  ]
+ },
+ "scannet": {
+  "scenes": [
+   "scene0070_00",
+   "scene0097_00",
+   "scene0140_00",
+   "scene0200_00",
+   "scene0347_00",
+   "scene0400_00",
+   "scene0590_00",
+   "scene0645_00"
+  ],
+  "points": [
+   {
+    "M": "full",
+    "target": "e_irr",
+    "comparison": "u_ale vs u_epi",
+    "mean_first": 0.5858222847292565,
+    "mean_second": 0.866326233767392,
+    "first": [
+     0.5252228542649748,
+     1.4056166179379423,
+     0.3470765703132993,
+     0.6684227875252732,
+     0.7473714103782652,
+     0.2428493038204816,
+     0.4764900435735063,
+     0.27352869002030933
+    ],
+    "second": [
+     0.5605805080459922,
+     1.7220414627691236,
+     0.4091283734525039,
+     0.8632544018298793,
+     0.8579453735918391,
+     0.7975886621357928,
+     0.9698417113044306,
+     0.7502293770095737
+    ],
+    "wins": 8,
+    "n": 8,
+    "ties": 0,
+    "sign_p": 0.0078125,
+    "median_diff": 0.2556282295678937
+   },
+   {
+    "M": "full",
+    "target": "e_irr",
+    "comparison": "P2 1-max p vs averaging 1-max p",
+    "mean_first": 0.3149919353120698,
+    "mean_second": 0.25859021088441614,
+    "first": [
+     0.48286635711418874,
+     0.12895900913716246,
+     0.3582689745075423,
+     0.2956264295970443,
+     0.48726146984016067,
+     0.10304105087405224,
+     0.4166254163446425,
+     0.2472867750817653
+    ],
+    "second": [
+     0.36715855282835747,
+     0.12992418276495624,
+     0.3060617929016579,
+     0.26270984445953505,
+     0.38159036907750854,
+     0.07070280033223961,
+     0.32369353501070725,
+     0.22688060970036694
+    ],
+    "wins": 1,
+    "n": 8,
+    "ties": 0,
+    "sign_p": 0.0703125,
+    "median_diff": -0.042561883371696835
+   },
+   {
+    "M": "full",
+    "target": "e_irr",
+    "comparison": "u_epi vs NormLift 1/(1+N_eff)",
+    "mean_first": 0.866326233767392,
+    "mean_second": 1.1677533445031458,
+    "first": [
+     0.5605805080459922,
+     1.7220414627691236,
+     0.4091283734525039,
+     0.8632544018298793,
+     0.8579453735918391,
+     0.7975886621357928,
+     0.9698417113044306,
+     0.7502293770095737
+    ],
+    "second": [
+     0.752782659683523,
+     1.7313833998264512,
+     0.9355359141257005,
+     1.1585267394009673,
+     1.16815804783367,
+     1.2216201278224972,
+     1.3124387537838687,
+     1.0615811135484898
+    ],
+    "wins": 8,
+    "n": 8,
+    "ties": 0,
+    "sign_p": 0.0078125,
+    "median_diff": 0.3107822053903735
+   },
+   {
+    "M": "full",
+    "target": "e_irr",
+    "comparison": "u_ale vs NormLift 1-C_inter",
+    "mean_first": 0.5858222847292565,
+    "mean_second": 0.5744883892109303,
+    "first": [
+     0.5252228542649748,
+     1.4056166179379423,
+     0.3470765703132993,
+     0.6684227875252732,
+     0.7473714103782652,
+     0.2428493038204816,
+     0.4764900435735063,
+     0.27352869002030933
+    ],
+    "second": [
+     0.5209960892935219,
+     1.455507802341734,
+     0.3490964964713327,
+     0.7331744166722832,
+     0.7247342084091635,
+     0.20093288477366728,
+     0.37316586742244245,
+     0.23829934830329766
+    ],
+    "wins": 3,
+    "n": 8,
+    "ties": 0,
+    "sign_p": 0.7265625,
+    "median_diff": -0.013431983470277298
+   }
+  ],
+  "note": "ScanNet full map only (the Table I record; every error is e_irr there); no ScanNet views run"
+ },
+ "latex": {
+  "file": "views.tex",
+  "blocks": [
+   {
+    "name": "views_replica",
+    "note": "Replica test, relative AUSE (1 = random). Cols: M | target | first vs second | means | first lower x/N | sign p",
+    "rows": [
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/0/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "10"
+       },
+       {
+        "keys": [
+         "replica/points/0/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/0/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs u\\_ale"
+       },
+       {
+        "keys": [
+         "replica/points/0/mean_first",
+         "replica/points/0/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.345 vs 0.901"
+       },
+       {
+        "keys": [
+         "replica/points/0/wins",
+         "replica/points/0/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "6/6"
+       },
+       {
+        "keys": [
+         "replica/points/0/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.031"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/1/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "10"
+       },
+       {
+        "keys": [
+         "replica/points/1/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/1/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "P2 1-max p vs averaging 1-max p"
+       },
+       {
+        "keys": [
+         "replica/points/1/mean_first",
+         "replica/points/1/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.188 vs 0.189"
+       },
+       {
+        "keys": [
+         "replica/points/1/wins",
+         "replica/points/1/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "5/6"
+       },
+       {
+        "keys": [
+         "replica/points/1/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/2/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "10"
+       },
+       {
+        "keys": [
+         "replica/points/2/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/2/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs NormLift 1/(1+N\\_eff)"
+       },
+       {
+        "keys": [
+         "replica/points/2/mean_first",
+         "replica/points/2/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.345 vs 0.393"
+       },
+       {
+        "keys": [
+         "replica/points/2/wins",
+         "replica/points/2/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "3/6"
+       },
+       {
+        "keys": [
+         "replica/points/2/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "1"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/3/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "10"
+       },
+       {
+        "keys": [
+         "replica/points/3/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/3/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs NormLift 1-C\\_inter"
+       },
+       {
+        "keys": [
+         "replica/points/3/mean_first",
+         "replica/points/3/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.901 vs 0.492"
+       },
+       {
+        "keys": [
+         "replica/points/3/wins",
+         "replica/points/3/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "0/6"
+       },
+       {
+        "keys": [
+         "replica/points/3/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.031"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/4/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "10"
+       },
+       {
+        "keys": [
+         "replica/points/4/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/4/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs u\\_epi"
+       },
+       {
+        "keys": [
+         "replica/points/4/mean_first",
+         "replica/points/4/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "1.072 vs 0.848"
+       },
+       {
+        "keys": [
+         "replica/points/4/wins",
+         "replica/points/4/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "1/6"
+       },
+       {
+        "keys": [
+         "replica/points/4/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/5/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "10"
+       },
+       {
+        "keys": [
+         "replica/points/5/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/5/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "P2 1-max p vs averaging 1-max p"
+       },
+       {
+        "keys": [
+         "replica/points/5/mean_first",
+         "replica/points/5/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.518 vs 0.616"
+       },
+       {
+        "keys": [
+         "replica/points/5/wins",
+         "replica/points/5/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "6/6"
+       },
+       {
+        "keys": [
+         "replica/points/5/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.031"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/6/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "10"
+       },
+       {
+        "keys": [
+         "replica/points/6/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/6/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs NormLift 1/(1+N\\_eff)"
+       },
+       {
+        "keys": [
+         "replica/points/6/mean_first",
+         "replica/points/6/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.848 vs 1.054"
+       },
+       {
+        "keys": [
+         "replica/points/6/wins",
+         "replica/points/6/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "5/6"
+       },
+       {
+        "keys": [
+         "replica/points/6/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/7/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "10"
+       },
+       {
+        "keys": [
+         "replica/points/7/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/7/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs NormLift 1-C\\_inter"
+       },
+       {
+        "keys": [
+         "replica/points/7/mean_first",
+         "replica/points/7/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "1.072 vs 0.662"
+       },
+       {
+        "keys": [
+         "replica/points/7/wins",
+         "replica/points/7/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "0/6"
+       },
+       {
+        "keys": [
+         "replica/points/7/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.031"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/8/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "30"
+       },
+       {
+        "keys": [
+         "replica/points/8/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/8/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs u\\_ale"
+       },
+       {
+        "keys": [
+         "replica/points/8/mean_first",
+         "replica/points/8/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.372 vs 0.564"
+       },
+       {
+        "keys": [
+         "replica/points/8/wins",
+         "replica/points/8/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "5/6"
+       },
+       {
+        "keys": [
+         "replica/points/8/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/9/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "30"
+       },
+       {
+        "keys": [
+         "replica/points/9/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/9/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "P2 1-max p vs averaging 1-max p"
+       },
+       {
+        "keys": [
+         "replica/points/9/mean_first",
+         "replica/points/9/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.087 vs 0.084"
+       },
+       {
+        "keys": [
+         "replica/points/9/wins",
+         "replica/points/9/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "4/6"
+       },
+       {
+        "keys": [
+         "replica/points/9/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.69"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/10/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "30"
+       },
+       {
+        "keys": [
+         "replica/points/10/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/10/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs NormLift 1/(1+N\\_eff)"
+       },
+       {
+        "keys": [
+         "replica/points/10/mean_first",
+         "replica/points/10/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.372 vs 0.476"
+       },
+       {
+        "keys": [
+         "replica/points/10/wins",
+         "replica/points/10/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "3/6"
+       },
+       {
+        "keys": [
+         "replica/points/10/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "1"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/11/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "30"
+       },
+       {
+        "keys": [
+         "replica/points/11/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/11/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs NormLift 1-C\\_inter"
+       },
+       {
+        "keys": [
+         "replica/points/11/mean_first",
+         "replica/points/11/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.564 vs 0.313"
+       },
+       {
+        "keys": [
+         "replica/points/11/wins",
+         "replica/points/11/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "1/6"
+       },
+       {
+        "keys": [
+         "replica/points/11/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/12/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "30"
+       },
+       {
+        "keys": [
+         "replica/points/12/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/12/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs u\\_epi"
+       },
+       {
+        "keys": [
+         "replica/points/12/mean_first",
+         "replica/points/12/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.786 vs 0.835"
+       },
+       {
+        "keys": [
+         "replica/points/12/wins",
+         "replica/points/12/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "3/6"
+       },
+       {
+        "keys": [
+         "replica/points/12/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "1"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/13/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "30"
+       },
+       {
+        "keys": [
+         "replica/points/13/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/13/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "P2 1-max p vs averaging 1-max p"
+       },
+       {
+        "keys": [
+         "replica/points/13/mean_first",
+         "replica/points/13/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.466 vs 0.565"
+       },
+       {
+        "keys": [
+         "replica/points/13/wins",
+         "replica/points/13/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "5/6"
+       },
+       {
+        "keys": [
+         "replica/points/13/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/14/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "30"
+       },
+       {
+        "keys": [
+         "replica/points/14/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/14/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs NormLift 1/(1+N\\_eff)"
+       },
+       {
+        "keys": [
+         "replica/points/14/mean_first",
+         "replica/points/14/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.835 vs 1.032"
+       },
+       {
+        "keys": [
+         "replica/points/14/wins",
+         "replica/points/14/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "5/6"
+       },
+       {
+        "keys": [
+         "replica/points/14/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/15/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "30"
+       },
+       {
+        "keys": [
+         "replica/points/15/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/15/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs NormLift 1-C\\_inter"
+       },
+       {
+        "keys": [
+         "replica/points/15/mean_first",
+         "replica/points/15/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.786 vs 0.467"
+       },
+       {
+        "keys": [
+         "replica/points/15/wins",
+         "replica/points/15/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "1/6"
+       },
+       {
+        "keys": [
+         "replica/points/15/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/16/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "90"
+       },
+       {
+        "keys": [
+         "replica/points/16/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/16/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs u\\_ale"
+       },
+       {
+        "keys": [
+         "replica/points/16/mean_first",
+         "replica/points/16/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.416 vs 0.280"
+       },
+       {
+        "keys": [
+         "replica/points/16/wins",
+         "replica/points/16/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "1/6"
+       },
+       {
+        "keys": [
+         "replica/points/16/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/17/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "90"
+       },
+       {
+        "keys": [
+         "replica/points/17/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/17/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "P2 1-max p vs averaging 1-max p"
+       },
+       {
+        "keys": [
+         "replica/points/17/mean_first",
+         "replica/points/17/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.045 vs 0.051"
+       },
+       {
+        "keys": [
+         "replica/points/17/wins",
+         "replica/points/17/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "3/6"
+       },
+       {
+        "keys": [
+         "replica/points/17/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "1"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/18/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "90"
+       },
+       {
+        "keys": [
+         "replica/points/18/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/18/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs NormLift 1/(1+N\\_eff)"
+       },
+       {
+        "keys": [
+         "replica/points/18/mean_first",
+         "replica/points/18/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.416 vs 0.513"
+       },
+       {
+        "keys": [
+         "replica/points/18/wins",
+         "replica/points/18/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "4/6"
+       },
+       {
+        "keys": [
+         "replica/points/18/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.69"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/19/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "90"
+       },
+       {
+        "keys": [
+         "replica/points/19/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_red"
+       },
+       {
+        "keys": [
+         "replica/points/19/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs NormLift 1-C\\_inter"
+       },
+       {
+        "keys": [
+         "replica/points/19/mean_first",
+         "replica/points/19/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.280 vs 0.195"
+       },
+       {
+        "keys": [
+         "replica/points/19/wins",
+         "replica/points/19/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "1/6"
+       },
+       {
+        "keys": [
+         "replica/points/19/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/20/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "90"
+       },
+       {
+        "keys": [
+         "replica/points/20/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/20/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs u\\_epi"
+       },
+       {
+        "keys": [
+         "replica/points/20/mean_first",
+         "replica/points/20/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.484 vs 0.826"
+       },
+       {
+        "keys": [
+         "replica/points/20/wins",
+         "replica/points/20/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "6/6"
+       },
+       {
+        "keys": [
+         "replica/points/20/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.031"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/21/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "90"
+       },
+       {
+        "keys": [
+         "replica/points/21/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/21/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "P2 1-max p vs averaging 1-max p"
+       },
+       {
+        "keys": [
+         "replica/points/21/mean_first",
+         "replica/points/21/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.443 vs 0.530"
+       },
+       {
+        "keys": [
+         "replica/points/21/wins",
+         "replica/points/21/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "6/6"
+       },
+       {
+        "keys": [
+         "replica/points/21/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.031"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/22/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "90"
+       },
+       {
+        "keys": [
+         "replica/points/22/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/22/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs NormLift 1/(1+N\\_eff)"
+       },
+       {
+        "keys": [
+         "replica/points/22/mean_first",
+         "replica/points/22/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.826 vs 1.006"
+       },
+       {
+        "keys": [
+         "replica/points/22/wins",
+         "replica/points/22/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "5/6"
+       },
+       {
+        "keys": [
+         "replica/points/22/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/23/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "90"
+       },
+       {
+        "keys": [
+         "replica/points/23/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/23/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs NormLift 1-C\\_inter"
+       },
+       {
+        "keys": [
+         "replica/points/23/mean_first",
+         "replica/points/23/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.484 vs 0.458"
+       },
+       {
+        "keys": [
+         "replica/points/23/wins",
+         "replica/points/23/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "2/6"
+       },
+       {
+        "keys": [
+         "replica/points/23/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.69"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/24/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "full"
+       },
+       {
+        "keys": [
+         "replica/points/24/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/24/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs u\\_epi"
+       },
+       {
+        "keys": [
+         "replica/points/24/mean_first",
+         "replica/points/24/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.421 vs 0.822"
+       },
+       {
+        "keys": [
+         "replica/points/24/wins",
+         "replica/points/24/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "5/6"
+       },
+       {
+        "keys": [
+         "replica/points/24/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/25/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "full"
+       },
+       {
+        "keys": [
+         "replica/points/25/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/25/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "P2 1-max p vs averaging 1-max p"
+       },
+       {
+        "keys": [
+         "replica/points/25/mean_first",
+         "replica/points/25/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.437 vs 0.522"
+       },
+       {
+        "keys": [
+         "replica/points/25/wins",
+         "replica/points/25/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "6/6"
+       },
+       {
+        "keys": [
+         "replica/points/25/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.031"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/26/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "full"
+       },
+       {
+        "keys": [
+         "replica/points/26/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/26/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs NormLift 1/(1+N\\_eff)"
+       },
+       {
+        "keys": [
+         "replica/points/26/mean_first",
+         "replica/points/26/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.822 vs 1.002"
+       },
+       {
+        "keys": [
+         "replica/points/26/wins",
+         "replica/points/26/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "5/6"
+       },
+       {
+        "keys": [
+         "replica/points/26/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.22"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "replica/points/27/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "full"
+       },
+       {
+        "keys": [
+         "replica/points/27/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "replica/points/27/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs NormLift 1-C\\_inter"
+       },
+       {
+        "keys": [
+         "replica/points/27/mean_first",
+         "replica/points/27/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.421 vs 0.432"
+       },
+       {
+        "keys": [
+         "replica/points/27/wins",
+         "replica/points/27/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "3/6"
+       },
+       {
+        "keys": [
+         "replica/points/27/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "1"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "views_scannet",
+    "note": "ScanNet test, relative AUSE (1 = random). Cols: M | target | first vs second | means | first lower x/N | sign p",
+    "rows": [
+     {
+      "cells": [
+       {
+        "keys": [
+         "scannet/points/0/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "full"
+       },
+       {
+        "keys": [
+         "scannet/points/0/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "scannet/points/0/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs u\\_epi"
+       },
+       {
+        "keys": [
+         "scannet/points/0/mean_first",
+         "scannet/points/0/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.586 vs 0.866"
+       },
+       {
+        "keys": [
+         "scannet/points/0/wins",
+         "scannet/points/0/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "8/8"
+       },
+       {
+        "keys": [
+         "scannet/points/0/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.0078"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scannet/points/1/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "full"
+       },
+       {
+        "keys": [
+         "scannet/points/1/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "scannet/points/1/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "P2 1-max p vs averaging 1-max p"
+       },
+       {
+        "keys": [
+         "scannet/points/1/mean_first",
+         "scannet/points/1/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.315 vs 0.259"
+       },
+       {
+        "keys": [
+         "scannet/points/1/wins",
+         "scannet/points/1/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "1/8"
+       },
+       {
+        "keys": [
+         "scannet/points/1/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.07"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scannet/points/2/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "full"
+       },
+       {
+        "keys": [
+         "scannet/points/2/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "scannet/points/2/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_epi vs NormLift 1/(1+N\\_eff)"
+       },
+       {
+        "keys": [
+         "scannet/points/2/mean_first",
+         "scannet/points/2/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.866 vs 1.168"
+       },
+       {
+        "keys": [
+         "scannet/points/2/wins",
+         "scannet/points/2/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "8/8"
+       },
+       {
+        "keys": [
+         "scannet/points/2/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.0078"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scannet/points/3/M"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "full"
+       },
+       {
+        "keys": [
+         "scannet/points/3/target"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "e\\_irr"
+       },
+       {
+        "keys": [
+         "scannet/points/3/comparison"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "u\\_ale vs NormLift 1-C\\_inter"
+       },
+       {
+        "keys": [
+         "scannet/points/3/mean_first",
+         "scannet/points/3/mean_second"
+        ],
+        "specs": [
+         ".3f",
+         ".3f"
+        ],
+        "template": "@0 vs @1",
+        "text": "0.586 vs 0.574"
+       },
+       {
+        "keys": [
+         "scannet/points/3/wins",
+         "scannet/points/3/n"
+        ],
+        "specs": [
+         "d",
+         "d"
+        ],
+        "template": "@0/@1",
+        "text": "3/8"
+       },
+       {
+        "keys": [
+         "scannet/points/3/sign_p"
+        ],
+        "specs": [
+         "p"
+        ],
+        "template": "@0",
+        "text": "0.73"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}

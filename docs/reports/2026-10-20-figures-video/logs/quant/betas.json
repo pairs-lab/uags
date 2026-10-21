@@ -1,0 +1,195 @@
+{
+ "_command": "python3 scripts/quant_stats.py betas --val $RES/tab1/eval_val.json $RES/scannet_tab1/eval_val.json --test $RES/tab1/eval_test.json $RES/scannet_tab1/eval_test.json --json docs/reports/2026-10-20-figures-video/logs/quant/betas.json --tex docs/reports/2026-10-20-figures-video/logs/quant/betas.tex",
+ "_vars": {
+  "RES": "../../data/uags_results",
+  "NORD": "../../data/nerf_object_removal/nerf-object-removal"
+ },
+ "formula": "beta_p = beta_0 exp(-gamma_e u_epi - gamma_a u_ale - gamma_u 1[u_ale undefined]) (usplat/predictive.py adaptive_beta; code a, b, g = gamma_e, gamma_a, gamma_u); fitted by NLL on the validation split",
+ "datasets": [
+  {
+   "dataset": "Replica",
+   "source": {
+    "path": "$RES/tab1/eval_val.json",
+    "sha256": "3ffbd57fbc90b940ef2304e4d26f5d8907d3e9015c5e622944378c8eca994a48"
+   },
+   "scenes": [
+    "office_0",
+    "room_2"
+   ],
+   "P2": {
+    "beta_0": 45.557463992815094,
+    "gamma_e": 0.36058766622030924,
+    "gamma_a": 11.826138130129648,
+    "gamma_u": 0.05489957571289264
+   },
+   "P0_beta": 35.98359721719833,
+   "averaging_beta": 35.99961356115293,
+   "test_record_uses_same_P2": true
+  },
+  {
+   "dataset": "ScanNet",
+   "source": {
+    "path": "$RES/scannet_tab1/eval_val.json",
+    "sha256": "072c82ce4b0b2a500982ce6cfbe15c6b9eea1e516fc58bd53051469262ecfa6c"
+   },
+   "scenes": [
+    "scene0000_00",
+    "scene0062_00"
+   ],
+   "P2": {
+    "beta_0": 34.58050344675894,
+    "gamma_e": -0.795529917491603,
+    "gamma_a": -2.063556096144412,
+    "gamma_u": 0.14212396699586669
+   },
+   "P2p1": {
+    "beta_0": 32.721906834721835,
+    "gamma_e": -1.8016342833925023,
+    "gamma_a": -2.286162228330378,
+    "gamma_u": -0.014609056492462571
+   },
+   "P0_beta": 39.20830920602533,
+   "averaging_beta": 38.65970394632828,
+   "test_record_uses_same_P2": true
+  }
+ ],
+ "latex": {
+  "file": "betas.tex",
+  "blocks": [
+   {
+    "name": "p2_coefficients",
+    "note": "Fitted P2 coefficients (validation NLL). Cols: dataset | $\\beta_0$ | $\\gamma_e$ | $\\gamma_a$ | $\\gamma_u$ | $\\beta$ of P0",
+    "rows": [
+     {
+      "cells": [
+       {
+        "keys": [
+         "datasets/0/dataset"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "Replica"
+       },
+       {
+        "keys": [
+         "datasets/0/P2/beta_0"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "45.6"
+       },
+       {
+        "keys": [
+         "datasets/0/P2/gamma_e"
+        ],
+        "specs": [
+         "+.2f"
+        ],
+        "template": "@0",
+        "text": "+0.36"
+       },
+       {
+        "keys": [
+         "datasets/0/P2/gamma_a"
+        ],
+        "specs": [
+         "+.2f"
+        ],
+        "template": "@0",
+        "text": "+11.83"
+       },
+       {
+        "keys": [
+         "datasets/0/P2/gamma_u"
+        ],
+        "specs": [
+         "+.3f"
+        ],
+        "template": "@0",
+        "text": "+0.055"
+       },
+       {
+        "keys": [
+         "datasets/0/P0_beta"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "36.0"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "datasets/1/dataset"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "ScanNet"
+       },
+       {
+        "keys": [
+         "datasets/1/P2/beta_0"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "34.6"
+       },
+       {
+        "keys": [
+         "datasets/1/P2/gamma_e"
+        ],
+        "specs": [
+         "+.2f"
+        ],
+        "template": "@0",
+        "text": "-0.80"
+       },
+       {
+        "keys": [
+         "datasets/1/P2/gamma_a"
+        ],
+        "specs": [
+         "+.2f"
+        ],
+        "template": "@0",
+        "text": "-2.06"
+       },
+       {
+        "keys": [
+         "datasets/1/P2/gamma_u"
+        ],
+        "specs": [
+         "+.3f"
+        ],
+        "template": "@0",
+        "text": "+0.142"
+       },
+       {
+        "keys": [
+         "datasets/1/P0_beta"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "39.2"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}

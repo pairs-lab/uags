@@ -1,0 +1,1635 @@
+{
+ "_command": "python3 scripts/quant_stats.py cost --logs $RES/scannet_tab1 --legs legs_l1 --json docs/reports/2026-10-20-figures-video/logs/quant/cost.json --tex docs/reports/2026-10-20-figures-video/logs/quant/cost.tex",
+ "_vars": {
+  "RES": "../../data/uags_results",
+  "NORD": "../../data/nerf_object_removal/nerf-object-removal"
+ },
+ "inputs": {
+  "logs": "$RES/scannet_tab1",
+  "test_scenes": "configs/scannet_test.json",
+  "legs_row": "legs_l1"
+ },
+ "scenes": [
+  {
+   "scene": "scene0000_00",
+   "split": "val",
+   "keyframes": 521,
+   "gpu": "NVIDIA GeForce RTX 4070 Ti",
+   "map_log": "$RES/scannet_tab1/map_scene0000_00.20261019-124633.log",
+   "ours_s": 27.36618184100371,
+   "update_with_css_s": 33.39002221729606,
+   "lseg_s": 48.43131274054758,
+   "peak_alloc_mib": 2824.3759765625,
+   "peak_reserved_mib": 6276.0,
+   "fit_s": 473.2,
+   "fit_log": "$RES/scannet_tab1/fit_scene0000_00.20261019-124633.log",
+   "f3dgs_iters": 19000,
+   "f3dgs_s": 1699.0,
+   "f3dgs_ms_per_iter": 89.4,
+   "f3dgs_log": "$RES/scannet_tab1/distill_scene0000_00_f3dgs.20261019-124633.log",
+   "legs_iters": 29000,
+   "legs_s": 1320.0,
+   "legs_ms_per_iter": 45.5,
+   "legs_log": "$RES/scannet_tab1/distill_scene0000_00_legs_l1.20261019-124633.log",
+   "f3dgs_over_ours": 62.08392569599639,
+   "legs_over_ours": 48.23471566728384,
+   "total_ours_s": 548.9974945815513,
+   "total_f3dgs_s": 2220.6313127405474,
+   "total_legs_s": 1841.6313127405476,
+   "total_f3dgs_over_ours": 4.044884238375484,
+   "total_legs_over_ours": 3.3545350041064363
+  },
+  {
+   "scene": "scene0062_00",
+   "split": "val",
+   "keyframes": 62,
+   "gpu": "NVIDIA GeForce RTX 4070 Ti",
+   "map_log": "$RES/scannet_tab1/map_scene0062_00.20261019-124633.log",
+   "ours_s": 4.85284866229631,
+   "update_with_css_s": 5.528649291489273,
+   "lseg_s": 16.20825164706912,
+   "peak_alloc_mib": 2761.02490234375,
+   "peak_reserved_mib": 6276.0,
+   "fit_s": 694.5,
+   "fit_log": "$RES/scannet_tab1/fit_scene0062_00.20261019-124633.log",
+   "f3dgs_iters": 27000,
+   "f3dgs_s": 2037.0,
+   "f3dgs_ms_per_iter": 75.5,
+   "f3dgs_log": "$RES/scannet_tab1/distill_scene0062_00_f3dgs.20261019-124633.log",
+   "legs_iters": 30000,
+   "legs_s": 1375.0,
+   "legs_ms_per_iter": 45.8,
+   "legs_log": "$RES/scannet_tab1/distill_scene0062_00_legs_l1.20261019-124633.log",
+   "f3dgs_over_ours": 419.7534565267312,
+   "legs_over_ours": 283.338734768903,
+   "total_ours_s": 715.5611003093654,
+   "total_f3dgs_s": 2747.708251647069,
+   "total_legs_s": 2085.708251647069,
+   "total_f3dgs_over_ours": 3.839935192758698,
+   "total_legs_over_ours": 2.9147870821168658
+  },
+  {
+   "scene": "scene0070_00",
+   "split": "test",
+   "keyframes": 124,
+   "gpu": "NVIDIA GeForce RTX 4070 Ti",
+   "map_log": "$RES/scannet_tab1/map_scene0070_00.20261019-172927.log",
+   "ours_s": 5.987243879586458,
+   "update_with_css_s": 7.186226770980284,
+   "lseg_s": 10.843766088946722,
+   "peak_alloc_mib": 2785.39794921875,
+   "peak_reserved_mib": 6276.0,
+   "fit_s": 372.9,
+   "fit_log": "$RES/scannet_tab1/fit_scene0070_00.20261019-172927.log",
+   "f3dgs_iters": 26000,
+   "f3dgs_s": 1384.0,
+   "f3dgs_ms_per_iter": 53.2,
+   "f3dgs_log": "$RES/scannet_tab1/distill_scene0070_00_f3dgs.20261019-182430.log",
+   "legs_iters": 30000,
+   "legs_s": 579.0,
+   "legs_ms_per_iter": 19.3,
+   "legs_log": "$RES/scannet_tab1/distill_scene0070_00_legs_l1.20261019-182430.log",
+   "f3dgs_over_ours": 231.15811345496644,
+   "legs_over_ours": 96.70559804221502,
+   "total_ours_s": 389.73100996853316,
+   "total_f3dgs_s": 1767.7437660889468,
+   "total_legs_s": 962.7437660889467,
+   "total_f3dgs_over_ours": 4.535804749618651,
+   "total_legs_over_ours": 2.4702775541691655
+  },
+  {
+   "scene": "scene0097_00",
+   "split": "test",
+   "keyframes": 64,
+   "gpu": "NVIDIA GeForce RTX 4070 Ti",
+   "map_log": "$RES/scannet_tab1/map_scene0097_00.20261019-172927.log",
+   "ours_s": 2.968410713947378,
+   "update_with_css_s": 3.4335176169406623,
+   "lseg_s": 5.679545717430301,
+   "peak_alloc_mib": 2339.34716796875,
+   "peak_reserved_mib": 6276.0,
+   "fit_s": 280.6,
+   "fit_log": "$RES/scannet_tab1/fit_scene0097_00.20261019-172927.log",
+   "f3dgs_iters": 24000,
+   "f3dgs_s": 883.0,
+   "f3dgs_ms_per_iter": 36.8,
+   "f3dgs_log": "$RES/scannet_tab1/distill_scene0097_00_f3dgs.20261019-182430.log",
+   "legs_iters": 30000,
+   "legs_s": 565.0,
+   "legs_ms_per_iter": 18.8,
+   "legs_log": "$RES/scannet_tab1/distill_scene0097_00_legs_l1.20261019-182430.log",
+   "f3dgs_over_ours": 297.465575046989,
+   "legs_over_ours": 190.3375423573599,
+   "total_ours_s": 289.2479564313777,
+   "total_f3dgs_s": 1169.2795457174302,
+   "total_legs_s": 851.2795457174303,
+   "total_f3dgs_over_ours": 4.042481613849654,
+   "total_legs_over_ours": 2.9430788594677284
+  },
+  {
+   "scene": "scene0140_00",
+   "split": "test",
+   "keyframes": 397,
+   "gpu": "NVIDIA GeForce RTX 4070 Ti",
+   "map_log": "$RES/scannet_tab1/map_scene0140_00.20261019-172927.log",
+   "ours_s": 17.755911770975217,
+   "update_with_css_s": 20.66847408749163,
+   "lseg_s": 34.72411386249587,
+   "peak_alloc_mib": 2778.5673828125,
+   "peak_reserved_mib": 6276.0,
+   "fit_s": 405.1,
+   "fit_log": "$RES/scannet_tab1/fit_scene0140_00.20261019-172927.log",
+   "f3dgs_iters": 24000,
+   "f3dgs_s": 951.0,
+   "f3dgs_ms_per_iter": 39.6,
+   "f3dgs_log": "$RES/scannet_tab1/distill_scene0140_00_f3dgs.20261019-182430.log",
+   "legs_iters": 24000,
+   "legs_s": 385.0,
+   "legs_ms_per_iter": 16.1,
+   "legs_log": "$RES/scannet_tab1/distill_scene0140_00_legs_l1.20261019-182430.log",
+   "f3dgs_over_ours": 53.55962635242176,
+   "legs_over_ours": 21.682919185785888,
+   "total_ours_s": 457.5800256334711,
+   "total_f3dgs_s": 1390.8241138624958,
+   "total_legs_s": 824.8241138624959,
+   "total_f3dgs_over_ours": 3.03952103664719,
+   "total_legs_over_ours": 1.8025789318941845
+  },
+  {
+   "scene": "scene0200_00",
+   "split": "test",
+   "keyframes": 78,
+   "gpu": "NVIDIA GeForce RTX 4070 Ti",
+   "map_log": "$RES/scannet_tab1/map_scene0200_00.20261019-172927.log",
+   "ours_s": 3.9100454980507493,
+   "update_with_css_s": 4.557195509201847,
+   "lseg_s": 6.843510233564302,
+   "peak_alloc_mib": 2779.21435546875,
+   "peak_reserved_mib": 6276.0,
+   "fit_s": 321.3,
+   "fit_log": "$RES/scannet_tab1/fit_scene0200_00.20261019-172927.log",
+   "f3dgs_iters": 28000,
+   "f3dgs_s": 1533.0,
+   "f3dgs_ms_per_iter": 54.7,
+   "f3dgs_log": "$RES/scannet_tab1/distill_scene0200_00_f3dgs.20261019-182430.log",
+   "legs_iters": 30000,
+   "legs_s": 459.0,
+   "legs_ms_per_iter": 15.3,
+   "legs_log": "$RES/scannet_tab1/distill_scene0200_00_legs_l1.20261019-182430.log",
+   "f3dgs_over_ours": 392.0670490315872,
+   "legs_over_ours": 117.38993835975117,
+   "total_ours_s": 332.05355573161506,
+   "total_f3dgs_s": 1861.1435102335643,
+   "total_legs_s": 787.1435102335643,
+   "total_f3dgs_over_ours": 5.604949798332678,
+   "total_legs_over_ours": 2.3705317911722026
+  },
+  {
+   "scene": "scene0347_00",
+   "split": "test",
+   "keyframes": 80,
+   "gpu": "NVIDIA GeForce RTX 4070 Ti",
+   "map_log": "$RES/scannet_tab1/map_scene0347_00.20261019-172927.log",
+   "ours_s": 3.693272045115009,
+   "update_with_css_s": 4.232638779329136,
+   "lseg_s": 7.129200574010611,
+   "peak_alloc_mib": 2770.60693359375,
+   "peak_reserved_mib": 6276.0,
+   "fit_s": 302.4,
+   "fit_log": "$RES/scannet_tab1/fit_scene0347_00.20261019-172927.log",
+   "f3dgs_iters": 26000,
+   "f3dgs_s": 1151.0,
+   "f3dgs_ms_per_iter": 44.3,
+   "f3dgs_log": "$RES/scannet_tab1/distill_scene0347_00_f3dgs.20261019-182430.log",
+   "legs_iters": 30000,
+   "legs_s": 472.0,
+   "legs_ms_per_iter": 15.7,
+   "legs_log": "$RES/scannet_tab1/distill_scene0347_00_legs_l1.20261019-182430.log",
+   "f3dgs_over_ours": 311.6477708492654,
+   "legs_over_ours": 127.79995468362577,
+   "total_ours_s": 313.2224726191256,
+   "total_f3dgs_s": 1460.5292005740107,
+   "total_legs_s": 781.5292005740106,
+   "total_f3dgs_over_ours": 4.662913195088639,
+   "total_legs_over_ours": 2.495124931614788
+  },
+  {
+   "scene": "scene0400_00",
+   "split": "test",
+   "keyframes": 117,
+   "gpu": "NVIDIA GeForce RTX 4070 Ti",
+   "map_log": "$RES/scannet_tab1/map_scene0400_00.20261019-172927.log",
+   "ours_s": 5.285685386857949,
+   "update_with_css_s": 6.0706990010803565,
+   "lseg_s": 10.296447763335891,
+   "peak_alloc_mib": 2769.91259765625,
+   "peak_reserved_mib": 6276.0,
+   "fit_s": 266.6,
+   "fit_log": "$RES/scannet_tab1/fit_scene0400_00.20261019-172927.log",
+   "f3dgs_iters": 21000,
+   "f3dgs_s": 1597.0,
+   "f3dgs_ms_per_iter": 76.1,
+   "f3dgs_log": "$RES/scannet_tab1/distill_scene0400_00_f3dgs.20261019-182430.log",
+   "legs_iters": 30000,
+   "legs_s": 1221.0,
+   "legs_ms_per_iter": 40.7,
+   "legs_log": "$RES/scannet_tab1/distill_scene0400_00_legs_l1.20261019-182430.log",
+   "f3dgs_over_ours": 302.13678702305987,
+   "legs_over_ours": 231.001262965032,
+   "total_ours_s": 282.18213315019386,
+   "total_f3dgs_s": 1873.8964477633358,
+   "total_legs_s": 1497.8964477633358,
+   "total_f3dgs_over_ours": 6.64073386519457,
+   "total_legs_over_ours": 5.308261125682495
+  },
+  {
+   "scene": "scene0590_00",
+   "split": "test",
+   "keyframes": 243,
+   "gpu": "NVIDIA GeForce RTX 4070 Ti",
+   "map_log": "$RES/scannet_tab1/map_scene0590_00.20261019-172927.log",
+   "ours_s": 10.63555606547743,
+   "update_with_css_s": 12.992349067004398,
+   "lseg_s": 21.300844749086536,
+   "peak_alloc_mib": 2823.96142578125,
+   "peak_reserved_mib": 6276.0,
+   "fit_s": 327.3,
+   "fit_log": "$RES/scannet_tab1/fit_scene0590_00.20261019-172927.log",
+   "f3dgs_iters": 23000,
+   "f3dgs_s": 972.0,
+   "f3dgs_ms_per_iter": 42.3,
+   "f3dgs_log": "$RES/scannet_tab1/distill_scene0590_00_f3dgs.20261019-182430.log",
+   "legs_iters": 30000,
+   "legs_s": 1001.0,
+   "legs_ms_per_iter": 33.4,
+   "legs_log": "$RES/scannet_tab1/distill_scene0590_00_legs_l1.20261019-182430.log",
+   "f3dgs_over_ours": 91.39155433114318,
+   "legs_over_ours": 94.11825708382132,
+   "total_ours_s": 359.236400814564,
+   "total_f3dgs_s": 1320.6008447490865,
+   "total_legs_s": 1349.6008447490865,
+   "total_f3dgs_over_ours": 3.6761331584289367,
+   "total_legs_over_ours": 3.7568599442842756
+  },
+  {
+   "scene": "scene0645_00",
+   "split": "test",
+   "keyframes": 424,
+   "gpu": "NVIDIA GeForce RTX 4070 Ti",
+   "map_log": "$RES/scannet_tab1/map_scene0645_00.20261019-172927.log",
+   "ours_s": 18.069922916591167,
+   "update_with_css_s": 22.36758138402365,
+   "lseg_s": 37.191149309743196,
+   "peak_alloc_mib": 2838.87158203125,
+   "peak_reserved_mib": 6276.0,
+   "fit_s": 274.3,
+   "fit_log": "$RES/scannet_tab1/fit_scene0645_00.20261019-172927.log",
+   "f3dgs_iters": 19000,
+   "f3dgs_s": 740.0,
+   "f3dgs_ms_per_iter": 38.9,
+   "f3dgs_log": "$RES/scannet_tab1/distill_scene0645_00_f3dgs.20261019-182430.log",
+   "legs_iters": 27000,
+   "legs_s": 881.0,
+   "legs_ms_per_iter": 32.6,
+   "legs_log": "$RES/scannet_tab1/distill_scene0645_00_legs_l1.20261019-182430.log",
+   "f3dgs_over_ours": 40.95202859557071,
+   "legs_over_ours": 48.75505026040243,
+   "total_ours_s": 329.5610722263344,
+   "total_f3dgs_s": 1051.4911493097432,
+   "total_legs_s": 1192.4911493097432,
+   "total_f3dgs_over_ours": 3.190580556758248,
+   "total_legs_over_ours": 3.618422349623774
+  }
+ ],
+ "aggregate": {
+  "all": {
+   "n": 10,
+   "ours_s": {
+    "median": 5.636464633222204,
+    "min": 2.968410713947378,
+    "max": 27.36618184100371
+   },
+   "lseg_s": {
+    "median": 13.52600886800792,
+    "min": 5.679545717430301,
+    "max": 48.43131274054758
+   },
+   "fit_s": {
+    "median": 324.3,
+    "min": 266.6,
+    "max": 694.5
+   },
+   "f3dgs_s": {
+    "median": 1267.5,
+    "min": 740.0,
+    "max": 2037.0
+   },
+   "legs_s": {
+    "median": 730.0,
+    "min": 385.0,
+    "max": 1375.0
+   },
+   "f3dgs_ms_per_iter": {
+    "median": 48.75,
+    "min": 36.8,
+    "max": 89.4
+   },
+   "legs_ms_per_iter": {
+    "median": 25.950000000000003,
+    "min": 15.3,
+    "max": 45.8
+   },
+   "f3dgs_over_ours": {
+    "median": 264.31184425097774,
+    "min": 40.95202859557071,
+    "max": 419.7534565267312
+   },
+   "legs_over_ours": {
+    "median": 107.04776820098309,
+    "min": 21.682919185785888,
+    "max": 283.338734768903
+   },
+   "keyframes": {
+    "median": 120.5,
+    "min": 62,
+    "max": 521
+   },
+   "total_ours_s": {
+    "median": 345.6449782730895,
+    "min": 282.18213315019386,
+    "max": 715.5611003093654
+   },
+   "total_f3dgs_s": {
+    "median": 1614.1364833314788,
+    "min": 1051.4911493097432,
+    "max": 2747.708251647069
+   },
+   "total_legs_s": {
+    "median": 1077.6174576993449,
+    "min": 781.5292005740106,
+    "max": 2085.708251647069
+   },
+   "total_f3dgs_over_ours": {
+    "median": 4.043682926112569,
+    "min": 3.03952103664719,
+    "max": 6.64073386519457
+   },
+   "total_legs_over_ours": {
+    "median": 2.928932970792297,
+    "min": 1.8025789318941845,
+    "max": 5.308261125682495
+   },
+   "f3dgs_over_ours_ratio_of_medians": 224.87500276842985,
+   "legs_over_ours_ratio_of_medians": 129.51380830055527
+  },
+  "test": {
+   "n": 8,
+   "ours_s": {
+    "median": 5.636464633222204,
+    "min": 2.968410713947378,
+    "max": 18.069922916591167
+   },
+   "lseg_s": {
+    "median": 10.570106926141307,
+    "min": 5.679545717430301,
+    "max": 37.191149309743196
+   },
+   "fit_s": {
+    "median": 311.85,
+    "min": 266.6,
+    "max": 405.1
+   },
+   "f3dgs_s": {
+    "median": 1061.5,
+    "min": 740.0,
+    "max": 1597.0
+   },
+   "legs_s": {
+    "median": 572.0,
+    "min": 385.0,
+    "max": 1221.0
+   },
+   "f3dgs_ms_per_iter": {
+    "median": 43.3,
+    "min": 36.8,
+    "max": 76.1
+   },
+   "legs_ms_per_iter": {
+    "median": 19.05,
+    "min": 15.3,
+    "max": 40.7
+   },
+   "f3dgs_over_ours": {
+    "median": 264.31184425097774,
+    "min": 40.95202859557071,
+    "max": 392.0670490315872
+   },
+   "legs_over_ours": {
+    "median": 107.04776820098309,
+    "min": 21.682919185785888,
+    "max": 231.001262965032
+   },
+   "keyframes": {
+    "median": 120.5,
+    "min": 64,
+    "max": 424
+   },
+   "total_ours_s": {
+    "median": 330.8073139789747,
+    "min": 282.18213315019386,
+    "max": 457.5800256334711
+   },
+   "total_f3dgs_s": {
+    "median": 1425.6766572182532,
+    "min": 1051.4911493097432,
+    "max": 1873.8964477633358
+   },
+   "total_legs_s": {
+    "median": 907.0116559031885,
+    "min": 781.5292005740106,
+    "max": 1497.8964477633358
+   },
+   "total_f3dgs_over_ours": {
+    "median": 4.289143181734152,
+    "min": 3.03952103664719,
+    "max": 6.64073386519457
+   },
+   "total_legs_over_ours": {
+    "median": 2.7191018955412583,
+    "min": 1.8025789318941845,
+    "max": 5.308261125682495
+   },
+   "f3dgs_over_ours_ratio_of_medians": 188.32727056306769,
+   "legs_over_ours_ratio_of_medians": 101.48205253139399
+  }
+ },
+ "definitions": {
+  "ours_s": "keyframes x ms_per_keyframe_field (run_mapping.py timing line): the field update with the view-hook baselines (averaging, NormLift, view count) in one pass",
+  "lseg_s": "keyframes x ms_per_keyframe_extract: LSeg tokens, needed by every method",
+  "fit_s": "last '[fit] step' line of the 3DGS fit log: the map every method shares",
+  "f3dgs_s": "'train N s' of the saved line of distill_<scene>_f3dgs: features only, fixed map",
+  "legs_s": "'train N s' of distill_<scene>_legs_l1: features only, fixed map",
+  "total": "end to end per scene: fit_s + lseg_s + the method's own step (the 3DGS fit and LSeg are shared; distillation re-extracts its features, not counted here)",
+  "ratios": "per-scene ratios (median, range) and the ratio of the medians"
+ },
+ "caveat": "production logs on a shared RTX 4070 Ti (other jobs ran at the same time; ms/iter varies across scenes); medians only, never compared with the controlled timing or the RTX 5070 Ti fit times",
+ "latex": {
+  "file": "cost.tex",
+  "blocks": [
+   {
+    "name": "cost",
+    "note": "Build time per ScanNet scene, median (min--max) over the 10 scenes (val + test), shared RTX 4070 Ti, production logs. Cols: method | step | seconds",
+    "rows": [
+     {
+      "cells": [
+       {
+        "text": "Ours, averaging, NormLift",
+        "keys": [],
+        "template": "Ours, averaging, NormLift",
+        "specs": []
+       },
+       {
+        "text": "field update, one pass (view hooks)",
+        "keys": [],
+        "template": "field update, one pass (view hooks)",
+        "specs": []
+       },
+       {
+        "keys": [
+         "aggregate/all/ours_s/median",
+         "aggregate/all/ours_s/min",
+         "aggregate/all/ours_s/max"
+        ],
+        "specs": [
+         ".1f",
+         ".1f",
+         ".1f"
+        ],
+        "template": "@0 (@1--@2)",
+        "text": "5.6 (3.0--27.4)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "text": "Every method",
+        "keys": [],
+        "template": "Every method",
+        "specs": []
+       },
+       {
+        "text": "LSeg extraction",
+        "keys": [],
+        "template": "LSeg extraction",
+        "specs": []
+       },
+       {
+        "keys": [
+         "aggregate/all/lseg_s/median",
+         "aggregate/all/lseg_s/min",
+         "aggregate/all/lseg_s/max"
+        ],
+        "specs": [
+         ".1f",
+         ".1f",
+         ".1f"
+        ],
+        "template": "@0 (@1--@2)",
+        "text": "13.5 (5.7--48.4)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "text": "Every method",
+        "keys": [],
+        "template": "Every method",
+        "specs": []
+       },
+       {
+        "text": "3DGS map fit",
+        "keys": [],
+        "template": "3DGS map fit",
+        "specs": []
+       },
+       {
+        "keys": [
+         "aggregate/all/fit_s/median",
+         "aggregate/all/fit_s/min",
+         "aggregate/all/fit_s/max"
+        ],
+        "specs": [
+         ".1f",
+         ".1f",
+         ".1f"
+        ],
+        "template": "@0 (@1--@2)",
+        "text": "324.3 (266.6--694.5)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "text": "Feature 3DGS (re-impl.)",
+        "keys": [],
+        "template": "Feature 3DGS (re-impl.)",
+        "specs": []
+       },
+       {
+        "text": "feature training, fixed map",
+        "keys": [],
+        "template": "feature training, fixed map",
+        "specs": []
+       },
+       {
+        "keys": [
+         "aggregate/all/f3dgs_s/median",
+         "aggregate/all/f3dgs_s/min",
+         "aggregate/all/f3dgs_s/max"
+        ],
+        "specs": [
+         ".1f",
+         ".1f",
+         ".1f"
+        ],
+        "template": "@0 (@1--@2)",
+        "text": "1267.5 (740.0--2037.0)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "text": "LEGaussians (re-impl.)",
+        "keys": [],
+        "template": "LEGaussians (re-impl.)",
+        "specs": []
+       },
+       {
+        "text": "feature training, fixed map",
+        "keys": [],
+        "template": "feature training, fixed map",
+        "specs": []
+       },
+       {
+        "keys": [
+         "aggregate/all/legs_s/median",
+         "aggregate/all/legs_s/min",
+         "aggregate/all/legs_s/max"
+        ],
+        "specs": [
+         ".1f",
+         ".1f",
+         ".1f"
+        ],
+        "template": "@0 (@1--@2)",
+        "text": "730.0 (385.0--1375.0)"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "cost_total",
+    "note": "End to end per scene (3DGS fit + LSeg + own step), median (min--max) seconds, and the per-scene ratio to ours (median, min--max). Cols: method | seconds | ratio",
+    "rows": [
+     {
+      "cells": [
+       {
+        "text": "Ours, averaging, NormLift",
+        "keys": [],
+        "template": "Ours, averaging, NormLift",
+        "specs": []
+       },
+       {
+        "keys": [
+         "aggregate/all/total_ours_s/median",
+         "aggregate/all/total_ours_s/min",
+         "aggregate/all/total_ours_s/max"
+        ],
+        "specs": [
+         ".0f",
+         ".0f",
+         ".0f"
+        ],
+        "template": "@0 (@1--@2)",
+        "text": "346 (282--716)"
+       },
+       {
+        "text": "reference",
+        "keys": [],
+        "template": "reference",
+        "specs": []
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "text": "Feature 3DGS (re-impl.)",
+        "keys": [],
+        "template": "Feature 3DGS (re-impl.)",
+        "specs": []
+       },
+       {
+        "keys": [
+         "aggregate/all/total_f3dgs_s/median",
+         "aggregate/all/total_f3dgs_s/min",
+         "aggregate/all/total_f3dgs_s/max"
+        ],
+        "specs": [
+         ".0f",
+         ".0f",
+         ".0f"
+        ],
+        "template": "@0 (@1--@2)",
+        "text": "1614 (1051--2748)"
+       },
+       {
+        "keys": [
+         "aggregate/all/total_f3dgs_over_ours/median",
+         "aggregate/all/total_f3dgs_over_ours/min",
+         "aggregate/all/total_f3dgs_over_ours/max"
+        ],
+        "specs": [
+         ".1f",
+         ".1f",
+         ".1f"
+        ],
+        "template": "@0 (@1--@2)",
+        "text": "4.0 (3.0--6.6)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "text": "LEGaussians (re-impl.)",
+        "keys": [],
+        "template": "LEGaussians (re-impl.)",
+        "specs": []
+       },
+       {
+        "keys": [
+         "aggregate/all/total_legs_s/median",
+         "aggregate/all/total_legs_s/min",
+         "aggregate/all/total_legs_s/max"
+        ],
+        "specs": [
+         ".0f",
+         ".0f",
+         ".0f"
+        ],
+        "template": "@0 (@1--@2)",
+        "text": "1078 (782--2086)"
+       },
+       {
+        "keys": [
+         "aggregate/all/total_legs_over_ours/median",
+         "aggregate/all/total_legs_over_ours/min",
+         "aggregate/all/total_legs_over_ours/max"
+        ],
+        "specs": [
+         ".1f",
+         ".1f",
+         ".1f"
+        ],
+        "template": "@0 (@1--@2)",
+        "text": "2.9 (1.8--5.3)"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "cost_per_scene",
+    "note": "Per scene: scene | split | keyframes | ours s | LSeg s | fit s | F3DGS s (ms/iter) | LEGaussians s (ms/iter)",
+    "rows": [
+     {
+      "cells": [
+       {
+        "keys": [
+         "scenes/0/scene"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "scene0000\\_00"
+       },
+       {
+        "keys": [
+         "scenes/0/split"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "val"
+       },
+       {
+        "keys": [
+         "scenes/0/keyframes"
+        ],
+        "specs": [
+         "d"
+        ],
+        "template": "@0",
+        "text": "521"
+       },
+       {
+        "keys": [
+         "scenes/0/ours_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "27.4"
+       },
+       {
+        "keys": [
+         "scenes/0/lseg_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "48.4"
+       },
+       {
+        "keys": [
+         "scenes/0/fit_s"
+        ],
+        "specs": [
+         ".0f"
+        ],
+        "template": "@0",
+        "text": "473"
+       },
+       {
+        "keys": [
+         "scenes/0/f3dgs_s",
+         "scenes/0/f3dgs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "1699 (89.4)"
+       },
+       {
+        "keys": [
+         "scenes/0/legs_s",
+         "scenes/0/legs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "1320 (45.5)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scenes/1/scene"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "scene0062\\_00"
+       },
+       {
+        "keys": [
+         "scenes/1/split"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "val"
+       },
+       {
+        "keys": [
+         "scenes/1/keyframes"
+        ],
+        "specs": [
+         "d"
+        ],
+        "template": "@0",
+        "text": "62"
+       },
+       {
+        "keys": [
+         "scenes/1/ours_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "4.9"
+       },
+       {
+        "keys": [
+         "scenes/1/lseg_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "16.2"
+       },
+       {
+        "keys": [
+         "scenes/1/fit_s"
+        ],
+        "specs": [
+         ".0f"
+        ],
+        "template": "@0",
+        "text": "694"
+       },
+       {
+        "keys": [
+         "scenes/1/f3dgs_s",
+         "scenes/1/f3dgs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "2037 (75.5)"
+       },
+       {
+        "keys": [
+         "scenes/1/legs_s",
+         "scenes/1/legs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "1375 (45.8)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scenes/2/scene"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "scene0070\\_00"
+       },
+       {
+        "keys": [
+         "scenes/2/split"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "test"
+       },
+       {
+        "keys": [
+         "scenes/2/keyframes"
+        ],
+        "specs": [
+         "d"
+        ],
+        "template": "@0",
+        "text": "124"
+       },
+       {
+        "keys": [
+         "scenes/2/ours_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "6.0"
+       },
+       {
+        "keys": [
+         "scenes/2/lseg_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "10.8"
+       },
+       {
+        "keys": [
+         "scenes/2/fit_s"
+        ],
+        "specs": [
+         ".0f"
+        ],
+        "template": "@0",
+        "text": "373"
+       },
+       {
+        "keys": [
+         "scenes/2/f3dgs_s",
+         "scenes/2/f3dgs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "1384 (53.2)"
+       },
+       {
+        "keys": [
+         "scenes/2/legs_s",
+         "scenes/2/legs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "579 (19.3)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scenes/3/scene"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "scene0097\\_00"
+       },
+       {
+        "keys": [
+         "scenes/3/split"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "test"
+       },
+       {
+        "keys": [
+         "scenes/3/keyframes"
+        ],
+        "specs": [
+         "d"
+        ],
+        "template": "@0",
+        "text": "64"
+       },
+       {
+        "keys": [
+         "scenes/3/ours_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "3.0"
+       },
+       {
+        "keys": [
+         "scenes/3/lseg_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "5.7"
+       },
+       {
+        "keys": [
+         "scenes/3/fit_s"
+        ],
+        "specs": [
+         ".0f"
+        ],
+        "template": "@0",
+        "text": "281"
+       },
+       {
+        "keys": [
+         "scenes/3/f3dgs_s",
+         "scenes/3/f3dgs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "883 (36.8)"
+       },
+       {
+        "keys": [
+         "scenes/3/legs_s",
+         "scenes/3/legs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "565 (18.8)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scenes/4/scene"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "scene0140\\_00"
+       },
+       {
+        "keys": [
+         "scenes/4/split"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "test"
+       },
+       {
+        "keys": [
+         "scenes/4/keyframes"
+        ],
+        "specs": [
+         "d"
+        ],
+        "template": "@0",
+        "text": "397"
+       },
+       {
+        "keys": [
+         "scenes/4/ours_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "17.8"
+       },
+       {
+        "keys": [
+         "scenes/4/lseg_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "34.7"
+       },
+       {
+        "keys": [
+         "scenes/4/fit_s"
+        ],
+        "specs": [
+         ".0f"
+        ],
+        "template": "@0",
+        "text": "405"
+       },
+       {
+        "keys": [
+         "scenes/4/f3dgs_s",
+         "scenes/4/f3dgs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "951 (39.6)"
+       },
+       {
+        "keys": [
+         "scenes/4/legs_s",
+         "scenes/4/legs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "385 (16.1)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scenes/5/scene"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "scene0200\\_00"
+       },
+       {
+        "keys": [
+         "scenes/5/split"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "test"
+       },
+       {
+        "keys": [
+         "scenes/5/keyframes"
+        ],
+        "specs": [
+         "d"
+        ],
+        "template": "@0",
+        "text": "78"
+       },
+       {
+        "keys": [
+         "scenes/5/ours_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "3.9"
+       },
+       {
+        "keys": [
+         "scenes/5/lseg_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "6.8"
+       },
+       {
+        "keys": [
+         "scenes/5/fit_s"
+        ],
+        "specs": [
+         ".0f"
+        ],
+        "template": "@0",
+        "text": "321"
+       },
+       {
+        "keys": [
+         "scenes/5/f3dgs_s",
+         "scenes/5/f3dgs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "1533 (54.7)"
+       },
+       {
+        "keys": [
+         "scenes/5/legs_s",
+         "scenes/5/legs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "459 (15.3)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scenes/6/scene"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "scene0347\\_00"
+       },
+       {
+        "keys": [
+         "scenes/6/split"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "test"
+       },
+       {
+        "keys": [
+         "scenes/6/keyframes"
+        ],
+        "specs": [
+         "d"
+        ],
+        "template": "@0",
+        "text": "80"
+       },
+       {
+        "keys": [
+         "scenes/6/ours_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "3.7"
+       },
+       {
+        "keys": [
+         "scenes/6/lseg_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "7.1"
+       },
+       {
+        "keys": [
+         "scenes/6/fit_s"
+        ],
+        "specs": [
+         ".0f"
+        ],
+        "template": "@0",
+        "text": "302"
+       },
+       {
+        "keys": [
+         "scenes/6/f3dgs_s",
+         "scenes/6/f3dgs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "1151 (44.3)"
+       },
+       {
+        "keys": [
+         "scenes/6/legs_s",
+         "scenes/6/legs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "472 (15.7)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scenes/7/scene"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "scene0400\\_00"
+       },
+       {
+        "keys": [
+         "scenes/7/split"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "test"
+       },
+       {
+        "keys": [
+         "scenes/7/keyframes"
+        ],
+        "specs": [
+         "d"
+        ],
+        "template": "@0",
+        "text": "117"
+       },
+       {
+        "keys": [
+         "scenes/7/ours_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "5.3"
+       },
+       {
+        "keys": [
+         "scenes/7/lseg_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "10.3"
+       },
+       {
+        "keys": [
+         "scenes/7/fit_s"
+        ],
+        "specs": [
+         ".0f"
+        ],
+        "template": "@0",
+        "text": "267"
+       },
+       {
+        "keys": [
+         "scenes/7/f3dgs_s",
+         "scenes/7/f3dgs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "1597 (76.1)"
+       },
+       {
+        "keys": [
+         "scenes/7/legs_s",
+         "scenes/7/legs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "1221 (40.7)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scenes/8/scene"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "scene0590\\_00"
+       },
+       {
+        "keys": [
+         "scenes/8/split"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "test"
+       },
+       {
+        "keys": [
+         "scenes/8/keyframes"
+        ],
+        "specs": [
+         "d"
+        ],
+        "template": "@0",
+        "text": "243"
+       },
+       {
+        "keys": [
+         "scenes/8/ours_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "10.6"
+       },
+       {
+        "keys": [
+         "scenes/8/lseg_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "21.3"
+       },
+       {
+        "keys": [
+         "scenes/8/fit_s"
+        ],
+        "specs": [
+         ".0f"
+        ],
+        "template": "@0",
+        "text": "327"
+       },
+       {
+        "keys": [
+         "scenes/8/f3dgs_s",
+         "scenes/8/f3dgs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "972 (42.3)"
+       },
+       {
+        "keys": [
+         "scenes/8/legs_s",
+         "scenes/8/legs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "1001 (33.4)"
+       }
+      ]
+     },
+     {
+      "cells": [
+       {
+        "keys": [
+         "scenes/9/scene"
+        ],
+        "specs": [
+         "tex"
+        ],
+        "template": "@0",
+        "text": "scene0645\\_00"
+       },
+       {
+        "keys": [
+         "scenes/9/split"
+        ],
+        "specs": [
+         "s"
+        ],
+        "template": "@0",
+        "text": "test"
+       },
+       {
+        "keys": [
+         "scenes/9/keyframes"
+        ],
+        "specs": [
+         "d"
+        ],
+        "template": "@0",
+        "text": "424"
+       },
+       {
+        "keys": [
+         "scenes/9/ours_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "18.1"
+       },
+       {
+        "keys": [
+         "scenes/9/lseg_s"
+        ],
+        "specs": [
+         ".1f"
+        ],
+        "template": "@0",
+        "text": "37.2"
+       },
+       {
+        "keys": [
+         "scenes/9/fit_s"
+        ],
+        "specs": [
+         ".0f"
+        ],
+        "template": "@0",
+        "text": "274"
+       },
+       {
+        "keys": [
+         "scenes/9/f3dgs_s",
+         "scenes/9/f3dgs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "740 (38.9)"
+       },
+       {
+        "keys": [
+         "scenes/9/legs_s",
+         "scenes/9/legs_ms_per_iter"
+        ],
+        "specs": [
+         ".0f",
+         ".1f"
+        ],
+        "template": "@0 (@1)",
+        "text": "881 (32.6)"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}

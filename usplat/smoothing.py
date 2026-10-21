@@ -86,6 +86,7 @@ GRID_S = (1.0, 2.0, 4.0, 8.0)   # sigma / h (s = 8 added 2026-10-21 by the lead,
 GRID_K = (8, 16, 32)            # kNN truncation
 GRID_G = (0.8, None)            # gate on the cosine of the unsmoothed directions; None = off
 KNN_BACKENDS = ("kdtree", "torch")
+W_MIN = 1e-12                   # kernel weights below this are 0 (pool: float32 underflow guard)
 
 
 @dataclass(frozen=True)
@@ -208,7 +209,11 @@ def pool(first: Dict[str, torch.Tensor], second: Dict[str, torch.Tensor], idx, d
     """Kernel-pooled per-Gaussian sums: x'_n = x_n + S_j w_nj x_{m_j} for `first` and
     x_n + S_j w_nj^2 x_{m_j} for `second`, over the first spec.k columns of idx/dist (the k
     nearest other centres), w = exp(-d^2/(2 (s h)^2)) times the gate (spec.g: needs dirs (N, d)
-    unit or zero rows and evidence (N,) bool). s = 0: w = 0, the sums come back unchanged
+    unit or zero rows and evidence (N,) bool). Weights below W_MIN = 1e-12 (a neighbour beyond
+    7.4 sigma) are set to 0: such a neighbour adds less than 1e-12 of its evidence (nothing at
+    float32 precision), and its denormal products made the averaging feature's norm underflow
+    to 0 (feature = inf) on 3 of 620,290 Gaussians of Replica office_0 (isolated, unseen
+    Gaussians; validation attempt of 2026-10-21, before any number). s = 0: w = 0, the sums come back unchanged
     (bit for bit: the neighbour sum is exactly 0). The neighbour sum is a float32 batched
     matrix product (k <= 32 terms), added to x_n in float64; the result has each input's
     dtype and device.
@@ -229,6 +234,7 @@ def pool(first: Dict[str, torch.Tensor], second: Dict[str, torch.Tensor], idx, d
         dc = dist[a:a + chunk, :k].double()
         if sigma > 0:
             w = torch.exp(-dc * dc / (2.0 * sigma * sigma))
+            w = torch.where(w >= W_MIN, w, torch.zeros_like(w))     # underflow guard
         else:
             w = torch.zeros_like(dc)
         if spec.g is not None:

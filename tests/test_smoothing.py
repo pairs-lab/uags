@@ -223,6 +223,30 @@ def test_gate_blocks_disagreeing_neighbours():
           f"of pairs), unseen Gaussians borrow")
 
 
+def test_underflow_guard_keeps_features_finite():
+    """An isolated unseen Gaussian 14 sigma from its neighbours: w = exp(-98) ~ 3e-43 would
+    give denormal F', S1' and an averaging feature whose norm underflows to 0 (inf), as on 3
+    Gaussians of Replica office_0. Weights below W_MIN are 0, so it stays unseen (feature 0)."""
+    N, d = 21, 8
+    x = torch.zeros(N, 3)
+    x[:20, 0] = torch.arange(20).float()
+    x[20] = torch.tensor([9.5, 14.0, 0.0])
+    f = DirectionalSemanticField(N, d, FieldConfig(change_test=False))
+    nl = NormLift.for_field(f, with_averaging=True)
+    g = torch.Generator().manual_seed(0)
+    ids = torch.arange(20)
+    f.update_sparse(ids, torch.full((20,), 5.0), torch.randn(20, d, generator=g) + 3.0,
+                    num_pixels=1000)
+    idx, dist = S.knn(x, 8)
+    sp = S.SmoothSpec(8, 1.0)
+    assert float(torch.exp(-dist[20, 0].double() ** 2 / 2)) < S.W_MIN
+    sa = S.smoothed_averaging(nl, idx, dist, sp, 1.0)
+    sf = S.smoothed_field(f, idx, dist, sp, 1.0)
+    assert torch.isfinite(sa.feature()).all() and float(sa.S1[20]) == 0.0
+    assert torch.isfinite(sf.mu_post()).all() and float(sf.raw.W1[20]) == 0.0
+    print("PASS underflow guard: isolated Gaussians stay unseen, features finite")
+
+
 def test_refusals(tmp_path):
     f, nl, x = _toy(N=60)
     with pytest.raises(ValueError, match="centre"):

@@ -134,3 +134,30 @@ Per batch (21 rows). Render cost per row and view is 0.013–0.036 s, taken from
 ## 8 Files of this note
 
 This note is the only docs file written. The synthetic benchmark script and its log stayed in the session scratchpad and are not linked (their numbers are copied into section 5). The new code files are listed in section 4.
+
+## 9 Validation attempt 1 (2026-10-21): crashed, fixed, waiting for a commit
+
+| Step | Command / source | Result |
+|---|---|---|
+| Dry run, both datasets | `DATASET=replica\|scannet STAGE=val DRY_RUN=1 scripts/smooth_tab1.sh` at cafb61d | PASS: prereg scenes; fields built on their own maps; averaging sums present; 4 batches each |
+| Replica val, batch s1 | `DATASET=replica STAGE=val scripts/smooth_tab1.sh` (17:53–17:57) | **FAILED** 3/3 attempts. `eval_seg`: `row 'averaging_s_k8_s1_g0.8': buffer has non-finite values on 3 of 620290 Gaussians`. No batch finished and no metric was produced or read. Record: `data/uags_results/smooth/replica/eval_val_s1.json` (status failed) |
+| Root cause | CPU debug on office_0 | 3 isolated, unseen Gaussians (S1 = 0, F = 0) whose 8 neighbours are far away: w ≈ 1e-43 (denormal). S1' was denormal but > 0, and F' was denormal. `Averaging.feature`: F'/(S1' + 1e-12) ≈ 1e-30, whose norm underflows to 0, so the feature became inf |
+| Fix | `usplat/smoothing.py`: `W_MIN = 1e-12`; kernel weights below it are set to 0 (neighbours beyond 7.4σ) | Each pooled sum changes by less than 1e-12 of a neighbour's evidence. s = 0 is still exact |
+| Prereg | `configs/smooth_prereg.json`: new key `amended` plus one clause in `method.kernel` | Nothing else changed |
+| New test | `tests/test_smoothing.py::test_underflow_guard_keeps_features_finite` | FAILS with the guard off (`W_MIN = 0`), PASSES with it. Whole file: **10 passed in 56 s** |
+| CPU check, all 24 kernels × 3 rows on the 4 validation fields (buffers finite; u finite or NaN; no metric computed) | a session-scratchpad script (not kept): it builds each field's SmoothingContext and freezes every row | PASS on all 4 fields (table below) |
+
+Results of the CPU check on the validation fields:
+
+| Field | N | h (m) | Non-finite buffers | Max gate-blocked share (ours / averaging) | Time |
+|---|---|---|---|---|---|
+| office_0 | 620,290 | 0.00491 | 0 | 0.01% / 0.01% | 84 s |
+| room_2 | 954,119 | 0.00391 | 0 | 0.00% / 0.00% | 147 s |
+| scene0000_00 | 999,222 | 0.00751 | 0 | 0.09% / 0.09% | 141 s |
+| scene0062_00 | 998,600 | 0.00290 | 0 | 0.03% / 0.03% | 156 s |
+
+What this shows:
+- The gate g = 0.8 blocks at most 0.09% of the pairs on real LSeg fields, so gated and ungated kernels are nearly the same rows. Under the tie rule the gated one (listed first) wins a tie.
+- h (2.9–7.5 mm) matches the stage-1 estimate of about 0.5 cm.
+
+Status: the fix is uncommitted (3 files modified). The driver refuses a dirty tree, so validation reruns after the lead commits.

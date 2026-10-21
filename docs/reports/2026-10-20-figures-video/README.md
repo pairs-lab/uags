@@ -23,6 +23,8 @@ Attempts: n/a | Time: started 2026-10-20 14:50 JST
 | 4 | Four implementation agents (background): NOR dump + teaser + change/query figures + fused baselines; static comparison figure; CPU statistics (quant_stats, calibration plot); pipeline figure v2 | running |
 | 4a | Statistics agent (CPU): scripts/quant_stats.py, plot_calibration.py, 26 tests, configs/quant_prereg.json ([summary](logs/quant_summary.md)) | done, committed 6032669 |
 | 4b | Paper: calibration claims restated by scene tests (ours ties averaging; training-free lifting beats the trained maps); pooled-ECE caveat; ScanNet full-map ranking; measured r_static; P2 sign in Limitations; ScanNet build cost; appendix with Tables V-IX and Fig. 5 (all cells generated, not typed) | done (85adf2c, d258306); 12 pages, 0 warnings |
+| 4c | Pipeline figure v2 (agent): real validation thumbnails (Replica office_0 frame 825; NOR 002 frame 335 by "largest masks_real area", not the later frame-373 rule), loop over mapping and update passes, robust set; replay of NOR 002 reproduces the val record (resets 117,170, Rec 0.536, FA 0.140) ([summary](logs/pipeline_summary.md)) | done, in the paper (Fig. 1) |
+| 4d | Paper error found by the pipeline agent: Sec. III-F wrote the change score with omega; the code weights the test stream by nu (`usplat/vmf_field.py` _ingest: Rf += wt*u, wt = change weights). Fixed, and stated that Replica/ScanNet fields use nu = omega (field configs: change_weight view/None, fast_min 1) and NOR fields relmax (fast_min 0.5) | done |
 | 5 | Video (after 4: reuses the NOR dump and static renders) | to do |
 
 ## 5 Verification

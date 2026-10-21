@@ -1,8 +1,8 @@
 # Figures, video and stronger results for the UAGS paper
 2026-10-20 | root: /home/thanhnc/gauss_ws/src/uags | git: master@c95a871 | [all reports](../INDEX.md)
 Follows: [Complete the paper](../2026-10-17-paper-completion/README.md)
-Verdict: IN PROGRESS -- designs done; 4 implementation agents running; video next
-Key result: n/a
+Verdict: PARTIAL -- teaser, pipeline, qualitative, calibration and video done; fused-baseline check NEGATIVE for our "fused best" claim (paper corrected); paper 17 pages / 17.9 MB to trim
+Key result: stale-answer rate after the update 20.7% (ours) vs 34.3% (averaging), test N=10, new measurement ([numbers](logs/nor/n2_numbers_test.tex)); fused baselines beat ours+depth (81.1, 79.9 vs 75.0, [verdict](logs/nor_fused/nor_fused_verdict.md))
 Attempts: n/a | Time: started 2026-10-20 14:50 JST
 
 ## 0 Context
@@ -30,7 +30,7 @@ Attempts: n/a | Time: started 2026-10-20 14:50 JST
 | 4g | Pre-registered fused baselines (F2, [verdict](logs/nor_fused/nor_fused_verdict.md)): feature+depth 81.1, NormLift+depth 79.9, ours+depth 75.0, NCC+depth 61.2, dispersion+depth 34.2 (G-AP, test N=10); ours+depth higher than feature+depth in 0/10 (Holm p 0.016), than NormLift+depth in 1/10 (Holm 0.107) | **NEGATIVE for the claim**: "fused with depth ranks best" removed from abstract, intro, results, conclusion; new Table (tab:fused) |
 | 4h | New measurement (test, disclosed): stale-answer rate (share of the removed object's covered pixels whose top class is the query) 48.3 before, 34.3 averaging, 34.2 change test off, 20.7 ours; ours < test-off in 9/10 ([numbers](logs/nor/n2_numbers_test.tex)) | in abstract, intro, results, conclusion |
 | 4i | Teaser caption rule C1 failed (averaging's p(chair) after the update 0.06 < 0.5): caption neutral, as the rule requires | noted |
-| 5 | Video (after 4: reuses the NOR dump and static renders) | to do |
+| 5 | Video (agent): 2:24, 1920x1080, 30 fps, H.264, 37.9 MB zip (limit 50 MB); replays of 002 and 014 equal their Table III records (FA, Rec, Kept exact; AP within 2e-8); every caption number parsed from main.tex; anonymous; 6 tests pass ([summary](logs/video_summary.md)). Files: /home/thanhnc/gauss_ws/data/uags_results/video/supplementary_video.zip (37.9 MB), master.mp4, stills/ | done (9b6002b) |
 
 ## 5 Verification
 | Check | Command | Result | Status |
@@ -45,6 +45,8 @@ Attempts: n/a | Time: started 2026-10-20 14:50 JST
 - Paper is 17 pages and 17.9 MB (600 dpi images in teaser/qual_change/qual_query); trim both before submission.
 - Teaser sits on page 2 (figure* cannot float to page 1 in IEEEtran without extra work).
 - Query rule gives generic classes in some scenes (009, 013 'wall'; 010 'phone'); reported as computed.
+- Video 002 caption names only the upside (chair top class 44% averaging vs 15% ours); the static cost (33% vs 20% of static Gaussians relabelled) is only in the curves. Consider neutral wording.
+- Dataset licences for showing images in the video were not checked.
 - Not done: Fig. F (failure cases), fixed-threshold analysis (R4), PR curves, B7 reducibility check, ScanNet views experiment (B4).
 
 ## 8 Files

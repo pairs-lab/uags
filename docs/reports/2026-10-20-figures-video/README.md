@@ -26,6 +26,10 @@ Attempts: n/a | Time: started 2026-10-20 14:50 JST
 | 4c | Pipeline figure v2 (agent): real validation thumbnails (Replica office_0 frame 825; NOR 002 frame 335 by "largest masks_real area", not the later frame-373 rule), loop over mapping and update passes, robust set; replay of NOR 002 reproduces the val record (resets 117,170, Rec 0.536, FA 0.140) ([summary](logs/pipeline_summary.md)) | done, in the paper (Fig. 1) |
 | 4d | Paper error found by the pipeline agent: Sec. III-F wrote the change score with omega; the code weights the test stream by nu (`usplat/vmf_field.py` _ingest: Rf += wt*u, wt = change weights). Fixed, and stated that Replica/ScanNet fields use nu = omega (field configs: change_weight view/None, fast_min 1) and NOR fields relmax (fast_min 0.5) | done |
 | 4e | Static comparison figure (agent): room_1 f66 + scene0140_00 f57 (rules fixed before rendering, CPU-reproduced); code frozen on validation scenes before any test render; every render re-scores mIoU/AUSE vs the published JSON (max diff 2.2e-6); 41 tests pass ([summary](logs/static_summary.md)) | done, in the paper (Fig. qual-compare) + supp_compare_all.pdf (14 scenes) |
+| 4f | NOR agent: dump of the Table III update for all 14 scenes, each reproducing its record (max AP diff 4.6e-7; noise repeat tolerance 0.002); teaser (val 002, frame 373), stale-content figure (test 015/013/006 by rule), query figure; 10 test looks logged ([summary](logs/nor_summary.md)) | done, in the paper |
+| 4g | Pre-registered fused baselines (F2, [verdict](logs/nor_fused/nor_fused_verdict.md)): feature+depth 81.1, NormLift+depth 79.9, ours+depth 75.0, NCC+depth 61.2, dispersion+depth 34.2 (G-AP, test N=10); ours+depth higher than feature+depth in 0/10 (Holm p 0.016), than NormLift+depth in 1/10 (Holm 0.107) | **NEGATIVE for the claim**: "fused with depth ranks best" removed from abstract, intro, results, conclusion; new Table (tab:fused) |
+| 4h | New measurement (test, disclosed): stale-answer rate (share of the removed object's covered pixels whose top class is the query) 48.3 before, 34.3 averaging, 34.2 change test off, 20.7 ours; ours < test-off in 9/10 ([numbers](logs/nor/n2_numbers_test.tex)) | in abstract, intro, results, conclusion |
+| 4i | Teaser caption rule C1 failed (averaging's p(chair) after the update 0.06 < 0.5): caption neutral, as the rule requires | noted |
 | 5 | Video (after 4: reuses the NOR dump and static renders) | to do |
 
 ## 5 Verification
@@ -36,7 +40,12 @@ Attempts: n/a | Time: started 2026-10-20 14:50 JST
 | Paper build | pdflatex + bibtex x2 on a copy of papers/ | 12 pages, 0 warnings, no overfull boxes | PASS |
 
 ## 7 Open issues
-- none yet
+- Fused baselines beat ours+depth on stale-content ranking (4g); the paper now says so. The remaining positive NOR result is the stale-answer rate (4h), a new test measurement.
+- Calibration: ours ties averaging (no Holm-significant difference); the lead over trained maps is shared by averaging (training-free lifting).
+- Paper is 17 pages and 17.9 MB (600 dpi images in teaser/qual_change/qual_query); trim both before submission.
+- Teaser sits on page 2 (figure* cannot float to page 1 in IEEEtran without extra work).
+- Query rule gives generic classes in some scenes (009, 013 'wall'; 010 'phone'); reported as computed.
+- Not done: Fig. F (failure cases), fixed-threshold analysis (R4), PR curves, B7 reducibility check, ScanNet views experiment (B4).
 
 ## 8 Files
 - this folder

@@ -1,0 +1,172 @@
+{
+ "stage": "val",
+ "scenes": [
+  "001",
+  "002",
+  "003",
+  "004"
+ ],
+ "per_scene": {
+  "001": {
+   "query": "wall",
+   "before": {
+    "stale_answer_rate": 0.6055878863118586,
+    "delta_cos": 0.028470983673151373,
+    "n_mask_cov": 600907
+   },
+   "nochange": {
+    "stale_answer_rate": 0.9626814132636164,
+    "delta_cos": 0.045449242816478774,
+    "n_mask_cov": 600907
+   },
+   "ours": {
+    "stale_answer_rate": 0.9629559981827471,
+    "delta_cos": 0.04027431465083342,
+    "n_mask_cov": 600907
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.9628378434599697,
+    "delta_cos": 0.0456970826033396,
+    "n_mask_cov": 600907
+   }
+  },
+  "002": {
+   "query": "chair",
+   "before": {
+    "stale_answer_rate": 0.33190520195287904,
+    "delta_cos": 0.037215541323629475,
+    "n_mask_cov": 2445620
+   },
+   "nochange": {
+    "stale_answer_rate": 0.20555441973814412,
+    "delta_cos": 0.026992060437071697,
+    "n_mask_cov": 2445620
+   },
+   "ours": {
+    "stale_answer_rate": 0.020391966045419974,
+    "delta_cos": -0.0027487829297309085,
+    "n_mask_cov": 2445620
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.19961563938796706,
+    "delta_cos": 0.028023030514827796,
+    "n_mask_cov": 2445620
+   }
+  },
+  "003": {
+   "query": "book",
+   "before": {
+    "stale_answer_rate": 0.5188371574593162,
+    "delta_cos": -0.040286575939027514,
+    "n_mask_cov": 605585
+   },
+   "nochange": {
+    "stale_answer_rate": 0.0,
+    "delta_cos": 0.003920869487954337,
+    "n_mask_cov": 605585
+   },
+   "ours": {
+    "stale_answer_rate": 0.0,
+    "delta_cos": -0.020914830850262578,
+    "n_mask_cov": 605585
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.0,
+    "delta_cos": 0.005518300107027474,
+    "n_mask_cov": 605585
+   }
+  },
+  "004": {
+   "query": "chair",
+   "before": {
+    "stale_answer_rate": 0.5694695063810661,
+    "delta_cos": 0.07177937353043129,
+    "n_mask_cov": 1374927
+   },
+   "nochange": {
+    "stale_answer_rate": 0.5119602713453151,
+    "delta_cos": 0.06582203665400432,
+    "n_mask_cov": 1374927
+   },
+   "ours": {
+    "stale_answer_rate": 0.007505853038015837,
+    "delta_cos": -0.0014052920494033172,
+    "n_mask_cov": 1374927
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.5115864333160961,
+    "delta_cos": 0.07055472353970682,
+    "n_mask_cov": 1374927
+   }
+  }
+ },
+ "summary": {
+  "before": {
+   "stale_answer_rate": {
+    "mean": 0.50644993802628,
+    "std": 0.10537920440261564,
+    "n": 4
+   },
+   "delta_cos": {
+    "mean": 0.024294830647046156,
+    "std": 0.04065072234279861,
+    "n": 4
+   }
+  },
+  "nochange": {
+   "stale_answer_rate": {
+    "mean": 0.4200490260867689,
+    "std": 0.3624040235315122,
+    "n": 4
+   },
+   "delta_cos": {
+    "mean": 0.03554605234887728,
+    "std": 0.022847490976559887,
+    "n": 4
+   }
+  },
+  "ours": {
+   "stale_answer_rate": {
+    "mean": 0.24771345431654573,
+    "std": 0.41300986754174984,
+    "n": 4
+   },
+   "delta_cos": {
+    "mean": 0.003801352205359154,
+    "std": 0.022423091385174634,
+    "n": 4
+   }
+  },
+  "avg_after": {
+   "stale_answer_rate": {
+    "mean": 0.4185099790410082,
+    "std": 0.3633253998870626,
+    "n": 4
+   },
+   "delta_cos": {
+    "mean": 0.03744828419122542,
+    "std": 0.023835049255560372,
+    "n": 4
+   }
+  }
+ },
+ "counts": {
+  "ours<nochange": {
+   "stale_answer_rate": 2,
+   "delta_cos": 4,
+   "n": 4
+  },
+  "ours<before": {
+   "stale_answer_rate": 3,
+   "delta_cos": 2,
+   "n": 4
+  },
+  "ours<avg_after": {
+   "stale_answer_rate": 2,
+   "delta_cos": 4,
+   "n": 4
+  }
+ },
+ "disclosure": "new measurement (not in Table III); defined and debugged on the validation scenes 001-004 before the test scenes ran once",
+ "rule": "per scene over the covered pixels of all update keyframes (360x270): stale-answer rate = share of covered masks_real pixels whose top class (argmax over the 101 classes, P0 render) is the query; delta cos = mean query cosine inside masks_real minus outside"
+}

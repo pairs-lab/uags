@@ -113,8 +113,8 @@
 %% ----------------------------------------------------------------------------
 \begin{abstract}
 %% Headline: Fig. views (test N=6), Table I (P2 lowest ECE/Brier/AURC of the
-%% open-vocabulary rows), Table II (fused G AP 75.0 vs 63.8 next row, N=10).
-A robot that reuses a semantic map must know how much evidence supports each part and must stop trusting content that has changed. We present a probabilistic open-vocabulary field for 3D Gaussian Splatting that serves both needs. Each Gaussian holds a von Mises--Fisher posterior over the direction of its vision-language feature, and each keyframe counts as at most one observation per Gaussian, because the pixels of one view are strongly correlated. The same sufficient statistics give an epistemic uncertainty, from the weighted number of views, and an aleatoric uncertainty, from an agreement of the views that does not shrink with the amount of evidence. A known feature residual detects change, with a threshold taken without labels from the map's own mapping pass. A Gaussian that fails the test is reset and, with depth, rejoins the robust map only after views whose observed depth matches its position. On Replica each uncertainty ranks the error it is meant for. On Replica and ScanNet the field is as accurate and as well calibrated as averaging the same features, and better calibrated than trained open-vocabulary maps (lower NLL than Feature 3DGS in 13 of 14 test scenes). On ten real test scenes from which an object was physically removed, our test fused with depth ranks stale Gaussians best.
+%% open-vocabulary rows), Table III; fused baselines (tab:fused) rank above ours+depth (81.1, 79.9 vs 75.0).
+A robot that reuses a semantic map must know how much evidence supports each part and must stop trusting content that has changed. We present a probabilistic open-vocabulary field for 3D Gaussian Splatting that serves both needs. Each Gaussian holds a von Mises--Fisher posterior over the direction of its vision-language feature, and each keyframe counts as at most one observation per Gaussian, because the pixels of one view are strongly correlated. The same sufficient statistics give an epistemic uncertainty, from the weighted number of views, and an aleatoric uncertainty, from an agreement of the views that does not shrink with the amount of evidence. A known feature residual detects change, with a threshold taken without labels from the map's own mapping pass. A Gaussian that fails the test is reset and, with depth, rejoins the robust map only after views whose observed depth matches its position. On Replica each uncertainty ranks the error it is meant for. On Replica and ScanNet the field is as accurate and as well calibrated as averaging the same features, and better calibrated than trained open-vocabulary maps (lower NLL than Feature 3DGS in 13 of 14 test scenes). On ten real test scenes from which an object was physically removed, resetting the Gaussians our test flags lowers the share of the object's former pixels that still answer its class from 34\% (averaging) to 21\%; fused with depth, our test ranks stale Gaussians below the feature residual and NormLift's reliability drop fused the same way (Gaussian AP 75.0 vs 81.1 and 79.9).
 \end{abstract}
 
 %% RAS keyword list, 2-5 terms, no localization.
@@ -126,6 +126,15 @@ Semantic Scene Understanding, Mapping, Probability and Statistical Methods, RGB-
 \section{Introduction}
 %% ============================================================================
 Robots in homes and offices increasingly query their maps with language~\cite{lee2026lamp, nagami2025vista}. Open-vocabulary 3D Gaussian Splatting (3D-GS)~\cite{kerbl2023} supports such queries by attaching vision-language features~\cite{radford2021} to the Gaussians of the map~\cite{qin2024langsplat, zhou2024feature, wu2024opengaussian, shi2024legaussians}. A robot that reuses the map needs more than the most likely label. It needs to know how much evidence stands behind each Gaussian's semantics, whether that evidence agrees, and whether it is still valid. Indoor scenes change. Objects are moved or removed, and a map that keeps their old semantics answers queries with content that is no longer there.
+
+%% Teaser (2026-10-21): scripts/nor_qual.sh (dump_nor_qual.py + plot_nor_qual.py teaser), NOR validation
+%% scene 002; caption rule C1 (averaging keeps the chair) failed (mean p 0.06), so the caption is neutral.
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figs/teaser.pdf}
+  \caption{A semantic 3D-GS map with two uncertainty channels and a test for changed content. NeRF-Object-Removal validation scene 002 (picked by rule: the largest removed object of the validation scenes), update keyframe 373 (the largest object region inside the image). Both rows show the same camera pose; the map geometry is fixed, so the removed object's Gaussians are still rendered. Top, after mapping: (a) map render; (b, c) probability of the text query 'chair' (fixed by rule, 101 classes) for averaging and for our field; (d) $u^{\mathrm{ale}}$, whether the views agree (grey: fewer than 3 views); (e) $u^{\mathrm{epi}}$, how much view evidence there is. Bottom, after the 48 update keyframes: (f) camera image (dashed: the removed object's Gaussians, ground truth); (g, h) p('chair') of averaging and of ours after the update; (i) the Gaussians our test reset (53.6\% of the stale, 14.0\% of the static ones); (j) $u^{\mathrm{epi}}$ after the update. (k) Over the update: share of the removed object's Gaussians whose top class is 'chair' (solid) and of static Gaussians whose top class changed (dashed).}
+  \label{fig:teaser}
+\end{figure*}
 
 %% Fig. 1. Placed after the first paragraph so that the float cannot land
 %% above the abstract. "Calibration" is not used in the figure or the caption
@@ -146,7 +155,7 @@ We answer both questions inside one Bayesian field. Each Gaussian holds a vMF po
 \item \textbf{A predictive that uses both uncertainties.} Each pixel's temperature depends on its rendered epistemic and aleatoric uncertainties. We test whether this, or a render of each Gaussian's posterior mean feature, lowers NLL and ECE compared with plug-in features at their own fitted temperature.
 \end{itemize}
 
-We evaluate segmentation, uncertainty ranking and calibration on 8 Replica scenes~\cite{straub2019replica, zhi2021semanticnerf} and 10 ScanNet scenes~\cite{dai2017scannet}, and stale-content detection on 14 real scenes in which an object was physically removed~\cite{weder2023removing}. The two uncertainties separate the errors that more views fix from those they do not, and fused with a depth residual our test ranks stale Gaussians better than every baseline we compare (Gaussian-level AP 75.0 vs 63.8).
+We evaluate segmentation, uncertainty ranking and calibration on 8 Replica scenes~\cite{straub2019replica, zhi2021semanticnerf} and 10 ScanNet scenes~\cite{dai2017scannet}, and stale-content detection on 14 real scenes in which an object was physically removed~\cite{weder2023removing}. The two uncertainties separate the errors that more views fix from those they do not, and resetting the Gaussians our change test flags lowers the share of a removed object's former pixels that still answer its class from 34\% to 21\%, although residual baselines fused with depth rank the stale Gaussians better than our test fused with depth.
 
 %% ============================================================================
 %% Related Work
@@ -435,7 +444,56 @@ Ours fused with depth residual & F+D & \textbf{75.0}{\scriptsize$\,\pm\,$12.9} &
 \end{tabular}
 \end{table*}
 
-In Table~\ref{tab:change}, before any reset, our score differs from the feature-residual row only in where it takes the cosine: per Gaussian against all of its earlier evidence, not per pixel against the rendered map. On average, 27\% of a test scene's Gaussians are seen by no update view and are not in the table. Our score adds to depth: the fused row has the highest Gaussian-level AP and AUROC (75.0 and 92.3, against 57.4 and 89.3 for the depth residual alone). Alone, our test is not the best ranking: NormLift's reliability drop ranks the stale Gaussians better (AP 63.8 vs 53.4, higher in seven of ten scenes) and is the best row at the pixel level (AP 65.8, AUROC 82.0). At its label-free threshold, our test flags 56.8\% of the stale Gaussians at 6.2\% false alarms, against 75.6\% at 13.7\% for the feature residual and 22.8\% at 0.6\% for the depth residual, and only 4.8\% of the stale Gaussians stay in our robust set. The dispersion $1-\hat\rho$ alone does not detect a removal (AP 18.4).
+%% NOR qualitative figures and fused baselines (2026-10-21): scripts/nor_qual.sh; every dump reproduces its
+%% Table III record (docs/reports/2026-10-20-figures-video/logs/nor_summary.md); fused rows pre-registered in
+%% configs/nor_fused_prereg.json (dae4b10) before any fused score; marks by make_tables.mark_columns.
+\begin{table*}[t]
+\centering
+\caption{Every change row fused with the depth residual by the rank average of our fused row (pre-registered, run after Table~\ref{tab:change}), object-removal test scenes, mean $\pm$ std ($N=10$), \%. Bottom: our fused row against each, scenes in which ours is higher, median difference (points), sign test and Holm over the 8 tests.}
+\label{tab:fused}
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+& & \multicolumn{2}{c}{Gaussian level} & \multicolumn{2}{c}{Pixel level}\\
+\cmidrule(lr){3-4}\cmidrule(l){5-6}
+Method & In & AP & AUROC & AP & AUROC\\
+\midrule
+Ours fused with depth residual & F+D & 75.0{\scriptsize$\,\pm\,$12.9} & 92.3{\scriptsize$\,\pm\,$2.9} & 61.8{\scriptsize$\,\pm\,$13.8} & \underline{78.2}{\scriptsize$\,\pm\,$11.3}\\
+NCC photometric residual + depth & I+D & 61.2{\scriptsize$\,\pm\,$17.7} & 85.3{\scriptsize$\,\pm\,$9.4} & 56.8{\scriptsize$\,\pm\,$12.0} & 74.2{\scriptsize$\,\pm\,$12.3}\\
+Feature residual, $k=2$, + depth & F+D & \textbf{81.1}{\scriptsize$\,\pm\,$9.4} & \underline{92.8}{\scriptsize$\,\pm\,$3.2} & \underline{64.3}{\scriptsize$\,\pm\,$13.4} & \underline{78.2}{\scriptsize$\,\pm\,$12.1}\\
+NormLift reliability drop + depth & F+D & \underline{79.9}{\scriptsize$\,\pm\,$15.1} & \textbf{93.9}{\scriptsize$\,\pm\,$2.4} & \textbf{66.9}{\scriptsize$\,\pm\,$12.2} & \textbf{79.6}{\scriptsize$\,\pm\,$12.1}\\
+Dispersion $1-\hat\rho$ + depth & F+D & 34.2{\scriptsize$\,\pm\,$8.7} & 82.5{\scriptsize$\,\pm\,$5.3} & 35.8{\scriptsize$\,\pm\,$22.2} & 61.7{\scriptsize$\,\pm\,$16.2}\\
+\midrule
+Ours + depth vs & Level & Higher & Median & Sign $p$ & Holm $p$\\
+\midrule
+NCC photometric residual & Gaussian AP & 9/10 & +10.9 & 0.021 & 0.107\\
+NCC photometric residual & Pixel AP & 8/10 & +7.4 & 0.109 & 0.328\\
+Feature residual, $k=2$ & Gaussian AP & 0/10 & -1.2 & 0.002 & 0.016\\
+Feature residual, $k=2$ & Pixel AP & 3/10 & -0.6 & 0.344 & 0.344\\
+NormLift reliability drop & Gaussian AP & 1/10 & -1.7 & 0.021 & 0.107\\
+NormLift reliability drop & Pixel AP & 2/10 & -4.8 & 0.109 & 0.328\\
+Dispersion $1-\hat\rho$ & Gaussian AP & 10/10 & +41.2 & 0.002 & 0.016\\
+Dispersion $1-\hat\rho$ & Pixel AP & 10/10 & +25.5 & 0.002 & 0.016\\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figs/qual_change.pdf}
+  \caption{Stale content after a real removal (NeRF-Object-Removal test scenes 015 at frame 675, 013 at frame 556, 006 at frame 178). The scenes are fixed by rule: the highest, the lower-median and the lowest pixel-level AP of ours in Table~\ref{tab:change}; the frame is the update keyframe with the largest object region inside the image. The map geometry is fixed: (a) renders the map, so the removed object's Gaussians are still there; (b) is the camera image after the removal. (c)-(g) render each row's per-Gaussian score, coloured by its rank among the covered pixels of all update keyframes of the scene (the population of the pixel-level AP; grey: no score, black: not covered); the numbers are the rows' pixel-level AP (\%) in Table~\ref{tab:change}. (h) shows our flags at the label-free threshold against the stale Gaussians (orange: flagged and stale, light blue: stale and not flagged, vermillion: flagged and static), with FA/Rec.\ (\%) of ours counted over all update views (015 5.9/54.2, 013 12.6/51.7, 006 3.3/29.1). The outline is masks\_real, a dilated silhouette of the object. NormLift's drop has a higher pixel-level AP than our test in all three scenes, as in Table~\ref{tab:change} (9 of 10 test scenes).}
+  \label{fig:qual-change}
+\end{figure*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figs/qual_query.pdf}
+  \caption{Query relevance before and after the update, same scenes, frames and rotations as Fig.~\ref{fig:qual-change}. The query of each scene is fixed by rule and never re-prompted: the most frequent top class (101 Replica classes, LSeg 5-template ensemble) of the mapping-pass $\boldsymbol\mu^\star_n$ of the stale Gaussians (015: 'bike', 013: 'wall', 006: 'box'). Each panel shows the cosine between the rendered feature and the query text, one colour scale per row (5th to 99th percentile of (b)). The map geometry is fixed: the removed object's Gaussians are still rendered after the update and only their semantics change. (c) is the same field after the same update views with the change test off; (d) is ours, where only the Gaussians our test flags are reset (Rec.\ 54.2/51.7/29.1\% in these scenes), so the missed ones keep the old class; (e) is averaging. The outline is masks\_real, a dilated silhouette.}
+  \label{fig:qual-query}
+\end{figure*}
+
+In Table~\ref{tab:change}, before any reset, our score differs from the feature-residual row only in where it takes the cosine: per Gaussian against all of its earlier evidence, not per pixel against the rendered map. On average, 27\% of a test scene's Gaussians are seen by no update view and are not in the table. Our score adds to depth: the fused row has the highest Gaussian-level AP and AUROC of Table~\ref{tab:change} (75.0 and 92.3, against 57.4 and 89.3 for the depth residual alone). Fused with the depth residual in the same way, however, the feature residual and NormLift's drop rank better (Gaussian AP 81.1 and 79.9; ours + depth higher in 0 and 1 of the ten scenes, Table~\ref{tab:fused}), while NCC and the dispersion fused with depth rank worse (61.2 and 34.2); we ran this comparison after Table~\ref{tab:change}, by a rule fixed in advance. Fig.~\ref{fig:qual-change} shows the scores on three test scenes chosen by a fixed rule. Alone, our test is not the best ranking: NormLift's reliability drop ranks the stale Gaussians better (AP 63.8 vs 53.4, higher in seven of ten scenes) and is the best row at the pixel level (AP 65.8, AUROC 82.0). At its label-free threshold, our test flags 56.8\% of the stale Gaussians at 6.2\% false alarms, against 75.6\% at 13.7\% for the feature residual and 22.8\% at 0.6\% for the depth residual, and only 4.8\% of the stale Gaussians stay in our robust set. The dispersion $1-\hat\rho$ alone does not detect a removal (AP 18.4). Fig.~\ref{fig:qual-query} shows what the reset changes for a text query. As a new measurement on the test scenes, we count the share of the removed object's covered pixels whose top class over the 101 Replica classes is the scene's query: 48\% after mapping, 34\% after the update for averaging and for our field with the change test off, and 21\% for ours, lower than with the test off in nine of ten scenes; the Gaussians that the test misses keep their old class.
 
 
 %% ----------------------------------------------------------------------------
@@ -506,7 +564,7 @@ Geometry is fixed after mapping, so moved content is not inserted at its new pla
 \section{Conclusion}
 \label{sec:conclusion}
 %% ============================================================================
-We presented an open-vocabulary semantic field for 3D Gaussian Splatting that counts evidence in views and keeps little and conflicting evidence apart; a known feature residual, thresholded by the map's own mapping pass, drives the reset and depth-checked re-admission of changed Gaussians. On Replica, the epistemic channel ranks the errors that more views fix and the aleatoric channel those they do not; on Replica and ScanNet, the field is as accurate and as well calibrated as averaging and better calibrated than trained maps. On ten real removals, our test fused with depth ranks stale Gaussians best, while NormLift's reliability drop ranks them better at the pixel level. Future work should insert new geometry where content has moved and test other feature extractors.
+We presented an open-vocabulary semantic field for 3D Gaussian Splatting that counts evidence in views and keeps little and conflicting evidence apart; a known feature residual, thresholded by the map's own mapping pass, drives the reset and depth-checked re-admission of changed Gaussians. On Replica, the epistemic channel ranks the errors that more views fix and the aleatoric channel those they do not; on Replica and ScanNet, the field is as accurate and as well calibrated as averaging and better calibrated than trained maps. On ten real removals, resetting the Gaussians our test flags lowers how often a removed object still answers its query (21\% vs 34\% of its former pixels), while residual baselines fused with depth rank stale Gaussians better than our test fused with depth. Future work should insert new geometry where content has moved and test other feature extractors.
 
 %% ============================================================================
 %% Appendix (no page limit in this step, user 2026-10-20). Every number comes from

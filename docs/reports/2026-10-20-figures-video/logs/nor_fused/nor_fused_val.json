@@ -1,0 +1,368 @@
+{
+ "prereg": "/home/thanhnc/gauss_ws/src/uags/configs/nor_fused_prereg.json",
+ "prereg_registered": "2026-10-21, before any fused-baseline score was computed on any scene",
+ "primary": "re-run values of all 5 fused rows from the same dump pass (paired); secondary: the published Table III fused cells against the re-run new rows (decided before the test dumps)",
+ "validation": {
+  "scenes": [
+   "001",
+   "002",
+   "003",
+   "004"
+  ],
+  "per_scene": {
+   "001": {
+    "rows": {
+     "fused": {
+      "gaussian_ap": 0.7687460384830916,
+      "gaussian_auroc": 0.9146987427629956,
+      "pixel_ap": 0.6926164728858787,
+      "pixel_auroc": 0.8450007442535297
+     },
+     "ncc+depth": {
+      "gaussian_ap": 0.6274993892292181,
+      "gaussian_auroc": 0.8904203203560289,
+      "pixel_ap": 0.6931582117116106,
+      "pixel_auroc": 0.807328487757534
+     },
+     "feat+depth": {
+      "gaussian_ap": 0.8047610876177383,
+      "gaussian_auroc": 0.9026831244335275,
+      "pixel_ap": 0.6960107305523756,
+      "pixel_auroc": 0.8359695805450273
+     },
+     "normlift+depth": {
+      "gaussian_ap": 0.8312306575575421,
+      "gaussian_auroc": 0.9331111063580079,
+      "pixel_ap": 0.7249216225929227,
+      "pixel_auroc": 0.8523513737061087
+     },
+     "dispersion+depth": {
+      "gaussian_ap": 0.36533395647248024,
+      "gaussian_auroc": 0.8581294029028524,
+      "pixel_ap": 0.4714273876851038,
+      "pixel_auroc": 0.7502417293369111
+     }
+    },
+    "common": {
+     "fused": 0.8473549407857436,
+     "ncc+depth": 0.6916844393155727,
+     "feat+depth": 0.8879249303802582,
+     "normlift+depth": 0.915313907342813,
+     "dispersion+depth": 0.4003108443651452
+    },
+    "n_common": 428122,
+    "published_fused": {
+     "gaussian_ap": 0.7687460423116445,
+     "gaussian_auroc": 0.9146987428043634,
+     "pixel_ap": 0.6926164712927,
+     "pixel_auroc": 0.8450007447479573
+    }
+   },
+   "002": {
+    "rows": {
+     "fused": {
+      "gaussian_ap": 0.8664685502709403,
+      "gaussian_auroc": 0.9466965523487937,
+      "pixel_ap": 0.7963429050315337,
+      "pixel_auroc": 0.7175649460637987
+     },
+     "ncc+depth": {
+      "gaussian_ap": 0.8322872220846381,
+      "gaussian_auroc": 0.9437056308547068,
+      "pixel_ap": 0.7794916372075643,
+      "pixel_auroc": 0.713912594243535
+     },
+     "feat+depth": {
+      "gaussian_ap": 0.8792228680237719,
+      "gaussian_auroc": 0.9473190150556393,
+      "pixel_ap": 0.809417598018422,
+      "pixel_auroc": 0.7370044720652346
+     },
+     "normlift+depth": {
+      "gaussian_ap": 0.9132831888181758,
+      "gaussian_auroc": 0.9591223351778033,
+      "pixel_ap": 0.8717034331279336,
+      "pixel_auroc": 0.8368043131911592
+     },
+     "dispersion+depth": {
+      "gaussian_ap": 0.5528992924438051,
+      "gaussian_auroc": 0.8859035911411292,
+      "pixel_ap": 0.5826851777054842,
+      "pixel_auroc": 0.523823057865247
+     }
+    },
+    "common": {
+     "fused": 0.8837644878349741,
+     "ncc+depth": 0.8490945985882913,
+     "feat+depth": 0.8971350854037301,
+     "normlift+depth": 0.9310481898667534,
+     "dispersion+depth": 0.564036354651767
+    },
+    "n_common": 468858,
+    "published_fused": {
+     "gaussian_ap": 0.8664685504975078,
+     "gaussian_auroc": 0.946696552625757,
+     "pixel_ap": 0.7963429002720563,
+     "pixel_auroc": 0.7175649407405456
+    }
+   },
+   "003": {
+    "rows": {
+     "fused": {
+      "gaussian_ap": 0.9005729516703203,
+      "gaussian_auroc": 0.9490191552173428,
+      "pixel_ap": 0.6529178247058781,
+      "pixel_auroc": 0.7377255976749223
+     },
+     "ncc+depth": {
+      "gaussian_ap": 0.8263779374298534,
+      "gaussian_auroc": 0.9304630874693839,
+      "pixel_ap": 0.6856043455607588,
+      "pixel_auroc": 0.8055039556883002
+     },
+     "feat+depth": {
+      "gaussian_ap": 0.9052132084159561,
+      "gaussian_auroc": 0.9469412367232996,
+      "pixel_ap": 0.6656094354143139,
+      "pixel_auroc": 0.750172262898022
+     },
+     "normlift+depth": {
+      "gaussian_ap": 0.8998405967723554,
+      "gaussian_auroc": 0.9542324204059968,
+      "pixel_ap": 0.676474193980487,
+      "pixel_auroc": 0.7843104042494069
+     },
+     "dispersion+depth": {
+      "gaussian_ap": 0.4929902401218862,
+      "gaussian_auroc": 0.8594206120819585,
+      "pixel_ap": 0.11861850147757075,
+      "pixel_auroc": 0.42127337949857824
+     }
+    },
+    "common": {
+     "fused": 0.9290289859319882,
+     "ncc+depth": 0.8530149217559497,
+     "feat+depth": 0.9352225660589588,
+     "normlift+depth": 0.9253955560915801,
+     "dispersion+depth": 0.5097683931774533
+    },
+    "n_common": 509756,
+    "published_fused": {
+     "gaussian_ap": 0.9005729501771013,
+     "gaussian_auroc": 0.9490191548994709,
+     "pixel_ap": 0.6529178330136762,
+     "pixel_auroc": 0.7377256030430162
+    }
+   },
+   "004": {
+    "rows": {
+     "fused": {
+      "gaussian_ap": 0.8223364380197546,
+      "gaussian_auroc": 0.9391576479187089,
+      "pixel_ap": 0.797113904624118,
+      "pixel_auroc": 0.8475709266092329
+     },
+     "ncc+depth": {
+      "gaussian_ap": 0.7025292479011033,
+      "gaussian_auroc": 0.922613335998533,
+      "pixel_ap": 0.7993438280337329,
+      "pixel_auroc": 0.871781911095051
+     },
+     "feat+depth": {
+      "gaussian_ap": 0.8199748553825711,
+      "gaussian_auroc": 0.9366519929071163,
+      "pixel_ap": 0.7693856129003189,
+      "pixel_auroc": 0.8238650034881061
+     },
+     "normlift+depth": {
+      "gaussian_ap": 0.8337066247300666,
+      "gaussian_auroc": 0.9421907570214015,
+      "pixel_ap": 0.7987261146744719,
+      "pixel_auroc": 0.8510459278711845
+     },
+     "dispersion+depth": {
+      "gaussian_ap": 0.5099928383388785,
+      "gaussian_auroc": 0.8964429125765849,
+      "pixel_ap": 0.6133332135626073,
+      "pixel_auroc": 0.7088622904338707
+     }
+    },
+    "common": {
+     "fused": 0.8389100541444899,
+     "ncc+depth": 0.7165968777059616,
+     "feat+depth": 0.8367838098823425,
+     "normlift+depth": 0.8493554824124274,
+     "dispersion+depth": 0.5195054819821736
+    },
+    "n_common": 533469,
+    "published_fused": {
+     "gaussian_ap": 0.8223364396612445,
+     "gaussian_auroc": 0.939157647688042,
+     "pixel_ap": 0.7971139033939287,
+     "pixel_auroc": 0.8475709238044431
+    }
+   }
+  },
+  "summary": {
+   "fused": {
+    "gaussian_ap": {
+     "mean": 0.8395309946110268,
+     "std": 0.04939108020929419,
+     "n": 4
+    },
+    "gaussian_auroc": {
+     "mean": 0.9373930245619602,
+     "std": 0.013600246921089435,
+     "n": 4
+    },
+    "pixel_ap": {
+     "mean": 0.7347477768118522,
+     "std": 0.06355053412612605,
+     "n": 4
+    },
+    "pixel_auroc": {
+     "mean": 0.7869655536503709,
+     "std": 0.059753895642203174,
+     "n": 4
+    }
+   },
+   "ncc+depth": {
+    "gaussian_ap": {
+     "mean": 0.7471734491612032,
+     "std": 0.08636071246509819,
+     "n": 4
+    },
+    "gaussian_auroc": {
+     "mean": 0.9218005936696632,
+     "std": 0.01962301936654925,
+     "n": 4
+    },
+    "pixel_ap": {
+     "mean": 0.7393995056284167,
+     "std": 0.05057884269385167,
+     "n": 4
+    },
+    "pixel_auroc": {
+     "mean": 0.799631737196105,
+     "std": 0.05622975631593163,
+     "n": 4
+    }
+   },
+   "feat+depth": {
+    "gaussian_ap": {
+     "mean": 0.8522930048600095,
+     "std": 0.04132042901759963,
+     "n": 4
+    },
+    "gaussian_auroc": {
+     "mean": 0.9333988422798957,
+     "std": 0.018242847702513287,
+     "n": 4
+    },
+    "pixel_ap": {
+     "mean": 0.7351058442213576,
+     "std": 0.0571303729266337,
+     "n": 4
+    },
+    "pixel_auroc": {
+     "mean": 0.7867528297490975,
+     "std": 0.0436252190880762,
+     "n": 4
+    }
+   },
+   "normlift+depth": {
+    "gaussian_ap": {
+     "mean": 0.869515266969535,
+     "std": 0.03736049647509269,
+     "n": 4
+    },
+    "gaussian_auroc": {
+     "mean": 0.9471641547408024,
+     "std": 0.010187999222150327,
+     "n": 4
+    },
+    "pixel_ap": {
+     "mean": 0.7679563410939538,
+     "std": 0.07404594571726462,
+     "n": 4
+    },
+    "pixel_auroc": {
+     "mean": 0.8311280047544648,
+     "std": 0.027709489554396543,
+     "n": 4
+    }
+   },
+   "dispersion+depth": {
+    "gaussian_ap": {
+     "mean": 0.4803040818442625,
+     "std": 0.06987588139701137,
+     "n": 4
+    },
+    "gaussian_auroc": {
+     "mean": 0.8749741296756313,
+     "std": 0.016628428193611256,
+     "n": 4
+    },
+    "pixel_ap": {
+     "mean": 0.4465160701076915,
+     "std": 0.19653713037962106,
+     "n": 4
+    },
+    "pixel_auroc": {
+     "mean": 0.6010501142836517,
+     "std": 0.13431799576143913,
+     "n": 4
+    }
+   },
+   "published:fused": {
+    "gaussian_ap": {
+     "mean": 0.8395309956618746,
+     "std": 0.049391078264234146,
+     "n": 4
+    },
+    "gaussian_auroc": {
+     "mean": 0.9373930245044083,
+     "std": 0.013600246875782589,
+     "n": 4
+    },
+    "pixel_ap": {
+     "mean": 0.7347477769930904,
+     "std": 0.06355053026075032,
+     "n": 4
+    },
+    "pixel_auroc": {
+     "mean": 0.7869655530839905,
+     "std": 0.059753895490837296,
+     "n": 4
+    }
+   }
+  },
+  "common_set_gaussian_ap": {
+   "fused": {
+    "mean": 0.874764617174299,
+    "std": 0.0355754811575446,
+    "n": 4
+   },
+   "ncc+depth": {
+    "mean": 0.7775977093414438,
+    "std": 0.07399620349570202,
+    "n": 4
+   },
+   "feat+depth": {
+    "mean": 0.8892665979313225,
+    "std": 0.035107361104416195,
+    "n": 4
+   },
+   "normlift+depth": {
+    "mean": 0.9052782839283935,
+    "std": 0.03277524278350132,
+    "n": 4
+   },
+   "dispersion+depth": {
+    "mean": 0.49840526854413475,
+    "std": 0.06021688950626332,
+    "n": 4
+   }
+  }
+ }
+}

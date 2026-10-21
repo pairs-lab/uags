@@ -1,0 +1,316 @@
+{
+ "stage": "test",
+ "scenes": [
+  "005",
+  "006",
+  "007",
+  "008",
+  "009",
+  "010",
+  "011",
+  "013",
+  "014",
+  "015"
+ ],
+ "per_scene": {
+  "005": {
+   "query": "book",
+   "before": {
+    "stale_answer_rate": 0.764680844404801,
+    "delta_cos": 0.06661411574276399,
+    "n_mask_cov": 319515
+   },
+   "nochange": {
+    "stale_answer_rate": 0.7352236984179147,
+    "delta_cos": 0.05829558215226405,
+    "n_mask_cov": 319515
+   },
+   "ours": {
+    "stale_answer_rate": 0.32486424737492764,
+    "delta_cos": 0.031961807048610624,
+    "n_mask_cov": 319515
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.7331674569269049,
+    "delta_cos": 0.0586215998832228,
+    "n_mask_cov": 319515
+   }
+  },
+  "006": {
+   "query": "box",
+   "before": {
+    "stale_answer_rate": 0.3328108604692677,
+    "delta_cos": 0.050251113067425024,
+    "n_mask_cov": 229677
+   },
+   "nochange": {
+    "stale_answer_rate": 0.0016283737596711903,
+    "delta_cos": 0.024830070867492338,
+    "n_mask_cov": 229677
+   },
+   "ours": {
+    "stale_answer_rate": 0.0,
+    "delta_cos": 0.010209469752772038,
+    "n_mask_cov": 229677
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.0020028126455848864,
+    "delta_cos": 0.025765444348887834,
+    "n_mask_cov": 229677
+   }
+  },
+  "007": {
+   "query": "handbag",
+   "before": {
+    "stale_answer_rate": 0.5512022075713369,
+    "delta_cos": 0.1273313062918947,
+    "n_mask_cov": 328687
+   },
+   "nochange": {
+    "stale_answer_rate": 0.4946773069820224,
+    "delta_cos": 0.08747385533726126,
+    "n_mask_cov": 328687
+   },
+   "ours": {
+    "stale_answer_rate": 0.0051447121425550755,
+    "delta_cos": 0.014092281824632957,
+    "n_mask_cov": 328687
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.49616200214794015,
+    "delta_cos": 0.08814585397157015,
+    "n_mask_cov": 328687
+   }
+  },
+  "008": {
+   "query": "backpack",
+   "before": {
+    "stale_answer_rate": 0.4688593636589779,
+    "delta_cos": 0.17479951163074692,
+    "n_mask_cov": 586918
+   },
+   "nochange": {
+    "stale_answer_rate": 0.04503354812767712,
+    "delta_cos": 0.14670839223541954,
+    "n_mask_cov": 586918
+   },
+   "ours": {
+    "stale_answer_rate": 0.0,
+    "delta_cos": 0.07945979932763414,
+    "n_mask_cov": 586918
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.044914281040963136,
+    "delta_cos": 0.1468774335638635,
+    "n_mask_cov": 586918
+   }
+  },
+  "009": {
+   "query": "wall",
+   "before": {
+    "stale_answer_rate": 0.8152137004833515,
+    "delta_cos": 0.01085794642603155,
+    "n_mask_cov": 1116165
+   },
+   "nochange": {
+    "stale_answer_rate": 1.0,
+    "delta_cos": 0.00868763992833499,
+    "n_mask_cov": 1116165
+   },
+   "ours": {
+    "stale_answer_rate": 1.0,
+    "delta_cos": 0.007885319521515055,
+    "n_mask_cov": 1116165
+   },
+   "avg_after": {
+    "stale_answer_rate": 1.0,
+    "delta_cos": 0.008758834563029283,
+    "n_mask_cov": 1116165
+   }
+  },
+  "010": {
+   "query": "phone",
+   "before": {
+    "stale_answer_rate": 0.10731263193515639,
+    "delta_cos": 0.019651359212205732,
+    "n_mask_cov": 496456
+   },
+   "nochange": {
+    "stale_answer_rate": 0.005954203393654221,
+    "delta_cos": 0.008482907199983014,
+    "n_mask_cov": 496456
+   },
+   "ours": {
+    "stale_answer_rate": 0.0,
+    "delta_cos": -0.012168856886472512,
+    "n_mask_cov": 496456
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.005970317611228387,
+    "delta_cos": 0.009197227591117185,
+    "n_mask_cov": 496456
+   }
+  },
+  "011": {
+   "query": "handbag",
+   "before": {
+    "stale_answer_rate": 0.24379755406537143,
+    "delta_cos": 0.07904051674269597,
+    "n_mask_cov": 1178527
+   },
+   "nochange": {
+    "stale_answer_rate": 0.09632532814267301,
+    "delta_cos": 0.056876969990976245,
+    "n_mask_cov": 1178527
+   },
+   "ours": {
+    "stale_answer_rate": 0.0,
+    "delta_cos": -0.006124975710324554,
+    "n_mask_cov": 1178527
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.10631321980743759,
+    "delta_cos": 0.058851979614897965,
+    "n_mask_cov": 1178527
+   }
+  },
+  "013": {
+   "query": "wall",
+   "before": {
+    "stale_answer_rate": 0.5572237470250758,
+    "delta_cos": 0.03805050819834821,
+    "n_mask_cov": 427742
+   },
+   "nochange": {
+    "stale_answer_rate": 0.8617671400049562,
+    "delta_cos": 0.0547359604101072,
+    "n_mask_cov": 427742
+   },
+   "ours": {
+    "stale_answer_rate": 0.6850180716413165,
+    "delta_cos": 0.04745473172529269,
+    "n_mask_cov": 427742
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.8630506239742649,
+    "delta_cos": 0.054728129628379585,
+    "n_mask_cov": 427742
+   }
+  },
+  "014": {
+   "query": "bike",
+   "before": {
+    "stale_answer_rate": 0.4453653565279129,
+    "delta_cos": 0.0983121222534632,
+    "n_mask_cov": 3031053
+   },
+   "nochange": {
+    "stale_answer_rate": 0.052686970501670545,
+    "delta_cos": 0.07568256813591523,
+    "n_mask_cov": 3031053
+   },
+   "ours": {
+    "stale_answer_rate": 0.0,
+    "delta_cos": 0.016333485165362482,
+    "n_mask_cov": 3031053
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.05267872254295784,
+    "delta_cos": 0.0757015822159619,
+    "n_mask_cov": 3031053
+   }
+  },
+  "015": {
+   "query": "bike",
+   "before": {
+    "stale_answer_rate": 0.5404921932066439,
+    "delta_cos": 0.10447507741228357,
+    "n_mask_cov": 2991305
+   },
+   "nochange": {
+    "stale_answer_rate": 0.12256724071935159,
+    "delta_cos": 0.08520535252329697,
+    "n_mask_cov": 2991305
+   },
+   "ours": {
+    "stale_answer_rate": 0.05705402825856942,
+    "delta_cos": 0.046189549890620074,
+    "n_mask_cov": 2991305
+   },
+   "avg_after": {
+    "stale_answer_rate": 0.12252311282199575,
+    "delta_cos": 0.08507403232407518,
+    "n_mask_cov": 2991305
+   }
+  }
+ },
+ "summary": {
+  "before": {
+   "stale_answer_rate": {
+    "mean": 0.48269584593478954,
+    "std": 0.20632670309468576,
+    "n": 10
+   },
+   "delta_cos": {
+    "mean": 0.07693835769778588,
+    "std": 0.048285885432074405,
+    "n": 10
+   }
+  },
+  "nochange": {
+   "stale_answer_rate": {
+    "mean": 0.34158638100495914,
+    "std": 0.37285827203725663,
+    "n": 10
+   },
+   "delta_cos": {
+    "mean": 0.060697929878105086,
+    "std": 0.0396406372558189,
+    "n": 10
+   }
+  },
+  "ours": {
+   "stale_answer_rate": {
+    "mean": 0.20720810594173686,
+    "std": 0.3389271568083037,
+    "n": 10
+   },
+   "delta_cos": {
+    "mean": 0.0235292611659643,
+    "std": 0.026461225742004456,
+    "n": 10
+   }
+  },
+  "avg_after": {
+   "stale_answer_rate": {
+    "mean": 0.3426782549519277,
+    "std": 0.3722136722271193,
+    "n": 10
+   },
+   "delta_cos": {
+    "mean": 0.06117221177050054,
+    "std": 0.03951072969517951,
+    "n": 10
+   }
+  }
+ },
+ "counts": {
+  "ours<nochange": {
+   "stale_answer_rate": 9,
+   "delta_cos": 10,
+   "n": 10
+  },
+  "ours<before": {
+   "stale_answer_rate": 8,
+   "delta_cos": 9,
+   "n": 10
+  },
+  "ours<avg_after": {
+   "stale_answer_rate": 9,
+   "delta_cos": 10,
+   "n": 10
+  }
+ },
+ "disclosure": "new measurement (not in Table III); defined and debugged on the validation scenes 001-004 before the test scenes ran once",
+ "rule": "per scene over the covered pixels of all update keyframes (360x270): stale-answer rate = share of covered masks_real pixels whose top class (argmax over the 101 classes, P0 render) is the query; delta cos = mean query cosine inside masks_real minus outside"
+}

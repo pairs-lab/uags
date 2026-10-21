@@ -161,3 +161,118 @@ What this shows:
 - h (2.9–7.5 mm) matches the stage-1 estimate of about 0.5 cm.
 
 Status: the fix is uncommitted (3 files modified). The driver refuses a dirty tree, so validation reruns after the lead commits.
+
+## 10 Validation (attempt 2, code b4d6205, prereg sha256 832fc2f42f82)
+
+Command: `DATASET=replica STAGE=val scripts/smooth_tab1.sh`, then `DATASET=scannet STAGE=val`.
+Records: `/home/thanhnc/gauss_ws/data/uags_results/smooth/<dataset>/eval_val_s{1,2,4,8}.json` and `selection_val.json`.
+Every batch was made at b4d6205 with `dirty_tracked` false.
+
+### 10a Replica (18:10–22:14, 4.1 h wall; the CPU was shared with another project's 22-worker job, load 28–38)
+
+**Selection: `@smooth` = `ours_P2` (smoothing NOT selected); `@avg_own` = `averaging` (no kernel helps averaging either).**
+
+Pooled validation NLL in nats; lower is better; ours_P2 = 0.80034, averaging = 0.80959:
+
+| Kernel (gated = ungated to 1e-5) | ours_P2s | Δ vs ours_P2 | ours_P0s | averaging_s |
+|---|---|---|---|---|
+| k8_s1 | 0.80059 | +0.00025 | 0.80948 | 0.80979 |
+| k16_s1 | 0.80074 | +0.00040 | 0.80952 | 0.80983 |
+| k32_s1 | 0.80086 | +0.00052 | 0.80954 | 0.80985 |
+| k8_s2 | 0.80216 | +0.00182 | 0.80992 | 0.81020 |
+| k16_s2 | 0.80232 | +0.00198 | 0.80999 | 0.81027 |
+| k32_s2 | 0.80231 | +0.00197 | 0.81006 | 0.81033 |
+| k8_s4 | 0.80355 | +0.00321 | 0.81095 | 0.81114 |
+| k16_s4 | 0.80379 | +0.00345 | 0.81127 | 0.81143 |
+| k32_s4 | 0.80392 | +0.00358 | 0.81149 | 0.81167 |
+| k8_s8 | 0.80428 | +0.00394 | 0.81163 | 0.81172 |
+| k16_s8 | 0.80505 | +0.00470 | 0.81225 | 0.81231 |
+| k32_s8 | 0.80589 | +0.00555 | 0.81299 | 0.81302 |
+
+Every one of the 24 kernels is worse than the unsmoothed row, for ours and for averaging, and NLL grows steadily with the kernel size.
+
+Validation metrics. mIoU, ECE and AURC are the mean of the 2 scenes, in %. NLL is shown as both the scene mean and the pixel-pooled value:
+
+| Row | mIoU | ECE | NLL mean / pooled | AURC | AUSE u_ale |
+|---|---|---|---|---|---|
+| ours_P2 (kept) | 31.50 | 4.91 | 0.8238 / 0.8003 | 6.15 | 5.03 |
+| ours_P0 | 31.50 | 6.51 | 0.8328 / 0.8093 | 6.60 | 5.03 |
+| averaging (= @avg_own) | 31.42 | 6.59 | 0.8332 / 0.8096 | 6.59 | – |
+| averaging_s (same kernel) | n/a: no kernel chosen | | | | |
+
+Checks:
+
+| Check | Result |
+|---|---|
+| Reference rows (ours_P0, ours_P2, averaging) across the 4 batches | identical: max \|Δβ\| = 0, max \|Δmetric\| = 0 |
+| Independent check against Table I v1 validation (`eval_val_224fe1e.json`, RTX 5070 Ti, code 224fe1e) | max \|Δβ\| 0.085 (P2 β0 45.47 vs 45.56), max \|Δ val NLL\| 1.7e-4: another GPU and code version; same predictive |
+| Gate blocked share (logged, rounded to 0.1%) | 0.0% for every gated kernel. The CPU check gave 0.01% on office_0 and 0.00% on room_2 |
+| Kernel mass, neighbours pooled (office_0 / room_2) | s1: 2.6–6.2; s2: 4.3–11.9; s4: 6.0–18.9; s8: 7.2–25.7 |
+| h | office_0 4.91 mm, room_2 3.91 mm |
+| Peak GPU memory, every batch | allocated 3.87 GiB, reserved 5.18 GiB (cap 6000 MiB) |
+| Peak RSS | 13.6–14.4 GiB |
+| Wall per batch | s1 33 min, s2 58 min, s4 72 min, s8 74 min. The stage-1 estimate was 7–12 min; CPU contention and the eval_seg metric code (CPU) dominate |
+
+### 10b ScanNet (2026-10-21 22:14 to 2026-10-22 00:23, 2.1 h wall)
+
+**Selection: `@smooth` = `ours_P2s_k32_s4_g0.8`** (pooled val NLL 0.54243 vs ours_P2 0.54725, Δ −0.00482).
+- Tie rule: k32_s4 (0.54246) and k32_s8_g0.8 (0.54249) are within the 1e-4 tolerance, so the one listed first (k32_s4_g0.8) wins. The kernel is the same with or without the gate.
+- **`@avg_own` = `averaging_s_k32_s8_g0.8`** (0.54358).
+- **Paired baseline: `averaging_s_k32_s4_g0.8`** (0.54384).
+
+Pooled validation NLL in nats; lower is better; ours_P2 = 0.54725, averaging = 0.54442. Gated and ungated values differ by at most 1.5e-4; the table shows the gated value:
+
+| Kernel | ours_P2s | Δ vs ours_P2 | ours_P0s | averaging_s |
+|---|---|---|---|---|
+| k8_s1 | 0.54604 | −0.00121 | 0.54875 | 0.54448 |
+| k16_s1 | 0.54592 | −0.00133 | 0.54872 | 0.54447 |
+| k32_s1 | 0.54585 | −0.00140 | 0.54867 | 0.54441 |
+| k8_s2 | 0.54496 | −0.00229 | 0.54826 | 0.54437 |
+| k16_s2 | 0.54455 | −0.00270 | 0.54818 | 0.54451 |
+| k32_s2 | 0.54424 | −0.00301 | 0.54806 | 0.54414 |
+| k8_s4 | 0.54417 | −0.00308 | 0.54704 | 0.54398 |
+| k16_s4 | 0.54328 | −0.00397 | 0.54667 | 0.54416 |
+| **k32_s4** | **0.54243** | **−0.00482** | 0.54645 | 0.54384 |
+| k8_s8 | 0.54412 | −0.00313 | 0.54633 | 0.54377 |
+| k16_s8 | 0.54313 | −0.00412 | 0.54557 | 0.54380 |
+| k32_s8 | 0.54249 | −0.00476 | 0.54544 | 0.54358 |
+
+Validation metrics. mIoU, ECE and AURC are the mean of the 2 scenes, in %. NLL is shown as both the scene mean and the pixel-pooled value. These are validation numbers, already used for the selection: descriptive only.
+
+| Row | mIoU | ECE | NLL mean / pooled | AURC | AUSE u_ale |
+|---|---|---|---|---|---|
+| **ours_P2s_k32_s4_g0.8 (chosen)** | 71.08 | **2.35** | **0.4031 / 0.5424** | 3.17 | **3.31** |
+| ours_P0s_k32_s4_g0.8 (same buffer, mIoU row) | 71.08 | 3.52 | 0.4088 / 0.5465 | 2.92 | 3.31 |
+| ours_P2 (Table I) | 71.07 | 2.73 | 0.4104 / 0.5472 | 3.20 | 3.83 |
+| ours_P0 | 71.07 | 3.41 | 0.4112 / 0.5488 | 2.97 | 3.83 |
+| averaging | **71.27** | 3.56 | 0.4092 / 0.5444 | 2.93 | – |
+| averaging_s_k32_s4_g0.8 (same kernel) | 71.19 | 3.67 | 0.4079 / 0.5438 | 2.90 | – |
+| averaging_s_k32_s8_g0.8 (@avg_own) | 71.13 | 3.69 | 0.4073 / 0.5436 | **2.89** | – |
+
+How to read it:
+- On validation, smoothing moves ours' NLL from worse than averaging (0.5472 vs 0.5444) to better than all three averaging rows (0.5424 vs 0.5436–0.5444). ECE also improves (2.35 vs 3.56–3.69).
+- mIoU and AURC still favour the averaging rows.
+- The P2 refit on the smoothed channels has more negative coefficients: γ_e −3.04 and γ_a −2.53, against −0.82 and −2.07 for ours_P2, and γ_u is 0.63. P2 therefore sharpens even more where uncertainty is high, the sign issue already reported for ScanNet.
+- On Replica the same 24 kernels all lose (section 10a). The gain is therefore dataset-specific; the test stage decides whether it holds on the 8 ScanNet test scenes.
+
+Checks:
+
+| Check | Result |
+|---|---|
+| Reference rows across the 4 batches | identical: max \|Δβ\| = 0, max \|Δmetric\| = 0 |
+| Independent check against Table I validation (`scannet_tab1/eval_val.json`, same GPU, earlier code) | max \|Δβ\| 0.053, max \|Δ val NLL\| 1.0e-4 |
+| Gate blocked share (logged, rounded to 0.1%) | ≤ 0.1% for every gated kernel |
+| Kernel mass of the chosen kernel k32_s4 | 18.6–18.9 neighbours (scene0000_00 / scene0062_00) |
+| h | scene0000_00 7.51 mm, scene0062_00 2.90 mm |
+| Peak GPU memory, every batch | allocated 3.92 GiB, reserved 5.18 GiB (cap 6000 MiB) |
+| Peak RSS | 22.0–22.4 GiB |
+| Wall per batch | 31–33 min |
+
+### 10c Status
+
+| Dataset | Selected | Next |
+|---|---|---|
+| Replica | ours_P2 (smoothing not selected; NEGATIVE on validation) | The test stage would only report every candidate as "not selected"; C1 does not apply |
+| ScanNet | ours_P2s_k32_s4_g0.8; paired averaging_s_k32_s4_g0.8; @avg_own averaging_s_k32_s8_g0.8 | The test stage (once) decides C1/C2. **Not run: stopped as instructed** |
+
+Nothing was committed. The validation records and selections are under `/home/thanhnc/gauss_ws/data/uags_results/smooth/{replica,scannet}/`.

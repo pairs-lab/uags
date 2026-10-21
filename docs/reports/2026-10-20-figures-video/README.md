@@ -3,7 +3,7 @@
 Follows: [Complete the paper](../2026-10-17-paper-completion/README.md)
 Verdict: PARTIAL -- teaser, pipeline, qualitative, calibration and video done; fused-baseline check NEGATIVE for our "fused best" claim (paper corrected); paper 17 pages / 17.9 MB to trim
 Key result: stale-answer rate after the update 20.7% (ours) vs 34.3% (averaging), test N=10, new measurement ([numbers](logs/nor/n2_numbers_test.tex)); fused baselines beat ours+depth (81.1, 79.9 vs 75.0, [verdict](logs/nor_fused/nor_fused_verdict.md))
-Attempts: n/a | Time: started 2026-10-20 14:50 JST
+Attempts: 1 (0 Good / 1 Bad) | Time: started 2026-10-20 14:50 JST
 
 ## 0 Context
 - Ask (user, 2026-10-20): "in this step, we do not need to keep this in 8 pages, just try to improve results, qualitative
@@ -31,6 +31,11 @@ Attempts: n/a | Time: started 2026-10-20 14:50 JST
 | 4h | New measurement (test, disclosed): stale-answer rate (share of the removed object's covered pixels whose top class is the query) 48.3 before, 34.3 averaging, 34.2 change test off, 20.7 ours; ours < test-off in 9/10 ([numbers](logs/nor/n2_numbers_test.tex)) | in abstract, intro, results, conclusion |
 | 4i | Teaser caption rule C1 failed (averaging's p(chair) after the update 0.06 < 0.5): caption neutral, as the rule requires | noted |
 | 5 | Video (agent): 2:24, 1920x1080, 30 fps, H.264, 37.9 MB zip (limit 50 MB); replays of 002 and 014 equal their Table III records (FA, Rec, Kept exact; AP within 2e-8); every caption number parsed from main.tex; anonymous; 6 tests pass ([summary](logs/video_summary.md)). Files: /home/thanhnc/gauss_ws/data/uags_results/video/supplementary_video.zip (37.9 MB), master.mp4, stills/ | done (9b6002b) |
+
+## 3 Attempts (method)
+| # | Idea | Result | Critic |
+|---|---|---|---|
+| 01 | Spatial smoothing of the per-Gaussian sums over 3D neighbours (BKI kernel), 24 kernels, pre-registered (configs/smooth_prereg.json, cafb61d; underflow amendment b4d6205), chosen by pooled val NLL | Replica: no kernel beats P2 on val (more smoothing = worse). ScanNet: k32_s4_g0.8 chosen (val NLL 0.4031 vs 0.4104); test NLL 0.535 vs P2 0.509, averaging 0.512; ECE 6.6 vs 6.1, 6.2; AURC 5.4 vs 5.0, 4.4; C1 fails on all metrics ([note](logs/smooth_stage1.md)) | **Bad**: neighbours carry the same LSeg feature; the val gain was the P2 refit (gamma_e -3.04) overfitting 2 val scans. Disclosed in the appendix; Table I unchanged. |
 
 ## 5 Verification
 | Check | Command | Result | Status |

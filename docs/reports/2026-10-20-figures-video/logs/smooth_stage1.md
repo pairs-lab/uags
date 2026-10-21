@@ -276,3 +276,94 @@ Checks:
 | ScanNet | ours_P2s_k32_s4_g0.8; paired averaging_s_k32_s4_g0.8; @avg_own averaging_s_k32_s8_g0.8 | The test stage (once) decides C1/C2. **Not run: stopped as instructed** |
 
 Nothing was committed. The validation records and selections are under `/home/thanhnc/gauss_ws/data/uags_results/smooth/{replica,scannet}/`.
+
+## 11 Test, run once (code c36abde, prereg sha256 832fc2f42f82)
+
+| Look | Command | Time | look_test.json |
+|---|---|---|---|
+| ScanNet test, 2nd look at its split | `DATASET=scannet STAGE=test scripts/smooth_tab1.sh`, then `STAGE=table` | 2026-10-22 00:24–05:14 (4.8 h; batches 66–80 min) | attempt 1, commit c36abde |
+| Replica test, a further look | `DATASET=replica STAGE=test scripts/smooth_tab1.sh` (its table stage also ran the claim) | 05:14–08:26 (3.2 h; batches 42–51 min) | attempt 1, commit c36abde |
+
+- Every test batch record has `dirty_tracked` false.
+- Peak GPU allocation: 3.98 GiB (ScanNet), 4.07 GiB (Replica); cap 6000 MiB.
+- Peak RSS: 18.9–19.2 GiB (ScanNet), 15.3–15.9 GiB (Replica).
+- Nothing was changed after the test numbers were read.
+- Records: `/home/thanhnc/gauss_ws/data/uags_results/smooth/{scannet,replica}/eval_test_s{1,2,4,8}.json`, `table_smooth.{json,tex}` and `claim_smooth.json`.
+
+**Verdict: NEGATIVE.** On ScanNet the kernel chosen on validation (ours_P2s_k32_s4_g0.8) is worse than ours_P2 and than all three averaging rows on NLL, ECE, Brier and AURC. Claim rule C1 fails on every metric, so Table I keeps ours_P2, and the paper may say only that the spatial kernel did not help.
+
+### 11a ScanNet test (N = 8, mean ± population std; % except NLL in nats)
+
+| Row | mIoU | ECE | NLL | Brier | AURC | AUSE u_ale |
+|---|---|---|---|---|---|---|
+| **ours_P2s_k32_s4_g0.8 (chosen; mIoU from ours_P0s)** | 67.91 ± 10.20 | 6.61 ± 6.32 | 0.535 ± 0.264 | 22.42 ± 10.41 | 5.35 ± 2.41 | 8.01 ± 7.25 |
+| ours_P2 (Table I) | 67.99 ± 10.39 | 6.06 ± 5.76 | 0.509 ± 0.232 | 22.14 ± 10.07 | 5.03 ± 2.25 | 8.23 ± 8.06 |
+| averaging | 67.68 ± 10.36 | 6.17 ± 5.40 | 0.512 ± 0.232 | 22.29 ± 10.01 | 4.39 ± 1.89 | – |
+| averaging_s_k32_s4_g0.8 (same kernel) | 67.58 ± 10.16 | 6.20 ± 5.43 | 0.512 ± 0.232 | 22.31 ± 9.98 | 4.40 ± 1.89 | – |
+| averaging_s_k32_s8_g0.8 (@avg_own) | 67.57 ± 10.17 | 6.21 ± 5.43 | 0.512 ± 0.233 | 22.30 ± 9.97 | 4.40 ± 1.89 | – |
+
+Scene-by-scene comparisons of the chosen row: x/8 = scenes where it is better; median difference in display units, positive = chosen row better; exact sign test p (unadjusted):
+
+| Metric | vs ours_P2 (P0 for mIoU) | vs averaging | vs averaging_s same kernel | vs @avg_own |
+|---|---|---|---|---|
+| mIoU | 4/8, −0.01, p 1 | 3/8, −0.27, p 0.73 | 4/8, −0.03, p 1 | 4/8, +0.07, p 1 |
+| ECE | 3/8, −0.25, p 0.73 | 3/8, −0.27, p 0.73 | 3/8, −0.28, p 0.73 | 3/8, −0.28, p 0.73 |
+| NLL | 1/8, −0.007, p 0.070 | 2/8, −0.011, p 0.29 | 2/8, −0.009, p 0.29 | 2/8, −0.008, p 0.29 |
+| Brier | 3/8, −0.11, p 0.73 | 2/8, −0.47, p 0.29 | 2/8, −0.45, p 0.29 | 2/8, −0.36, p 0.29 |
+| AURC | 2/8, −0.27, p 0.29 | 0/8, −0.70, p 0.0078 | 0/8, −0.74, p 0.0078 | 0/8, −0.75, p 0.0078 |
+| AUSE u_ale | 4/8, +0.06, p 1 | – | – | – |
+
+Claim rules:
+
+| Rule | Result |
+|---|---|
+| C1, per metric (better mean AND x/8 ≥ 5 against each of the 3 averaging rows) | **FAIL on all 5** (mIoU, ECE, NLL, Brier, AURC) |
+| F3s (15 sign tests over 8 scenes, Holm) | No test favours ours. Smallest Holm p = 0.117: AURC 0/8 against each averaging row, i.e. **ours worse**. All others are 1.0. Nothing is significant in either direction |
+
+- **Validation did not transfer.** On ScanNet validation all 24 kernels beat ours_P2 on NLL. On ScanNet test all 12 gated kernels are worse than ours_P2 (0.5144–0.5353 vs 0.5093), and the chosen kernel is the worst of them.
+- **Likely cause (not tested):** the P2 refit on the smoothed channels (γ_e −3.04, γ_a −2.53, against −0.82 and −2.07 for ours_P2) fits the 2 validation scans and does not carry over.
+
+### 11b Replica test (N = 6): smoothing not selected; every candidate "not selected"
+
+Reference rows reproduce Table I:
+
+| Row | mIoU | ECE | NLL | Brier | AURC | AUSE u_ale |
+|---|---|---|---|---|---|---|
+| ours_P2 | 27.96 ± 3.62 | 8.68 ± 5.57 | 0.996 ± 0.430 | 36.20 ± 13.31 | 12.24 ± 8.03 | 8.50 ± 5.48 |
+| averaging | 27.91 ± 3.44 | 9.63 ± 3.94 | 1.004 ± 0.438 | 36.64 ± 13.40 | 14.00 ± 9.20 | – |
+
+Every candidate on test, means (gated kernels; ungated differ by ≤ 2e-5 nats on Replica and ≤ 6e-5 on ScanNet). All rows are "not selected" except ScanNet k32_s4_g0.8:
+
+| Kernel | Replica P2s NLL | Replica P2s ECE | Replica avg_s NLL | ScanNet P2s NLL | ScanNet P2s ECE | ScanNet avg_s NLL |
+|---|---|---|---|---|---|---|
+| reference ours_P2 / averaging | 0.9955 / 1.0036 | 8.68 / 9.63 | – | 0.5093 / 0.5116 | 6.06 / 6.17 | – |
+| k8_s1 | 1.0003 | 8.53 | 1.0038 | 0.5157 | 6.16 | 0.5118 |
+| k16_s1 | 1.0004 | 8.50 | 1.0038 | 0.5161 | 6.18 | 0.5118 |
+| k32_s1 | 1.0003 | 8.47 | 1.0038 | 0.5162 | 6.18 | 0.5119 |
+| k8_s2 | 0.9982 | 8.28 | 1.0043 | 0.5213 | 6.31 | 0.5118 |
+| k16_s2 | 0.9983 | 8.21 | 1.0044 | 0.5239 | 6.40 | 0.5120 |
+| k32_s2 | 0.9986 | 8.17 | 1.0043 | 0.5255 | 6.45 | 0.5121 |
+| k8_s4 | 0.9971 | 8.14 | 1.0050 | 0.5202 | 6.30 | 0.5116 |
+| k16_s4 | 0.9958 | 8.06 | 1.0052 | 0.5266 | 6.44 | 0.5118 |
+| k32_s4 | 0.9942 | 8.07 | 1.0052 | **0.5353 (chosen)** | 6.61 | 0.5122 |
+| k8_s8 | 0.9983 | 8.13 | 1.0053 | 0.5144 | 6.19 | 0.5114 |
+| k16_s8 | 0.9984 | 8.06 | 1.0058 | 0.5183 | 6.27 | 0.5116 |
+| k32_s8 | 0.9981 | 8.07 | 1.0062 | 0.5260 | 6.40 | 0.5122 |
+
+- On Replica test one candidate (k32_s4, 0.9942) is below ours_P2 (0.9955). It was worse on validation, so it was not selected; this is a post hoc observation, and no choice changes.
+- The validation ranking does not predict the test ranking on either dataset.
+
+### 11c LaTeX rows (generated from the test records by a scratchpad script, `test_report.py`; ScanNet columns only)
+
+These are the prereg's Table I rows for ScanNet. C1 fails, so they belong in the appendix with "did not help"; the main table keeps ours_P2.
+
+```latex
+%% generated from uags_results/smooth/scannet/eval_test_s*.json (ScanNet: mIoU Acc ECE NLL Brier AURC AUSE_u; means over 8 test scenes)
+Ours P2, spatial kernel & 67.9 & 86.5 & 6.6 & 0.54 & 22.4 & 5.4 & 8.0 \\
+Averaging, same kernel & 67.6 & 86.3 & 6.2 & 0.51 & 22.3 & 4.4 & -- \\
+Averaging, own kernel & 67.6 & 86.3 & 6.2 & 0.51 & 22.3 & 4.4 & -- \\
+```
+
+The pipeline's own candidate tables are in `uags_results/smooth/{scannet,replica}/table_smooth.tex`, with every row, marked `%% not selected`.
+
+Proposed disclosure sentence, per the prereg: "After Table I was final we tried a spatial kernel that pools each Gaussian's statistics with its k nearest neighbours, as in BKI. Validation chose a kernel on ScanNet and none on Replica among 24 candidates fixed in advance. On the ScanNet test scenes (scored once) it did not beat P2 or averaging (NLL 0.535 vs 0.509 and 0.512; appendix)."

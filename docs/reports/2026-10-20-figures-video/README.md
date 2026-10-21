@@ -21,11 +21,16 @@ Attempts: n/a | Time: started 2026-10-20 14:50 JST
 | 2 | Pre-registration of the fused baselines for Table III ([configs/nor_fused_prereg.json](../../../configs/nor_fused_prereg.json)), committed before any fused score (dae4b10) | done |
 | 3 | Paper integrity edits from the quantitative review: "we run them once" replaced by the list of test evaluations; ScanNet P2 coefficients disclosed (gamma_e -0.80, gamma_a -2.06 vs +0.36, +11.8 on Replica; eval_val.json betas) | done (6029f04) |
 | 4 | Four implementation agents (background): NOR dump + teaser + change/query figures + fused baselines; static comparison figure; CPU statistics (quant_stats, calibration plot); pipeline figure v2 | running |
+| 4a | Statistics agent (CPU): scripts/quant_stats.py, plot_calibration.py, 26 tests, configs/quant_prereg.json ([summary](logs/quant_summary.md)) | done, committed 6032669 |
+| 4b | Paper: calibration claims restated by scene tests (ours ties averaging; training-free lifting beats the trained maps); pooled-ECE caveat; ScanNet full-map ranking; measured r_static; P2 sign in Limitations; ScanNet build cost; appendix with Tables V-IX and Fig. 5 (all cells generated, not typed) | done (85adf2c, d258306); 12 pages, 0 warnings |
 | 5 | Video (after 4: reuses the NOR dump and static renders) | to do |
 
 ## 5 Verification
 | Check | Command | Result | Status |
 |---|---|---|---|
+| Statistics tests | `python3 -m pytest tests/test_quant_stats.py -q` | 26 passed (sign test = scipy binomtest; ECE from bins = stored ECE, max err 5.6e-17) | PASS |
+| Paper numbers vs JSON (lead, spot check) | python read of logs/quant/{seg,nor,views,cost}.json | F1 wins/Holm, both ECE aggregations, r_static, ScanNet views, cost equal to the text | PASS |
+| Paper build | pdflatex + bibtex x2 on a copy of papers/ | 12 pages, 0 warnings, no overfull boxes | PASS |
 
 ## 7 Open issues
 - none yet

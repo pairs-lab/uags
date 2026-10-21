@@ -1,0 +1,271 @@
+{
+ "name": "Spatial smoothing of the per-Gaussian statistics (the spatial kernel of BKI): read-out candidates selected on validation, Replica and ScanNet",
+ "status": "Registered 2026-10-21 (lead decisions D1-D5 of 2026-10-21 applied), before any real-data run: no smoothed row had run on any real scene (validation or test); only CPU toy tests (tests/test_smoothing.py) and a synthetic kNN/pooling benchmark had run. scripts/smooth_tab1.sh refuses every stage while this file is untracked or has uncommitted changes.",
+ "registered": "2026-10-21, before any real-data run",
+ "pipeline": "scripts/smooth_tab1.sh",
+ "code": {
+  "rows": "usplat/smoothing.py (row factory usplat.smoothing:row_factory; GRID and batches() must equal 'candidates' and 'batches' below: tests/test_smoothing.py)",
+  "selection": "scripts/smooth_select.py (select, check-test, table, claim; reuses scripts/make_tables.py choose_v2 / pooled / check_code and scripts/quant_stats.py sign_test / holm)",
+  "factories": "usplat.baselines:row_factory,usplat.smoothing:row_factory (the unsmoothed averaging row comes from the Table I code path)"
+ },
+ "after": "A later attempt, after Table I (v1 and v2) was final: Table I shows ours tied with averaging (Replica mIoU 28.0 vs 27.9, ScanNet 68.0 vs 67.7). The idea (BKI pools observations over space as well as over views; our field pools over views only) was chosen before any smoothed number existed; no smoothed row was evaluated on any scene before this file was committed.",
+ "maps": "The existing Table I maps and fields (Replica: uags_fields/<scene>_lseg.pt on uags_maps/<scene>_seq1.pt; ScanNet: uags_fields/scannet/<scene>_lseg.pt on uags_maps/scannet/<scene>.pt). No re-mapping, no distillation: every new row is a read-out of the saved field statistics and the saved averaging sums (ckpt['baselines'], NormLift's F and S1), with the Gaussian centres of the field's own map (ckpt config.ply / inputs.ply, checked against the scenes file and field.N).",
+ "method": {
+  "kernel": "k_nm = exp(-||x_n - x_m||^2 / (2 sigma^2)) * gate_nm for m among the k nearest OTHER centres of n (kNN by scipy cKDTree, exact), k_nn = 1; sigma = s h, h = median over the scene's Gaussians of the distance to the nearest other centre",
+  "gate": "none, or 1[cos(d_n, d_m) >= g] with d the UNSMOOTHED direction of the row's own method (ours: mu*; averaging: its unit feature); a pair where either Gaussian has no evidence (W1 = 0, resp. S1 = 0) passes",
+  "ours": "R' = R + S k R_m, W1' = W1 + S k W1_m, Wr' = Wr + S k Wr_m, W2' = W2 + S k^2 W2_m, Q' = Q + S k^2 Q_m (neighbour views enter with view weight k omega); every read-out is the field's own code on the pooled sums: mu*' = R'/||R'||, u_epi' = 1/(1 + W1'), u_ale' = 1 - rho' (Eq. rho on the pooled sums, defined once W1' >= tau_min = 3)",
+  "rows": "ours_P0s_<tag>: P0 on the pooled sums, one temperature; ours_P2s_<tag>: the same buffer with the P2 temperature beta0 exp(-gamma_e u_epi' - gamma_a u_ale' - gamma_u 1[u_ale' undefined]), all four refit on validation; averaging_s_<tag>: the averaging feature on F' = F + S k F_m, S1' = S1 + S k S1_m, normalised, one temperature",
+  "uncertainty_channels": "u_epi and u_ale of the smoothed rows are RECOMPUTED from the pooled sums (not smoothed per-Gaussian values). Table I's AUSE_u column of a smoothed row is the AUSE of its own u_ale' (eval_seg ranking signal 'u_ale'); the unsmoothed ours_P2 keeps its own u_ale.",
+  "known_bias": "neighbours seen in the same view are correlated observations; the kernel treats them as independent (as BKI does), so W1' overstates the evidence (u_epi' too low) and rho' is biased up (u_ale' too low). The P2 fit rescales the channels; validation decides whether the read-out helps.",
+  "tag": "k<k>_s<s>[_g<g>], e.g. k16_s2_g0.8"
+ },
+ "grid": {
+  "s": [
+   1,
+   2,
+   4,
+   8
+  ],
+  "k": [
+   8,
+   16,
+   32
+  ],
+  "g": [
+   0.8,
+   null
+  ],
+  "n_candidates": 24,
+  "justification": [
+   "Fixed from first principles before any smoothed number existed; no scene statistic was read to set it.",
+   "Scale unit h (median nearest-neighbour distance of the scene's centres): the kernel then follows the map's density, which differs between Replica and ScanNet maps of the same Gaussian budget (10^6), so one grid serves both datasets.",
+   "s: on a locally uniform surface with median NN distance h the point density is rho = ln2 / (pi h^2), so an untruncated kernel collects 2 pi rho sigma^2 = 2 ln2 s^2 effective neighbours: 1.4, 5.5, 22 and 89 for s = 1, 2, 4, 8 (each doubling of sigma quadruples the pooled evidence). s = 0.5 (0.35 neighbours) is nearly the identity, which the unsmoothed ours_P2 already covers.",
+   "Upper limit of s: a dense LSeg feature comes from a 16 x 16 pixel patch, about 10 cm at 2 m depth in Replica's 640 x 480 frames (f = 320); a 10^6-Gaussian room has h of the order of 0.5 cm (synthetic 6 x 5 x 3 m room surface with 10^6 points: h = 0.58 cm, measured on CPU), so sigma = 8h is about 4 cm, still inside one patch: the kernel pools evidence of the same feature cell and does not blur detail the extractor resolves. s = 8 was added by the lead's decision D5 (2026-10-21), before any data.",
+   "k: the k-th neighbour of a uniform surface lies at about h sqrt(k/ln2) (3.4h, 4.8h, 6.8h for k = 8, 16, 32; 5.8h measured at k = 32 on the synthetic room), where the kernel weight is exp(-k/(2 ln2 s^2)). k = 32 leaves s <= 2 untruncated (<= 0.003) and s = 4 truncated at weight 0.24; at s = 8 every k truncates (weight 0.70 at the 32nd neighbour), so s = 8 is close to a uniform mean over the k nearest neighbours, with k setting its size (8, 16, 32). In 3DGS maps the density varies (clusters of small Gaussians on texture, sparse large ones on flat walls), so k and sigma are not interchangeable there. Expected near-duplicates: at s = 1 the three k give almost the same kernel (weights <= 0.003 beyond the 8th neighbour); the tie rule then keeps the smallest k.",
+   "g: none = the plain BKI spatial kernel. 0.8 blocks neighbours whose unsmoothed directions differ by more than 37 degrees, a guard against pooling across object boundaries that leaves same-object neighbours (cosines near 1) untouched. In the uncentred PCA-64 LSeg space features of different objects share a large common component, so the gate may block few pairs; this was not measured (no data was read) and is reported with the results (fraction of gated pairs per scene, logged by the factory - see open question in the stage-1 note).",
+   "Size: 4 x 3 x 2 = 24 candidates per dataset, the same 24 for both datasets, plus the unsmoothed ours_P2."
+  ],
+  "order": "list order = tie order, least smoothing first: s ascending, then k ascending, then gated before ungated"
+ },
+ "candidates": [
+  "k8_s1_g0.8",
+  "k8_s1",
+  "k16_s1_g0.8",
+  "k16_s1",
+  "k32_s1_g0.8",
+  "k32_s1",
+  "k8_s2_g0.8",
+  "k8_s2",
+  "k16_s2_g0.8",
+  "k16_s2",
+  "k32_s2_g0.8",
+  "k32_s2",
+  "k8_s4_g0.8",
+  "k8_s4",
+  "k16_s4_g0.8",
+  "k16_s4",
+  "k32_s4_g0.8",
+  "k32_s4",
+  "k8_s8_g0.8",
+  "k8_s8",
+  "k16_s8_g0.8",
+  "k16_s8",
+  "k32_s8_g0.8",
+  "k32_s8"
+ ],
+ "batches": {
+  "s1": [
+   "k8_s1_g0.8",
+   "k8_s1",
+   "k16_s1_g0.8",
+   "k16_s1",
+   "k32_s1_g0.8",
+   "k32_s1"
+  ],
+  "s2": [
+   "k8_s2_g0.8",
+   "k8_s2",
+   "k16_s2_g0.8",
+   "k16_s2",
+   "k32_s2_g0.8",
+   "k32_s2"
+  ],
+  "s4": [
+   "k8_s4_g0.8",
+   "k8_s4",
+   "k16_s4_g0.8",
+   "k16_s4",
+   "k32_s4_g0.8",
+   "k32_s4"
+  ],
+  "s8": [
+   "k8_s8_g0.8",
+   "k8_s8",
+   "k16_s8_g0.8",
+   "k16_s8",
+   "k32_s8_g0.8",
+   "k32_s8"
+  ]
+ },
+ "batch_rule": "one eval_seg run per batch (one sigma): rows = the reference rows ours_P0, ours_P2, averaging plus ours_P0s/ours_P2s/averaging_s of the batch's 6 candidates (eval_seg --rows). The reference rows are in every batch: their validation betas and per-scene metrics must agree across the batch records within consistency_tol (scripts/smooth_select.py select refuses otherwise), so the batches act as one evaluation.",
+ "consistency_tol": 1e-06,
+ "rows": {
+  "reference": [
+   "ours_P0",
+   "ours_P2",
+   "averaging"
+  ],
+  "per_candidate": [
+   "ours_P0s_<tag>",
+   "ours_P2s_<tag>",
+   "averaging_s_<tag>"
+  ]
+ },
+ "datasets": {
+  "replica": {
+   "scenes": {
+    "validation": "configs/replica_val.json",
+    "test": "configs/replica_test.json"
+   },
+   "eval": {
+    "vocab": "configs/vocab_replica.json",
+    "dataset": "replica_semnerf",
+    "stride": 10,
+    "downscale": 2,
+    "tau_cov": 0.5,
+    "extractor": "lseg"
+   },
+   "text_cache_source": "/home/thanhnc/gauss_ws/data/uags_fields/text_cache_lseg.pt",
+   "out": "/home/thanhnc/gauss_ws/data/uags_results/smooth/replica",
+   "table1": {
+    "val": "docs/reports/2026-09-29-replica-tab1/logs/eval_val_224fe1e.json",
+    "test": "docs/reports/2026-09-29-replica-tab1/logs/eval_test_224fe1e.json"
+   },
+   "test_look": "a FURTHER look at the Replica test split: earlier looks were Table I v1, the views test (and the room_0 repeat), the Table IV ablations, Table I v2 (the second look of tab1_v2_prereg.json) and the qualitative render (quant_review.md section 1h)"
+  },
+  "scannet": {
+   "scenes": {
+    "validation": "configs/scannet_val.json",
+    "test": "configs/scannet_test.json"
+   },
+   "eval": {
+    "vocab": "configs/vocab_scannet.json",
+    "dataset": "scannet",
+    "stride": 20,
+    "downscale": 2,
+    "tau_cov": 0.5,
+    "extractor": "lseg"
+   },
+   "text_cache_source": "/home/thanhnc/gauss_ws/data/uags_fields/scannet/text_cache_lseg.pt",
+   "out": "/home/thanhnc/gauss_ws/data/uags_results/smooth/scannet",
+   "table1": {
+    "val": "/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_val.json",
+    "test": "/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_test.json"
+   },
+   "test_look": "the SECOND look at the ScanNet test split: the first was Table I v1 + v2 in one run (2026-10-19/20, scannet_tab1/look_test.json)"
+  }
+ },
+ "metric": {
+  "name": "nll",
+  "variant": "all",
+  "pooling": "pixels",
+  "text": "validation NLL in nats with the coverage rule (variant 'all'), pooled over the labelled pixels of the dataset's validation scenes: sum_s n_s NLL_s / sum_s n_s; temperatures fit by eval_seg.py on the same validation scenes (one fit per row, P2 parameters for the adaptive rows)"
+ },
+ "tie": {
+  "tol": 0.0001,
+  "rule": "candidates within tol nats of the lowest value tie; the tie goes to the one listed first. @smooth lists the unsmoothed ours_P2 first, so a smoothed row must beat it by more than tol; then the grid order (least smoothing first)."
+ },
+ "choices": {
+  "@smooth": {
+   "rows": [
+    "ours_P2",
+    "ours_P2s_k8_s1_g0.8",
+    "ours_P2s_k8_s1",
+    "ours_P2s_k16_s1_g0.8",
+    "ours_P2s_k16_s1",
+    "ours_P2s_k32_s1_g0.8",
+    "ours_P2s_k32_s1",
+    "ours_P2s_k8_s2_g0.8",
+    "ours_P2s_k8_s2",
+    "ours_P2s_k16_s2_g0.8",
+    "ours_P2s_k16_s2",
+    "ours_P2s_k32_s2_g0.8",
+    "ours_P2s_k32_s2",
+    "ours_P2s_k8_s4_g0.8",
+    "ours_P2s_k8_s4",
+    "ours_P2s_k16_s4_g0.8",
+    "ours_P2s_k16_s4",
+    "ours_P2s_k32_s4_g0.8",
+    "ours_P2s_k32_s4",
+    "ours_P2s_k8_s8_g0.8",
+    "ours_P2s_k8_s8",
+    "ours_P2s_k16_s8_g0.8",
+    "ours_P2s_k16_s8",
+    "ours_P2s_k32_s8_g0.8",
+    "ours_P2s_k32_s8"
+   ],
+   "text": "per dataset: the row of Table I's ours P2 line. If it is ours_P2, smoothing is not selected on that dataset: Table I keeps ours_P2 and every smoothed row is reported as not selected."
+  },
+  "@avg_own": {
+   "rows": [
+    "averaging",
+    "averaging_s_k8_s1_g0.8",
+    "averaging_s_k8_s1",
+    "averaging_s_k16_s1_g0.8",
+    "averaging_s_k16_s1",
+    "averaging_s_k32_s1_g0.8",
+    "averaging_s_k32_s1",
+    "averaging_s_k8_s2_g0.8",
+    "averaging_s_k8_s2",
+    "averaging_s_k16_s2_g0.8",
+    "averaging_s_k16_s2",
+    "averaging_s_k32_s2_g0.8",
+    "averaging_s_k32_s2",
+    "averaging_s_k8_s4_g0.8",
+    "averaging_s_k8_s4",
+    "averaging_s_k16_s4_g0.8",
+    "averaging_s_k16_s4",
+    "averaging_s_k32_s4_g0.8",
+    "averaging_s_k32_s4",
+    "averaging_s_k8_s8_g0.8",
+    "averaging_s_k8_s8",
+    "averaging_s_k16_s8_g0.8",
+    "averaging_s_k16_s8",
+    "averaging_s_k32_s8_g0.8",
+    "averaging_s_k32_s8"
+   ],
+   "text": "per dataset: averaging with ITS OWN validation-best kernel (lowest pooled validation NLL among averaging and the 24 averaging_s, averaging first) - the strongest fair smoothed averaging; binding in claim rule C1 (decision D1)."
+  }
+ },
+ "paired_baseline": "averaging_s with the SAME kernel as @smooth (averaging_s_<tag of @smooth>); none when @smooth is ours_P2. Both averaging_s rows are fit and evaluated like every row; the kernel of averaging_s_<@smooth> is never chosen on averaging's own numbers.",
+ "reporting": [
+  "Every candidate (ours_P0s, ours_P2s, averaging_s of all 24 kernels) and the reference rows are evaluated on validation and test and reported (appendix), selected or not; test numbers of rows not selected are labelled 'not selected'.",
+  "Table I: if @smooth is a smoothed row on a dataset, the paper adds the rows 'Ours P2, spatial kernel' (mIoU and accuracy of ours_P0s of the same kernel, the other columns of ours_P2s), 'Averaging, same kernel' (averaging_s of that kernel) and 'Averaging, own kernel' (@avg_own) for that dataset, with the AUSE_u of ours_P2s's own u_ale'; the v1 rows are not changed.",
+  "Also reported (descriptive, unadjusted, x/N): ours_P2s vs the unsmoothed ours_P2 on each Table I metric, per dataset; the fraction of kNN pairs blocked by the gate and h per scene (factory log).",
+  "The selection is final once STAGE=test starts: test numbers never change a choice, the grid, the tie rule, the claim rule or this file.",
+  "The test split of each dataset is evaluated once per batch (a crashed batch may be rerun with the same selection; a finished batch never)."
+ ],
+ "claim": {
+  "C1_gain": "The paper may write that the spatial kernel makes ours better than averaging on a Table I metric M (mIoU via ours_P0s, ECE, NLL, Brier, AURC via ours_P2s) on dataset D only if, on the test scenes of D, the chosen smoothed row has a better mean than EACH of averaging, averaging_s with the same kernel, and averaging_s with its own kernel (@avg_own; decision D1), AND is better in more than half of the D test scenes against each of them (x/N >= 4/6 Replica, >= 5/8 ScanNet; a tie is not a win). Otherwise the text says 'on par with averaging' (or worse, as measured).",
+  "C2_significance": "'Significantly' only if, in addition, the exact two-sided sign test (ties dropped) over the pooled test scenes of the datasets where @smooth selected a smoothed row gives a Holm-adjusted p < 0.05 within family F3s, and C1 holds on each of those datasets.",
+  "F3s": {
+   "tests": "ours (smoothed) vs {averaging, averaging_s same kernel, averaging_s own kernel} x {miou, ece, nll, brier, aurc}: 15 sign tests, Holm over the 15",
+   "scenes": "pooled over the test scenes of the datasets where @smooth is a smoothed row (14 if both, 6 or 8 if one; with one dataset alone no test can reach Holm p < 0.05: the smallest sign p is 0.031 (N = 6) or 0.0078 (N = 8), times 15)",
+   "difference": "per scene, positive = ours better, in the metric's own unit (configs/quant_prereg.json F1 conventions: points x100, nats for NLL)",
+   "declared_in": "this file (configs/quant_prereg.json family F3: 'package-2 claims, each declared in its own prereg before it runs')"
+  },
+  "calibration": "configs/quant_prereg.json R2 applies: a calibration difference (ECE, NLL, Brier) is written only if it has the same sign under the scene mean and the pixel-pooled aggregation, in addition to C1."
+ },
+ "disclosure": "Paper sentence (Setup or the Table I paragraph): 'After Table I was final we tried one more read-out, a spatial kernel that pools each Gaussian's statistics with its k nearest neighbours (as in BKI); its kernel was chosen per dataset by validation NLL among 24 candidates fixed in advance and the unsmoothed P2, and the test scenes were scored once with that choice (Replica: a further look at its test split; ScanNet: the second); every candidate is in the appendix.' If @smooth is ours_P2 on both datasets: 'A spatial kernel ... did not beat P2 on validation (appendix).'",
+ "gpu": {
+  "eval_need_mib": 6000,
+  "basis": "per batch at N = 1e6: frozen buffers 3 reference rows (mu* shared by ours_P0/P2, averaging: 0.5 GB) + 6 candidates x (P0s/P2s buffer + averaging_s buffer: 0.5 GB) = 3.5 GB, plus the render workspace measured in Table I v1 (2.51 GiB peak with about 2.0 GB of frozen buffers, eval_test_224fe1e.json) ~0.5 GB: ~4.0 GB peak allocated; cap 6000 MiB (1.5x). 4 batches per stage (one per s). The first batch's record (memory.peak_gpu_alloc_gib) is checked before the next ones."
+ },
+ "decisions": [
+  "D1 (lead, 2026-10-21): @avg_own (averaging at its own best validation kernel) is binding in claim rule C1, next to averaging and averaging_s with ours' kernel.",
+  "D2: the gate g = 0.8 stays a candidate next to g = none; selection decides; the factory logs the share of pairs the gate blocks.",
+  "D3: both datasets (Replica and ScanNet) are run; the paper discloses the extra test looks.",
+  "D4: h per scene (each scene's own median nearest-neighbour distance).",
+  "D5: the scale grid is extended to s in {1, 2, 4, 8} (sigma up to about 4 cm, still inside one LSeg patch): 24 candidates per dataset, 4 batches. Decided before any data."
+ ]
+}

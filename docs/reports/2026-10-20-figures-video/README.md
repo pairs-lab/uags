@@ -37,6 +37,12 @@ Attempts: 1 (0 Good / 1 Bad) | Time: started 2026-10-20 14:50 JST
 |---|---|---|---|
 | 01 | Spatial smoothing of the per-Gaussian sums over 3D neighbours (BKI kernel), 24 kernels, pre-registered (configs/smooth_prereg.json, cafb61d; underflow amendment b4d6205), chosen by pooled val NLL | Replica: no kernel beats P2 on val (more smoothing = worse). ScanNet: k32_s4_g0.8 chosen (val NLL 0.4031 vs 0.4104); test NLL 0.535 vs P2 0.509, averaging 0.512; ECE 6.6 vs 6.1, 6.2; AURC 5.4 vs 5.0, 4.4; C1 fails on all metrics ([note](logs/smooth_stage1.md)) | **Bad**: neighbours carry the same LSeg feature; the val gain was the P2 refit (gamma_e -3.04) overfitting 2 val scans. Disclosed in the appendix; Table I unchanged. |
 
+## 4 Paper framing (user decision 2026-10-22: option 1)
+Table I is presented as a parity check (same LSeg features for every map row). The abstract, introduction, experiment
+questions and conclusion now lead with the two capabilities only our method gives: the u_epi/u_ale split (Replica 6/6;
+ScanNet full map u_ale beats u_epi 8/8) and forgetting after a real removal (stale-answer rate 21% vs 34%). Build-time
+claim limited to the semantic layer (130-225x; end to end 2.9-4x). Commit 60a7e56.
+
 ## 5 Verification
 | Check | Command | Result | Status |
 |---|---|---|---|

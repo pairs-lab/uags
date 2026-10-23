@@ -101,3 +101,27 @@ Toy sanity run (not evidence for the paper): all rows reach stale-answer 0 on th
 - The test split has been seen before (Table III, Table IV, tab:fused, N2 dumps). This run is a further look and must be disclosed.
 - The N2 query is generic in 4 test scenes ('wall' 009/013, 'phone' 010, 'handbag' 007/011; see [nor_summary.md](nor_summary.md) section 8). The stale-answer rate inherits this.
 - `--dump` cross-checks need the existing dumps in `uags_results/qual/nor/<scene>`. They exist for all 14 scenes.
+
+## 9 Validation attempt 1 (2026-10-23): STOPPED on a GPU OOM, fix pending a commit
+
+| Step | Command | Result |
+|---|---|---|
+| Run | `STAGE=val scripts/reset_fused.sh` at afd693b (13:30) | 001 done (164 s, peak 4567 MiB). 002 **failed** with CUDA OOM inside the V1 pass (5.23 GiB allocated against the 6.13 GiB cap). The driver stopped. Logs: `uags_results/reset_fused/driver_val.log`, `logs/val_00{1,2}.20261023-133001.log` |
+| Diagnosis | the same 002 scene through a wrapper that prints memory and calls `gc.collect()` before each variant (`logs/diag/diag.py`; output in scratch, **not a record**) | 2736 MiB were still allocated after ours' pass, and they were freed only by `gc.collect()`. The cause is a reference cycle: field → `capture_fields`' `Captured` class → its `from_state` closure → the `made` list → field. With the collection, 002 finished at peak 4533 MiB. |
+| Fix | `scripts/reset_fused_nor.py`: `free_gpu()` = `gc.collect()` only, after ours' fields are deleted and before each variant pass. Per the lead and the gpu_reserve rule there is no `empty_cache()`; the `empty_cache()` after each variant pass that afd693b had is removed too. No computed number changes. | `tests/test_reset_fused.py`: 7 passed in 41 s (13:39). **Uncommitted**, so the driver refuses until it is committed. |
+| Records | 001.json (status done, code afd693b), 002.json (status running) | Once the fix is committed, all 4 validation scenes must be rerun: `select` refuses records made with different code. |
+
+The preliminary numbers below are not used for selection: 001 is from afd693b, and 002 is from the diagnostic wrapper.
+
+| Scene | Row | stale-answer | static relabel | FA | Rec | Kept | G-AP | P-AP |
+|---|---|---|---|---|---|---|---|---|
+| 001 | ours | 96.3 | 8.48 | 1.62 | 20.3 | 23.0 | 22.7 | 56.4 |
+| 001 | V1 | 96.4 | 8.47 | 0.30 | 79.2 | 4.5 | 81.7 | 68.2 |
+| 001 | V2 | 96.3 | 8.43 | 0.16 | 62.0 | 8.4 | 78.2 | 68.4 |
+| 001 | V3 | 96.3 | 8.41 | 0.15 | 59.6 | 7.9 | 74.4 | 69.4 |
+| 002 | ours | 2.04 | 33.3 | 14.0 | 53.6 | 9.0 | 64.0 | 78.8 |
+| 002 | V1 | 0.19 | 19.9 | 0.37 | 79.1 | 5.0 | 92.6 | 78.1 |
+| 002 | V2 | 0.17 | 22.3 | 4.84 | 88.0 | 2.8 | 91.4 | 80.9 |
+| 002 | V3 | 1.50 | 19.8 | 0.04 | 49.1 | 10.8 | 92.0 | 84.7 |
+
+All values are %. On 001 the query is 'wall', so every row answers "wall" on about 96% of the object's pixels, and the scene cannot separate the rows.

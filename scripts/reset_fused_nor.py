@@ -52,6 +52,7 @@ Backends: gsplat (GPU) or mock (CPU, tests/test_reset_fused.py).
 from __future__ import annotations
 import argparse
 import contextlib
+import gc
 import json
 import math
 import os
@@ -79,6 +80,13 @@ N2_SETS = ROWS + CONTEXT_SETS
 STALE_TOL = 0.005                  # ours' stale-answer rate vs the dump: 0.5 points
 COV_TOL = 1e-4                     # observed set of a variant pass vs ours' (share of observed)
 CODE = ("scripts/reset_fused_nor.py", "usplat/reset_fused.py", "scripts/dump_nor_qual.py")
+
+
+def free_gpu():
+    """Collect reference cycles (the captured fields), so that their GPU tensors go back to
+    this process's caching allocator. Never torch.cuda.empty_cache(): it would hand the memory
+    reserved by usplat.gpu_reserve back to other users of the shared card."""
+    gc.collect()
 
 
 def code_state():
@@ -397,6 +405,7 @@ def run(args, argv):
                  ours=ours.mu_post().float().cpu(), avg_after=nl.feature().float().cpu())
     thr_ours_hist = ours.thr_by_hist.clone()
     del ours, disp, nl, made
+    free_gpu()            # capture_fields' subclass closes over its list: a reference cycle
     T["ours_s"] = time.time() - t0
 
     # ---- Table III reproduction (stop rule)
@@ -426,6 +435,7 @@ def run(args, argv):
     res, cov_check = {}, {}
     for v, names in VARIANTS.items():
         t0 = time.time()
+        free_gpu()
         r = run_variant(ctx, ctx["upd_views"], k, q, fused_decider(ranks, names, vthr[v]["thr"]),
                         need_normlift="normlift" in names)
         n_diff = int((r["observed"] != pop.cpu()).sum())
@@ -436,8 +446,6 @@ def run(args, argv):
         r.pop("covs")
         res[v] = r
         T[f"{v}_s"] = time.time() - t0
-        if str(dev).startswith("cuda"):
-            torch.cuda.empty_cache()
 
     # ---- metrics of ours and the variants
     t0 = time.time()

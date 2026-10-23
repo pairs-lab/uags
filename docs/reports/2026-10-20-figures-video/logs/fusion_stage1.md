@@ -6,6 +6,8 @@
 
 **Next step:** the lead decides Q1-Q5 (section 7), sets `registered` in the prereg, and commits the prereg and the code. Only then can `STAGE=val` run. Until then the driver refuses every stage (section 5, row V9).
 
+**Update 2026-10-24 01:06:** Q1-Q5 were decided as drafted (Q5: Table I only if C1 holds, else the appendix). The prereg and code were committed at 9671f02. The validation stage then ran on both datasets (section 9). No test stage has run.
+
 ## 1 What it is
 
 | Item | Definition |
@@ -123,3 +125,109 @@ Risks (not decisions):
 ## 8 Files of this note
 
 This note is the only docs file written. The two benchmark scripts and their output stayed in the session scratchpad and are not linked; their numbers are copied into section 6. The new code files are listed in section 4.
+
+## 9 Validation (2026-10-24, code 9671f02, prereg sha256 626ce55f7ee3)
+
+**Result: validation done on both datasets; no test stage ran.** @ug = `fuse_p2_ug` on both datasets. The reference rows reproduce Table I. **Replica:** OURS-UG has the lowest pooled validation NLL of all rows. **ScanNet:** OURS-UG beats its paired constant-weight row but loses to all three AVG+2D rows on pooled validation NLL. The validation gate is recorded as failed there; it is disabled (Q3), so it blocks nothing.
+
+Commands: `DATASET=replica STAGE=val scripts/fusion_tab1.sh`, then `DATASET=scannet STAGE=val scripts/fusion_tab1.sh`. Both ran through `gpu_gate.sh 7000`, with a clean tree at 9671f02.
+Records are in /home/thanhnc/gauss_ws/data/uags_results/fusion/<dataset>/: `eval_val.json` (status ok, `dirty_tracked` false), `selection_val.json`, `driver_val.log`, `eval_val.<ts>.log`.
+Tables below: means over the 2 validation scenes (same units as Table I); "NLL pool" is pixel-weighted. Read-out: a JSON-only script in the session scratchpad (not kept).
+
+### 9a Run cost
+
+| Dataset | Driver wall | eval_fusion wall | Peak GPU alloc | Peak RSS | Gate |
+|---|---|---|---|---|---|
+| Replica | 21.9 min (00:24:35–00:46:26) | 21.7 min | 2.15 GiB (reserved 6251 MiB) | 9.7 GiB | started at once (9077 MiB free) |
+| ScanNet | 19.5 min (00:46:26–01:05:57) | 19.4 min | 2.38 GiB | 17.4 GiB | started at once (9432 MiB free) |
+
+Both runs fall inside the section 6 estimates (Replica 8–22 min, ScanNet 18–31 min).
+
+### 9b Reproduction of Table I (independent check, `selection_val.json` → reproduction)
+
+| Dataset | Table I record | ours_P0 / ours_P2 / averaging: max abs diff (β, NLL, mIoU) | 2d_features: max abs diff (β, NLL, mIoU) | Status |
+|---|---|---|---|---|
+| Replica | eval_val_224fe1e.json (RTX 5070 Ti) | ≤ 4.6e-6, ≤ 2.7e-7, ≤ 8.7e-7 | 1.3e-4, 6.1e-6, 2.0e-6 | PASS |
+| ScanNet | scannet_tab1/eval_val.json (this GPU) | 0, 0, 0 | 0, 0, 0 | PASS |
+
+### 9c Replica validation (office_0, room_2; 12.3 M labelled px, 31,288 not map-covered)
+
+| Row | mIoU | Acc | ECE | NLL | Brier | AURC | NLL pool | mIoU cov | Acc cov | ECE cov | NLL cov | Brier cov | AURC cov | mean w (office_0/room_2) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| ours_P0 | 31.5 | 81.1 | 6.51 | 0.8328 | 29.25 | 6.60 | 0.8092 | 31.7 | 81.3 | 6.51 | 0.8269 | 29.08 | 6.56 | -- |
+| ours_P2 | 31.5 | 81.1 | 4.88 | 0.8238 | 29.45 | 6.15 | 0.8003 | 31.7 | 81.3 | 4.88 | 0.8180 | 29.28 | 6.12 | -- |
+| averaging | 31.4 | 81.1 | 6.59 | 0.8331 | 29.27 | 6.59 | 0.8095 | 31.6 | 81.3 | 6.60 | 0.8273 | 29.10 | 6.56 | -- |
+| 2d_features | 30.8 | 81.0 | 8.70 | 0.9396 | 32.71 | 9.97 | 0.9111 | 30.7 | 81.0 | 8.72 | 0.9401 | 32.71 | 9.98 | -- |
+| fuse_avg_const | 32.9 | 82.7 | 7.27 | 0.8160 | 28.52 | 6.78 | 0.7922 | 32.9 | 82.7 | 7.29 | 0.8161 | 28.51 | 6.78 | 0.288/0.288 |
+| fuse_avg_vc | 32.7 | 82.6 | 6.89 | 0.8145 | 28.46 | 6.70 | 0.7908 | 32.7 | 82.6 | 6.91 | 0.8146 | 28.45 | 6.69 | 0.277/0.251 |
+| fuse_avg_nl | 32.9 | 82.7 | 7.01 | 0.8138 | 28.44 | 6.60 | 0.7903 | 32.9 | 82.7 | 7.03 | 0.8139 | 28.43 | 6.60 | 0.258/0.196 |
+| fuse_p0_const | 32.9 | 82.7 | 7.23 | 0.8158 | 28.51 | 6.79 | 0.7920 | 32.9 | 82.7 | 7.25 | 0.8159 | 28.50 | 6.79 | 0.287/0.287 |
+| fuse_p0_ug | 32.9 | 82.8 | 7.10 | 0.8075 | 28.11 | 6.39 | 0.7838 | 33.0 | 82.8 | 7.12 | 0.8076 | 28.09 | 6.39 | 0.224/0.197 |
+| fuse_p2_const | 32.9 | 82.7 | 6.42 | 0.8042 | 28.56 | 6.12 | 0.7806 | 33.0 | 82.7 | 6.44 | 0.8043 | 28.55 | 6.11 | 0.278/0.278 |
+| **fuse_p2_ug (@ug)** | 32.8 | 82.7 | 5.23 | **0.7930** | **28.05** | **5.83** | **0.7702** | 32.9 | 82.8 | 5.24 | 0.7931 | 28.03 | 5.83 | 0.193/0.183 |
+
+### 9d ScanNet validation (scene0000_00, scene0062_00; 21.2 M labelled px, 17,555 not map-covered)
+
+| Row | mIoU | Acc | ECE | NLL | Brier | AURC | NLL pool | mIoU cov | Acc cov | ECE cov | NLL cov | Brier cov | AURC cov | mean w (0000/0062) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| ours_P0 | 71.1 | 89.4 | 3.41 | 0.4113 | 16.58 | 2.97 | 0.5488 | 71.1 | 89.5 | 3.41 | 0.4097 | 16.52 | 2.97 | -- |
+| ours_P2 | 71.1 | 89.4 | 2.74 | 0.4104 | 16.64 | 3.20 | 0.5473 | 71.1 | 89.5 | 2.74 | 0.4088 | 16.58 | 3.19 | -- |
+| averaging | 71.3 | 89.6 | 3.56 | 0.4093 | 16.42 | 2.93 | 0.5444 | 71.3 | 89.7 | 3.56 | 0.4077 | 16.36 | 2.93 | -- |
+| 2d_features | 67.5 | 87.7 | 5.71 | 0.5151 | 20.12 | 4.46 | 0.6820 | 67.6 | 87.7 | 5.71 | 0.5149 | 20.12 | 4.46 | -- |
+| fuse_avg_const | 71.3 | 89.7 | 3.64 | 0.4080 | 16.36 | 2.92 | 0.5427 | 71.4 | 89.7 | 3.64 | 0.4078 | 16.35 | 2.92 | 0.066/0.066 |
+| fuse_avg_vc | 71.4 | 89.7 | 3.50 | 0.4072 | 16.35 | 2.92 | 0.5420 | 71.4 | 89.7 | 3.49 | 0.4070 | 16.35 | 2.92 | 0.062/0.003 |
+| fuse_avg_nl | 71.3 | 89.7 | 3.52 | **0.4064** | **16.35** | **2.86** | **0.5405** | 71.4 | 89.7 | 3.51 | 0.4061 | 16.34 | 2.86 | 0.059/0.000 |
+| fuse_p0_const | 71.1 | 89.5 | 3.57 | 0.4097 | 16.49 | 2.95 | 0.5460 | 71.2 | 89.5 | 3.56 | 0.4095 | 16.48 | 2.94 | 0.104/0.104 |
+| fuse_p0_ug | 71.2 | 89.6 | 3.48 | 0.4080 | 16.43 | 2.95 | 0.5446 | 71.2 | 89.6 | 3.47 | 0.4077 | 16.42 | 2.95 | 0.018/0.012 |
+| fuse_p2_const | 71.1 | 89.5 | 2.95 | 0.4086 | 16.54 | 3.15 | 0.5445 | 71.2 | 89.5 | 2.94 | 0.4084 | 16.53 | 3.15 | 0.103/0.103 |
+| fuse_p2_ug (@ug) | 71.2 | 89.6 | 2.91 | 0.4070 | 16.47 | 3.14 | 0.5429 | 71.2 | 89.6 | 2.90 | 0.4067 | 16.46 | 3.14 | 0.026/0.032 |
+
+### 9e Fitted weights of OURS-UG and the fit (`eval_val.json` → fusion)
+
+w = sigmoid(a0 + a_e·u_epi + a_a·u_ale + a_u·1[u_ale undefined] + a_c·(1−α)). A positive coefficient puts more weight on the 2D frame.
+
+| Dataset | Form | a0 | a_e | a_a | a_u | a_c | Fit NLL (map w=0 / 2D w=1) | Iterations, converged |
+|---|---|---|---|---|---|---|---|---|
+| Replica | fuse_p0_ug | −3.11 | +6.74 | +35.6 | +0.36 | +6.39 | 0.8918 (0.9164 / 1.0125) | 34, yes |
+| Replica | **fuse_p2_ug** | −3.48 | +7.32 | +61.7 | +0.74 | **−163.4** | 0.8711 (0.8986 / 1.0125) | 44, yes |
+| ScanNet | fuse_p0_ug | −7.90 | +11.5 | +73.7 | −2.42 | +15.0 | 0.5565 (0.5594 / 0.6972) | 45, yes |
+| ScanNet | **fuse_p2_ug** | −6.58 | +10.9 | +56.4 | −1.73 | +12.7 | 0.5547 (0.5577 / 0.6972) | 37, yes |
+
+Constant weights: Replica w = 0.288 (avg), 0.287 (P0), 0.278 (P2); ScanNet w = 0.066 (avg), 0.104 (P0), 0.103 (P2).
+
+Baseline weights:
+
+| Dataset | Form | Coefficients |
+|---|---|---|
+| Replica | AVG+2D view-count | a0 −1.52, viewcount +23.9, 1−α +3.96 |
+| Replica | AVG+2D NormLift | a0 −1.87, nl_epi +6.14, nl_cinter +29.0, 1−α +5.57 |
+| ScanNet | AVG+2D view-count | a0 −1.52, viewcount **−70.6**, 1−α +11.4 |
+| ScanNet | AVG+2D NormLift | a0 **+9.76**, nl_epi **−390**, nl_cinter **−113**, 1−α **−271** |
+
+Every fit converged (gradient ≤ 5.1e-8) on 360,000 (Replica) and 632,000 (ScanNet) fit pixels.
+
+### 9f Selection and gate (`selection_val.json`)
+
+| Dataset | @ug (pooled val NLL) | Paired const | Gate (recorded only): @ug lower than the baseline by (nats) | Gate |
+|---|---|---|---|---|
+| Replica | fuse_p2_ug 0.7702 (fuse_p0_ug 0.7838) | fuse_p2_const | avg_const +0.0220, p2_const +0.0104, avg_vc +0.0206, avg_nl +0.0201 | passed |
+| ScanNet | fuse_p2_ug 0.5429 (fuse_p0_ug 0.5446) | fuse_p2_const | avg_const **−0.0002**, p2_const +0.0016, avg_vc **−0.0009**, avg_nl **−0.0024** | **failed** (disabled, so the test is not blocked) |
+
+### 9g What validation shows (descriptive, validation only, not a claim)
+
+| Finding | Evidence |
+|---|---|
+| Fusion with the frame raises Replica mIoU by 1.2–1.5 points over the map rows. Every fused row does this (32.7–33.0 vs 31.4–31.5); UG adds no mIoU over the constant weight (fuse_p2_ug 32.8 vs fuse_p2_const 32.9). | 9c |
+| On Replica the gain of UG is in NLL, Brier, AURC and ECE vs its paired const: NLL pool 0.7702 vs 0.7806, ECE 5.23 vs 6.42, AURC 5.83 vs 6.12. Its ECE stays above ours_P2 alone (5.23 vs 4.88). | 9c |
+| On ScanNet the frame adds little. The fitted weights are small (mean w 0.000–0.104 per scene), mIoU changes by ≤ 0.3 points, and NLL pool falls from 0.5473 (P2) to 0.5429 (@ug). AVG+2D NormLift and AVG+2D view-count beat @ug on validation NLL. | 9d, 9f |
+| Holes are not the source of any gain: only 0.25% (Replica) and 0.08% (ScanNet) of labelled pixels are not map-covered, and the covered-only columns rank the rows the same way. | 9c, 9d |
+| Our channels enter with the expected sign on both datasets: a_e and a_a are positive (more 2D weight where the map is uncertain). | 9e |
+
+### 9h Open points for the lead (before any test stage)
+
+1. **ScanNet: the gate failed (it is disabled).** By Q3 the test runs anyway. On validation, C1 against `fuse_avg_nl`, `fuse_avg_vc` and `fuse_avg_const` does not hold for NLL on ScanNet. A test look is likely to report "on par / below the fair fusion baselines" there.
+2. **Extreme coefficients:** Replica fuse_p2_ug a_c = −163.4; ScanNet fuse_avg_nl (−390, −113, −271, a0 +9.76) and fuse_avg_vc (viewcount −70.6). These fits converged on validation pixels and are what the prereg fixes. I did not inspect the feature distributions (e.g. how many covered pixels have 1−α far from 0), so how these weights act on test pixels is unverified.
+3. **Stale prereg wording:** the committed `status` field still reads "DRAFT … uncommitted"; `registered` is correct. Editing the prereg now changes its sha256, so `check-test` would refuse ("changed after the selection"). A correction would need a new validation selection, or a note elsewhere (e.g. in this report).
+4. Q5: Table I only if C1 holds, else the appendix (lead decision).
+
+- Correction (lead, 2026-10-24): configs/fusion_prereg.json "status" still reads "DRAFT ... uncommitted"; the file was registered and committed in 9671f02 before any real-data run ("registered" field). Left unedited so its sha256 stays the one the selection records.

@@ -125,3 +125,44 @@ The preliminary numbers below are not used for selection: 001 is from afd693b, a
 | 002 | V3 | 1.50 | 19.8 | 0.04 | 49.1 | 10.8 | 92.0 | 84.7 |
 
 All values are %. On 001 the query is 'wall', so every row answers "wall" on about 96% of the object's pixels, and the scene cannot separate the rows.
+
+## 10 Validation (2026-10-23, f0fc8ee): DONE, selection = V2 (by 0.008 points)
+
+Command: `STAGE=val scripts/reset_fused.sh` at f0fc8ee, 13:40:11-13:56:38 (16.5 min including the selection). Records are in `/home/thanhnc/gauss_ws/data/uags_results/reset_fused/val/00{1..4}.json` and the selection in `.../reset_fused/selection.json` (git_head f0fc8ee, prereg sha 3f74b2f42a51). Driver log: `.../reset_fused/driver_val2.log`. The section 9 records were overwritten by this run.
+
+**Validation means ± std over the 4 scenes (%; N = 4; lower is better except Rec, G-AP and P-AP)**
+
+| Row | stale-answer | static relabel | FA | Rec | Kept | G-AP | P-AP | static rate | resets |
+|---|---|---|---|---|---|---|---|---|---|
+| ours | 24.77 ± 47.69 | 30.54 ± 16.96 | 5.78 ± 5.85 | 53.2 ± 24.6 | 10.3 ± 9.3 | 60.3 ± 27.0 | 68.3 ± 10.7 | 0.61 | 75,950 |
+| V1 | 24.15 ± 48.15 | 26.89 ± 17.26 | 1.49 ± 1.72 | 78.6 ± 4.1 | 4.1 ± 2.3 | 86.9 ± 4.4 | 72.5 ± 8.1 | 0.19 | 64,314 |
+| **V2 (chosen)** | **24.14 ± 48.13** | 27.76 ± 17.19 | 3.72 ± 3.07 | 78.7 ± 13.1 | 4.3 ± 3.5 | 85.7 ± 5.5 | 73.4 ± 9.0 | 0.40 | 78,561 |
+| V3 | 24.52 ± 47.88 | 26.71 ± 17.16 | 0.78 ± 1.37 | 63.3 ± 13.4 | 6.9 ± 4.3 | 84.8 ± 7.8 | 74.9 ± 9.1 | 0.09 | 50,988 |
+
+Selection (`reset_fused_select.py select`): the static-relabel limit is 30.54 + 2 = 32.54. All 4 rows qualify. The lowest mean stale-answer is V2 at 24.142, against V1 24.150, V3 24.516 and ours 24.771.
+
+**Per scene stale-answer % (static relabel %)**
+
+| Scene (query) | ours | V1 | V2 | V3 | change off | averaging | before |
+|---|---|---|---|---|---|---|---|
+| 001 (wall) | 96.30 (8.48) | 96.37 (8.47) | 96.34 (8.43) | 96.33 (8.41) | 96.27 | 96.28 | 60.56 |
+| 002 (chair) | 2.04 (33.29) | 0.19 (19.88) | 0.17 (22.34) | 1.50 (19.82) | 20.56 | 19.96 | 33.19 |
+| 003 (book) | 0.00 (30.65) | 0.00 (30.07) | 0.00 (30.72) | 0.00 (29.71) | 0.00 | 0.00 | 51.88 |
+| 004 (chair) | 0.75 (49.73) | 0.05 (49.15) | 0.06 (49.56) | 0.23 (48.89) | 51.20 | 51.16 | 56.95 |
+
+**Checks per scene**
+
+| Scene | Table III repro: max AP/AUROC Δ, FA/Rec Δ, frames | N2 vs dump (max Δ) | null identity | coverage diff (V1/V2/V3) | replay rel dW1 | wall s | peak MiB |
+|---|---|---|---|---|---|---|---|
+| 001 | 1.7e-8, 0, equal | 0 | PASS | 0/0/0 | 6e-8 | 136 | 4567 |
+| 002 | 1.7e-8, 0, equal | 0 | PASS | 0/0/0 | 7e-8 | 279 | 4566 |
+| 003 | 1.2e-7, 0, equal | 0 | PASS | 0/0/0 | 9e-8 | 197 | 4564 |
+| 004 | 1.8e-8, 1.6e-5, equal | 0 | PASS | 0/0/0 | 8e-8 | 364 | 4567 |
+
+Timing (s): variant passes 6-23 each. The N2 step was the slowest variable part (16-177). The rest was load 19-27, replay 24-35 and Table III 27-35.
+
+**Reading (for the lead, before test):**
+- The choice is decided by noise. V2 beats V1 by 0.008 points on the mean. 001 ('wall' query, about 96% for every row, including change off) dominates both the mean and the std, and 003 is 0 for every row. Only 002 and 004 separate the rows: there all three variants are lower than ours (002: 0.2-1.5 vs 2.0; 004: 0.05-0.23 vs 0.75).
+- The variants are better than ours on the cost side as well: static relabel −2.8 to −3.8 points, FA 0.8-3.7% vs 5.8%, Rec 63-79% vs 53%, and G-AP 85-87 vs 60.
+- Under the claim rule (≥ 7/10 strictly lower and a lower mean), scenes where every row is 0, such as 003, count as non-wins. Several test scenes may be ties of this kind.
+- STOPPED before test, as instructed. `check-test` has not been run.

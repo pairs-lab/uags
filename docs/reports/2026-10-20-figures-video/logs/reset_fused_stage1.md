@@ -166,3 +166,69 @@ Timing (s): variant passes 6-23 each. The N2 step was the slowest variable part 
 - The variants are better than ours on the cost side as well: static relabel −2.8 to −3.8 points, FA 0.8-3.7% vs 5.8%, Rec 63-79% vs 53%, and G-AP 85-87 vs 60.
 - Under the claim rule (≥ 7/10 strictly lower and a lower mean), scenes where every row is 0, such as 003, count as non-wins. Several test scenes may be ties of this kind.
 - STOPPED before test, as instructed. `check-test` has not been run.
+
+## 11 Test (2026-10-23, e129c03): NEGATIVE, claim NOT allowed
+
+**Test-look ledger.** This was the one look of this attempt at the NOR test split.
+- 13:57:47: `check-test` PASS.
+- 13:57:47-14:36:17: `STAGE=test scripts/reset_fused.sh`, one run per scene, no crash, no rerun.
+- 14:36:24: `STAGE=table`.
+- Nothing was changed after the numbers were seen.
+- Records: `/home/thanhnc/gauss_ws/data/uags_results/reset_fused/test/*.json`. Table and verdict: `.../reset_fused/table/reset_fused_test.{json,md}`. LaTeX rows: `.../table/reset_fused_test_rows.tex`. Driver log: `.../reset_fused/driver_test.log`.
+
+**Claim rule.** V2 is strictly lower than ours in **3/10** scenes (007, 009, 015), higher in 4 (005, 006, 011, 013) and tied in 3. Its mean is **26.0% vs 20.7%** for ours (higher). So the claim is **NOT allowed**. The 009 "win" is 99.998% vs 100.000% (25 of 1.1M pixels). V1 is lower in 3/10, V3 in 2/10.
+
+**Test means ± std (%; N = 10)**
+
+| Row | stale-answer | static relabel | FA | Rec | Kept | G-AP | P-AP | lower than ours |
+|---|---|---|---|---|---|---|---|---|
+| ours | **20.7 ± 35.7** | 16.3 ± 10.7 | 6.2 ± 5.4 | 56.8 ± 26.9 | 4.8 ± 3.7 | 53.4 ± 23.7 | 57.2 ± 21.4 | - |
+| V1 | 26.3 ± 42.1 | 14.9 ± 10.4 | 3.7 ± 3.9 | 65.9 ± 29.5 | 3.6 ± 3.0 | 72.7 ± 19.9 | 56.9 ± 18.4 | 3/10 |
+| V2 (selected) | 26.0 ± 41.9 | 15.0 ± 10.6 | 3.7 ± 3.7 | 66.4 ± 28.3 | 3.3 ± 2.4 | 79.3 ± 9.3 | 60.9 ± 16.1 | 3/10 |
+| V3 | 26.5 ± 42.0 | 14.6 ± 10.5 | 2.4 ± 2.8 | 59.7 ± 29.2 | 4.2 ± 3.2 | 76.0 ± 17.1 | 62.3 ± 16.0 | 2/10 |
+
+Ours' row matches the paper's (stale-answer 20.7, FA 6.2, Rec 56.8, G-AP 53.4). This is an independent consistency check.
+
+**Per scene (%): stale-answer / static relabel / FA / Rec / Kept / G-AP / P-AP**
+
+| Scene (query) | ours | V1 | V2 | V3 | change off |
+|---|---|---|---|---|---|
+| 005 (book) | 32.5 / 27.0 / 0.5 / 57.6 / 1.0 / 80.8 / 73.1 | 73.5 / 26.6 / 0.1 / 0.0 / 2.1 / 39.0 / 29.7 | 71.3 / 27.4 / 1.3 / 2.7 / 2.0 / 59.0 / 52.8 | 73.5 / 26.5 / 0.0 / 0.0 / 2.1 / 70.6 / 68.4 | 73.5 |
+| 006 (box) | 0.00 / 13.2 / 3.3 / 29.1 / 3.2 / 20.7 / 13.6 | 0.14 / 11.5 / 1.1 / 75.3 / 2.0 / 82.5 / 61.1 | 0.15 / 11.3 / 0.6 / 67.2 / 2.2 / 80.1 / 56.9 | 0.16 / 11.0 / 0.0 / 53.8 / 2.8 / 85.7 / 66.3 | 0.16 |
+| 007 (handbag) | 0.51 / 9.0 / 0.4 / 52.8 / 7.5 / 38.2 / 47.1 | 0.28 / 10.8 / 9.6 / 87.3 / 2.4 / 34.8 / 60.2 | 0.06 / 10.1 / 5.9 / 85.3 / 2.7 / 71.5 / 68.4 | 1.18 / 9.4 / 2.6 / 70.7 / 5.4 / 31.0 / 66.3 | 49.5 |
+| 008 (backpack) | 0.00 / 5.0 / 6.2 / 94.1 / 1.4 / 89.5 / 63.8 | 0.00 / 4.8 / 1.3 / 89.9 / 2.2 / 90.1 / 55.4 | 0.00 / 4.8 / 1.3 / 93.3 / 1.6 / 92.0 / 57.6 | 0.00 / 4.7 / 1.2 / 90.1 / 2.2 / 91.4 / 57.4 | 4.5 |
+| 009 (wall) | 100.0 / 15.5 / 4.8 / 8.5 / 11.6 / 18.0 / 50.5 | 100.0 / 15.1 / 0.9 / 51.9 / 6.0 / 78.0 / 56.8 | 99.998 / 15.1 / 0.8 / 41.9 / 7.1 / 74.1 / 61.0 | 100.0 / 15.1 / 0.5 / 41.9 / 7.4 / 73.8 / 54.2 | 100.0 |
+| 010 (phone) | 0.00 / 20.2 / 3.5 / 46.0 / 3.2 / 59.2 / 36.6 | 0.00 / 19.5 / 1.3 / 75.5 / 2.0 / 85.7 / 30.8 | 0.00 / 20.0 / 2.7 / 73.5 / 1.8 / 82.7 / 29.9 | 0.00 / 19.6 / 1.6 / 72.4 / 1.8 / 84.7 / 28.6 | 0.6 |
+| 011 (handbag) | 0.00 / 40.7 / 18.0 / 90.8 / 2.7 / 73.5 / 65.8 | 0.12 / 37.3 / 3.1 / 43.2 / 10.6 / 68.0 / 48.0 | 0.02 / 37.3 / 2.5 / 60.0 / 7.7 / 79.9 / 50.5 | 0.12 / 36.9 / 1.3 / 42.8 / 10.9 / 79.4 / 56.1 | 9.6 |
+| 013 (wall) | 68.5 / 13.0 / 12.6 / 51.7 / 4.0 / 49.9 / 56.0 | 86.2 / 3.6 / 1.6 / 51.8 / 5.6 / 79.7 / 58.4 | 86.2 / 3.6 / 1.7 / 56.4 / 4.8 / 82.0 / 63.4 | 86.2 / 3.6 / 1.6 / 42.4 / 6.5 / 74.5 / 58.4 | 86.2 |
+| 014 (bike) | 0.00 / 7.4 / 6.8 / 83.3 / 3.4 / 53.2 / 81.5 | 0.00 / 7.2 / 8.7 / 91.4 / 0.8 / 88.3 / 82.3 | 0.00 / 7.3 / 10.2 / 91.5 / 1.0 / 87.7 / 82.4 | 0.00 / 7.2 / 6.7 / 90.9 / 1.0 / 87.7 / 81.0 | 5.3 |
+| 015 (bike) | 5.7 / 12.1 / 5.9 / 54.3 / 10.1 / 51.4 / 83.6 | 2.7 / 12.9 / 9.7 / 92.4 / 2.1 / 80.5 / 86.2 | 2.0 / 13.4 / 10.2 / 92.1 / 2.2 / 83.7 / 86.3 | 3.5 / 12.2 / 8.2 / 91.7 / 2.2 / 81.5 / 86.6 | 12.3 |
+
+**What decides the result:**
+- **005 (book):** the variants almost never reset the book (Rec 0-2.7%), so they stay at the change-off rate (71-74%). Ours resets 57.6% and reaches 32.5%. This one scene costs about +4 points of the mean.
+- **013 ('wall' query):** every variant equals change off (86.2%). Ours is at 68.5%, but it relabels 13% of static Gaussians against 3.6%. With a 'wall' query a lower rate is not clearly better: the removed object reveals a wall (see nor_summary.md section 8).
+- **Elsewhere:** the rows differ by < 1 point, or are all 0 (ties).
+- **Detector quality is better, the reset outcome is not.** The variants still rank and fire better: G-AP 73-79 vs 53, FA 2.4-3.7% vs 6.2%, and static relabel 1.3-1.7 points lower. That does not turn into fewer stale answers.
+
+**Checks (all 10 scenes)**
+
+| Check | Result |
+|---|---|
+| Table III reproduction (max AP/AUROC Δ; FA/Rec Δ; frames) | PASS: ≤ 1.8e-7; 0; equal |
+| N2 vs dump (ours, change off, averaging, before) | PASS: Δ 0 |
+| Mapping null identity, capture asserts | PASS |
+| Variant coverage = ours' | PASS: 0 differences |
+| Replay vs saved field (rel dW1) | ≤ 1e-7 |
+| Code | `reset_fused_nor.py` sha cf881202, git e129c03 (the same as validation) |
+
+**Timing:** 2282 s of wall time for the 10 scenes (81-454 s each); peak 1981-4567 MiB; no wait at the gate.
+
+**Generated LaTeX rows** (`.../table/reset_fused_test_rows.tex`, mean ± std in %; columns: stale-answer, static relabel, FA, Rec, Kept, G-AP, P-AP, scenes lower than ours):
+```latex
+Ours (own test) & 20.7$\pm$35.7 & 16.3$\pm$10.7 & 6.2$\pm$5.4 & 56.8$\pm$26.9 & 4.8$\pm$3.7 & 53.4$\pm$23.7 & 57.2$\pm$21.4 & -- \\
+Feat.+depth fires reset (V1) & 26.3$\pm$42.1 & 14.9$\pm$10.4 & 3.7$\pm$3.9 & 65.9$\pm$29.5 & 3.6$\pm$3.0 & 72.7$\pm$19.9 & 56.9$\pm$18.4 & 3/10 \\
+Ours+feat.+depth fires reset (V2, selected) & 26.0$\pm$41.9 & 15.0$\pm$10.6 & 3.7$\pm$3.7 & 66.4$\pm$28.3 & 3.3$\pm$2.4 & 79.3$\pm$9.3 & 60.9$\pm$16.1 & 3/10 \\
+NormLift+depth fires reset (V3) & 26.5$\pm$42.0 & 14.6$\pm$10.5 & 2.4$\pm$2.8 & 59.7$\pm$29.2 & 4.2$\pm$3.2 & 76.0$\pm$17.1 & 62.3$\pm$16.0 & 2/10 \\
+```
+
+**Verdict for the attempt: NEGATIVE.** It ran correctly, but letting a stronger detector fire the reset did not lower the test stale-answer rate. The disclosure sentence of the prereg applies if the paper mentions the attempt.

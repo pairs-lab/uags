@@ -3,7 +3,7 @@
 Follows: [Complete the paper](../2026-10-17-paper-completion/README.md)
 Verdict: PARTIAL -- teaser, pipeline, qualitative, calibration and video done; fused-baseline check NEGATIVE for our "fused best" claim (paper corrected); paper 17 pages / 17.9 MB to trim
 Key result: stale-answer rate after the update 20.7% (ours) vs 34.3% (averaging), test N=10, new measurement ([numbers](logs/nor/n2_numbers_test.tex)); fused baselines beat ours+depth (81.1, 79.9 vs 75.0, [verdict](logs/nor_fused/nor_fused_verdict.md))
-Attempts: 1 (0 Good / 1 Bad) | Time: started 2026-10-20 14:50 JST
+Attempts: 2 (0 Good / 2 Bad) | Time: started 2026-10-20 14:50 JST
 
 ## 0 Context
 - Ask (user, 2026-10-20): "in this step, we do not need to keep this in 8 pages, just try to improve results, qualitative
@@ -36,6 +36,7 @@ Attempts: 1 (0 Good / 1 Bad) | Time: started 2026-10-20 14:50 JST
 | # | Idea | Result | Critic |
 |---|---|---|---|
 | 01 | Spatial smoothing of the per-Gaussian sums over 3D neighbours (BKI kernel), 24 kernels, pre-registered (configs/smooth_prereg.json, cafb61d; underflow amendment b4d6205), chosen by pooled val NLL | Replica: no kernel beats P2 on val (more smoothing = worse). ScanNet: k32_s4_g0.8 chosen (val NLL 0.4031 vs 0.4104); test NLL 0.535 vs P2 0.509, averaging 0.512; ECE 6.6 vs 6.1, 6.2; AURC 5.4 vs 5.0, 4.4; C1 fails on all metrics ([note](logs/smooth_stage1.md)) | **Bad**: neighbours carry the same LSeg feature; the val gain was the P2 refit (gamma_e -3.04) overfitting 2 val scans. Disclosed in the appendix; Table I unchanged. |
+| 02 | Fused detectors fire our reset (V1 feat+depth, V2 ours+feat+depth, V3 NormLift+depth), pre-registered (configs/reset_fused_prereg.json, afd693b; memory fix f0fc8ee) | val: V2 chosen (stale-answer 24.14 vs ours 24.77; G-AP 85.7 vs 60.3). Test: stale-answer 26.0 vs ours 20.7, lower in 3/10; G-AP 79.3 vs 53.4, FA 3.7 vs 6.2 ([note](logs/reset_fused_stage1.md)) | **Bad** for the claim: better detector, worse forgetting (misses thin objects, e.g. book 005). Disclosed in Sec. V-D; ours stays. |
 
 ## 4 Paper framing (user decision 2026-10-22: option 1)
 Table I is presented as a parity check (same LSeg features for every map row). The abstract, introduction, experiment

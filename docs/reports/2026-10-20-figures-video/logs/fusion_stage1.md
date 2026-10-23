@@ -8,6 +8,8 @@
 
 **Update 2026-10-24 01:06:** Q1-Q5 were decided as drafted (Q5: Table I only if C1 holds, else the appendix). The prereg and code were committed at 9671f02. The validation stage then ran on both datasets (section 9). No test stage has run.
 
+**Update 2026-10-24 02:16: the test stage ran once on both datasets. Verdict NEGATIVE:** C1 fails on every metric on both datasets, and 0 of 20 F3f tests are significant (section 10). Per Q5 the block goes to the appendix, not Table I.
+
 ## 1 What it is
 
 | Item | Definition |
@@ -231,3 +233,192 @@ Every fit converged (gradient ≤ 5.1e-8) on 360,000 (Replica) and 632,000 (Scan
 4. Q5: Table I only if C1 holds, else the appendix (lead decision).
 
 - Correction (lead, 2026-10-24): configs/fusion_prereg.json "status" still reads "DRAFT ... uncommitted"; the file was registered and committed in 9671f02 before any real-data run ("registered" field). Left unedited so its sha256 stays the one the selection records.
+
+## 10 Test (once; 2026-10-24, code d4613ef = 9671f02 for scripts/ usplat/ configs/)
+
+**Verdict: NEGATIVE.** The run is correct (the reference rows reproduce Table I's test records), but OURS-UG does not beat the fair fused baselines.
+- C1 fails on all 5 metrics on both datasets, and 0 of 20 F3f tests are significant.
+- Against its own constant-weight row (`@paired_const`), OURS-UG is *worse* in 11 of 14 scenes on mIoU and on NLL (3/14 wins, sign p 0.057 unadjusted, Holm 1.00).
+- Fusing with the frame at all changes the test means by ≤ 0.4 mIoU points against the map rows. The validation gain on Replica (+1.2–1.5 mIoU) did not hold on test.
+- Per Q5 (lead): appendix, not Table I.
+
+### 10a Runs, test looks and timing
+
+| Step | Command | Wall | Peak GPU / RSS | Look record |
+|---|---|---|---|---|
+| Replica test | `DATASET=replica STAGE=test scripts/fusion_tab1.sh` | 01:08:38–01:34:46 (26.1 min; eval 26.0) | 1.83 GiB / 11.1 GiB | `replica/look_test.json`: attempt 1, 20261024-010838, commit d4613ef |
+| ScanNet test | `DATASET=scannet STAGE=test scripts/fusion_tab1.sh` | 01:34:46–02:11:51 (37.1 min; gate waited 1.8 min; eval 35.2) | 1.87 GiB / 13.8 GiB | `scannet/look_test.json`: attempt 1, 20261024-013446, commit d4613ef |
+| Tables + claim | `DATASET=replica\|scannet STAGE=table scripts/fusion_tab1.sh` | 3 s each | — | — |
+| Feature check (10h) | a scratchpad script through `gpu_gate.sh 4000` | 1.4 + 2.2 min | — | renders only; labels used as the pixel mask |
+
+- Before the test stage, `fusion_select.py check-test` passed on both datasets: the code equalled 9671f02 and the reproduction gate passed.
+- Each dataset's test split was evaluated exactly once. No choice, file or rule changed after any test number was read.
+- Records are in /home/thanhnc/gauss_ws/data/uags_results/fusion/<dataset>/: `eval_test.json`, `table_fusion.{json,tex}`, `claim_fusion.json` (identical in both folders), `look_test.json`, `driver_test.log`, `eval_test.<ts>.log`, `feature_check_test.{json,log}`.
+
+### 10b Reproduction of Table I on test (independent check)
+
+The reference rows of `eval_test.json` were compared with Table I's test records (Replica `eval_test_224fe1e.json`, ScanNet `scannet_tab1/eval_test.json`), per scene, on all 6 metrics:
+
+| Rows | Replica max abs diff | ScanNet max abs diff |
+|---|---|---|
+| ours_P0, ours_P2, averaging | ≤ 2.4e-6 | 0 |
+| 2d_features | ≤ 1.3e-5 | 0 |
+
+So Table I's published means are recovered: Replica ours P0 28.0/76.8/9.9/1.00/36.4/13.8 and 2D 26.3/74.9/11.8/1.12/40.5/16.3; ScanNet ours P0 68.0/86.5/6.4/0.51/22.1/4.4.
+
+### 10c C1 per dataset and metric (`table_fusion.json` → C1; @ug = fuse_p2_ug on both)
+
+**Replica** (C1 needs: mean better AND ≥ 4/6 wins against each; cell = @ug mean vs baseline mean, wins/N; ✓ = both hold)
+
+| Metric | fuse_avg_const | fuse_p2_const | fuse_avg_vc | fuse_avg_nl | C1 | C1 + R2 |
+|---|---|---|---|---|---|---|
+| miou | 27.7 vs 28.1, 1/6 ✗ | 27.7 vs 28.1, 1/6 ✗ | 27.7 vs 27.6, 4/6 ✓ | 27.7 vs 27.8, 2/6 ✗ | FAIL | FAIL |
+| ece | 8.69 vs 9.90, 3/6 ✗ | 8.69 vs 8.60, 2/6 ✗ | 8.69 vs 9.71, 3/6 ✗ | 8.69 vs 9.76, 3/6 ✗ | FAIL | FAIL |
+| nll | 0.973 vs 0.972, 3/6 ✗ | 0.973 vs 0.963, 2/6 ✗ | 0.973 vs 0.981, 3/6 ✗ | 0.973 vs 0.979, 3/6 ✗ | FAIL | FAIL |
+| brier | 35.82 vs 35.87, 4/6 ✓ | 35.82 vs 35.49, 1/6 ✗ | 35.82 vs 36.34, 4/6 ✓ | 35.82 vs 36.14, 3/6 ✗ | FAIL | FAIL |
+| aurc | 12.14 vs 13.96, 5/6 ✓ | 12.14 vs 12.50, 3/6 ✗ | 12.14 vs 14.21, 5/6 ✓ | 12.14 vs 14.05, 5/6 ✓ | FAIL | FAIL |
+
+**Scannet** (C1 needs: mean better AND ≥ 5/8 wins against each; cell = @ug mean vs baseline mean, wins/N; ✓ = both hold)
+
+| Metric | fuse_avg_const | fuse_p2_const | fuse_avg_vc | fuse_avg_nl | C1 | C1 + R2 |
+|---|---|---|---|---|---|---|
+| miou | 67.8 vs 67.8, 3/8 ✗ | 67.8 vs 68.1, 2/8 ✗ | 67.8 vs 67.8, 3/8 ✗ | 67.8 vs 67.7, 4/8 ✗ | FAIL | FAIL |
+| ece | 6.06 vs 6.26, 5/8 ✓ | 6.06 vs 6.01, 3/8 ✗ | 6.06 vs 6.22, 5/8 ✓ | 6.06 vs 6.18, 3/8 ✗ | FAIL | FAIL |
+| nll | 0.510 vs 0.509, 3/8 ✗ | 0.510 vs 0.505, 1/8 ✗ | 0.510 vs 0.510, 3/8 ✗ | 0.510 vs 0.510, 3/8 ✗ | FAIL | FAIL |
+| brier | 22.25 vs 22.21, 4/8 ✗ | 22.25 vs 22.03, 3/8 ✗ | 22.25 vs 22.21, 4/8 ✗ | 22.25 vs 22.24, 4/8 ✗ | FAIL | FAIL |
+| aurc | 4.95 vs 4.37, 1/8 ✗ | 4.95 vs 4.91, 4/8 ✗ | 4.95 vs 4.39, 1/8 ✗ | 4.95 vs 4.40, 1/8 ✗ | FAIL | FAIL |
+
+**Family F3f** (20 sign tests over the 14 pooled test scenes; cell = @ug wins/14, sign p, Holm p; significant needs Holm < 0.05 and C1 (+R2) on both datasets)
+
+| Baseline | miou | ece | nll | brier | aurc |
+|---|---|---|---|---|---|
+| fuse_avg_const | 4/14, p 0.180, Holm 1.00 | 8/14, p 0.791, Holm 1.00 | 6/14, p 0.791, Holm 1.00 | 8/14, p 0.791, Holm 1.00 | 6/14, p 0.791, Holm 1.00 |
+| @paired_const | 3/14, p 0.057, Holm 1.00 | 5/14, p 0.424, Holm 1.00 | 3/14, p 0.057, Holm 1.00 | 4/14, p 0.180, Holm 1.00 | 7/14, p 1.000, Holm 1.00 |
+| fuse_avg_vc | 7/14, p 1.000, Holm 1.00 | 8/14, p 0.791, Holm 1.00 | 6/14, p 0.791, Holm 1.00 | 8/14, p 0.791, Holm 1.00 | 6/14, p 0.791, Holm 1.00 |
+| fuse_avg_nl | 6/14, p 0.791, Holm 1.00 | 6/14, p 0.791, Holm 1.00 | 6/14, p 0.791, Holm 1.00 | 7/14, p 1.000, Holm 1.00 | 6/14, p 0.791, Holm 1.00 |
+
+Significant: 0 of 20. Gain claims: {'miou': False, 'ece': False, 'nll': False, 'brier': False, 'aurc': False}.
+
+### 10d–10e Every row on test, mean ± std (population) and x/N of @ug against the row
+
+**Replica test, all pixels** (mean ± std over N = 6; in brackets: scenes where @ug = fuse_p2_ug is better than the row, a tie is not a win)
+
+| Row | mIoU | Acc | ECE | NLL | Brier | AURC |
+|---|---|---|---|---|---|---|
+| ours_P0 | 28.0 ± 3.6 (3/6) | 76.8 ± 8.4 (5/6) | 9.9 ± 4.0 (4/6) | 0.996 ± 0.434 (5/6) | 36.4 ± 13.3 (5/6) | 13.8 ± 9.1 (6/6) |
+| ours_P2 | 28.0 ± 3.6 (3/6) | 76.8 ± 8.4 (5/6) | 8.7 ± 5.6 (4/6) | 0.996 ± 0.430 (5/6) | 36.2 ± 13.3 (4/6) | 12.2 ± 8.0 (4/6) |
+| averaging | 27.9 ± 3.4 (4/6) | 76.7 ± 8.4 (5/6) | 9.6 ± 4.0 (3/6) | 1.004 ± 0.438 (6/6) | 36.6 ± 13.4 (5/6) | 14.0 ± 9.2 (6/6) |
+| 2d_features | 26.3 ± 4.9 (5/6) | 74.9 ± 9.9 (5/6) | 11.8 ± 5.7 (5/6) | 1.116 ± 0.516 (6/6) | 40.5 ± 15.9 (6/6) | 16.3 ± 10.3 (6/6) |
+| fuse_avg_const | 28.1 ± 3.9 (1/6) | 77.5 ± 8.5 (0/6) | 9.9 ± 4.3 (3/6) | 0.972 ± 0.438 (3/6) | 35.9 ± 13.7 (4/6) | 14.0 ± 9.7 (5/6) |
+| fuse_avg_vc | 27.6 ± 4.4 (4/6) | 77.0 ± 9.0 (2/6) | 9.7 ± 4.0 (3/6) | 0.981 ± 0.451 (3/6) | 36.3 ± 14.2 (4/6) | 14.2 ± 10.0 (5/6) |
+| fuse_avg_nl | 27.8 ± 3.9 (2/6) | 77.2 ± 8.8 (2/6) | 9.8 ± 4.3 (3/6) | 0.979 ± 0.449 (3/6) | 36.1 ± 14.1 (3/6) | 14.0 ± 9.8 (5/6) |
+| fuse_p0_const | 28.1 ± 4.0 (2/6) | 77.6 ± 8.4 (0/6) | 9.9 ± 4.2 (3/6) | 0.967 ± 0.436 (3/6) | 35.7 ± 13.6 (4/6) | 13.8 ± 9.6 (5/6) |
+| fuse_p0_ug | 27.8 ± 4.5 (3/6) | 77.2 ± 8.8 (3/6) | 9.8 ± 3.9 (3/6) | 0.977 ± 0.446 (3/6) | 36.1 ± 13.9 (5/6) | 13.8 ± 9.5 (6/6) |
+| fuse_p2_const | 28.1 ± 4.0 (1/6) | 77.5 ± 8.5 (0/6) | 8.6 ± 5.6 (2/6) | 0.963 ± 0.434 (2/6) | 35.5 ± 13.6 (1/6) | 12.5 ± 8.6 (3/6) |
+| **fuse_p2_ug (@ug)** | 27.7 ± 4.2 | 77.2 ± 8.5 | 8.7 ± 5.7 | 0.973 ± 0.432 | 35.8 ± 13.6 | 12.1 ± 8.2 |
+
+**Replica test, map-covered pixels only** (mean ± std over N = 6; in brackets: scenes where @ug = fuse_p2_ug is better than the row, a tie is not a win)
+
+| Row | mIoU | Acc | ECE | NLL | Brier | AURC |
+|---|---|---|---|---|---|---|
+| ours_P0 | 28.5 ± 3.7 (2/6) | 77.5 ± 8.3 (2/6) | 9.9 ± 4.0 (4/6) | 0.978 ± 0.433 (4/6) | 35.9 ± 13.3 (4/6) | 13.7 ± 9.1 (6/6) |
+| ours_P2 | 28.5 ± 3.7 (2/6) | 77.5 ± 8.3 (2/6) | 8.8 ± 5.7 (4/6) | 0.977 ± 0.428 (5/6) | 35.7 ± 13.3 (4/6) | 12.2 ± 8.0 (4/6) |
+| averaging | 28.5 ± 3.5 (3/6) | 77.4 ± 8.4 (4/6) | 9.7 ± 4.0 (3/6) | 0.985 ± 0.436 (5/6) | 36.1 ± 13.4 (6/6) | 13.9 ± 9.2 (6/6) |
+| 2d_features | 26.4 ± 4.6 (5/6) | 75.1 ± 9.6 (5/6) | 11.8 ± 5.6 (5/6) | 1.109 ± 0.509 (6/6) | 40.2 ± 15.6 (6/6) | 16.1 ± 10.0 (6/6) |
+| fuse_avg_const | 28.4 ± 3.6 (1/6) | 77.8 ± 8.2 (0/6) | 9.8 ± 4.2 (3/6) | 0.964 ± 0.429 (3/6) | 35.5 ± 13.3 (4/6) | 13.7 ± 9.4 (5/6) |
+| fuse_avg_vc | 27.8 ± 4.2 (4/6) | 77.3 ± 8.7 (2/6) | 9.6 ± 3.8 (3/6) | 0.973 ± 0.443 (3/6) | 36.0 ± 13.8 (4/6) | 14.0 ± 9.7 (5/6) |
+| fuse_avg_nl | 28.1 ± 3.6 (2/6) | 77.5 ± 8.5 (2/6) | 9.7 ± 4.1 (3/6) | 0.972 ± 0.440 (3/6) | 35.8 ± 13.7 (3/6) | 13.8 ± 9.5 (5/6) |
+| fuse_p0_const | 28.4 ± 3.7 (1/6) | 77.9 ± 8.1 (0/6) | 9.9 ± 4.1 (3/6) | 0.960 ± 0.427 (3/6) | 35.3 ± 13.2 (4/6) | 13.6 ± 9.3 (5/6) |
+| fuse_p0_ug | 28.1 ± 4.2 (3/6) | 77.5 ± 8.4 (3/6) | 9.8 ± 3.8 (3/6) | 0.969 ± 0.437 (3/6) | 35.7 ± 13.5 (5/6) | 13.5 ± 9.2 (6/6) |
+| fuse_p2_const | 28.4 ± 3.7 (1/6) | 77.8 ± 8.2 (0/6) | 8.6 ± 5.6 (3/6) | 0.955 ± 0.425 (2/6) | 35.1 ± 13.2 (1/6) | 12.2 ± 8.3 (3/6) |
+| **fuse_p2_ug (@ug)** | 28.0 ± 3.9 | 77.5 ± 8.2 | 8.7 ± 5.6 | 0.965 ± 0.423 | 35.5 ± 13.2 | 11.8 ± 7.9 |
+
+**Scannet test, all pixels** (mean ± std over N = 8; in brackets: scenes where @ug = fuse_p2_ug is better than the row, a tie is not a win)
+
+| Row | mIoU | Acc | ECE | NLL | Brier | AURC |
+|---|---|---|---|---|---|---|
+| ours_P0 | 68.0 ± 10.4 (6/8) | 86.5 ± 5.4 (6/8) | 6.4 ± 5.3 (4/8) | 0.510 ± 0.237 (3/8) | 22.1 ± 10.1 (4/8) | 4.4 ± 1.9 (1/8) |
+| ours_P2 | 68.0 ± 10.4 (6/8) | 86.5 ± 5.4 (6/8) | 6.1 ± 5.8 (5/8) | 0.509 ± 0.232 (6/8) | 22.1 ± 10.1 (5/8) | 5.0 ± 2.2 (7/8) |
+| averaging | 67.7 ± 10.4 (4/8) | 86.3 ± 5.3 (5/8) | 6.2 ± 5.4 (3/8) | 0.512 ± 0.232 (3/8) | 22.3 ± 10.0 (4/8) | 4.4 ± 1.9 (1/8) |
+| 2d_features | 62.5 ± 10.5 (7/8) | 83.7 ± 5.9 (8/8) | 8.8 ± 4.7 (8/8) | 0.638 ± 0.193 (7/8) | 27.4 ± 9.7 (7/8) | 7.2 ± 2.9 (7/8) |
+| fuse_avg_const | 67.8 ± 10.4 (3/8) | 86.4 ± 5.3 (3/8) | 6.3 ± 5.3 (5/8) | 0.509 ± 0.230 (3/8) | 22.2 ± 10.0 (4/8) | 4.4 ± 1.9 (1/8) |
+| fuse_avg_vc | 67.8 ± 10.4 (3/8) | 86.4 ± 5.3 (3/8) | 6.2 ± 5.4 (5/8) | 0.510 ± 0.232 (3/8) | 22.2 ± 10.0 (4/8) | 4.4 ± 1.9 (1/8) |
+| fuse_avg_nl | 67.7 ± 10.4 (4/8) | 86.4 ± 5.3 (3/8) | 6.2 ± 5.4 (3/8) | 0.510 ± 0.232 (3/8) | 22.2 ± 10.0 (4/8) | 4.4 ± 1.9 (1/8) |
+| fuse_p0_const | 68.1 ± 10.4 (2/8) | 86.6 ± 5.4 (4/8) | 6.4 ± 5.2 (4/8) | 0.506 ± 0.232 (2/8) | 22.0 ± 10.1 (1/8) | 4.4 ± 1.9 (1/8) |
+| fuse_p0_ug | 67.7 ± 10.3 (8/8) | 86.4 ± 5.4 (7/8) | 6.2 ± 5.5 (4/8) | 0.514 ± 0.233 (4/8) | 22.3 ± 10.1 (4/8) | 4.5 ± 1.9 (2/8) |
+| fuse_p2_const | 68.1 ± 10.4 (2/8) | 86.6 ± 5.4 (4/8) | 6.0 ± 5.6 (3/8) | 0.505 ± 0.229 (1/8) | 22.0 ± 10.0 (3/8) | 4.9 ± 2.2 (4/8) |
+| **fuse_p2_ug (@ug)** | 67.8 ± 10.3 | 86.5 ± 5.4 | 6.1 ± 5.7 | 0.510 ± 0.229 | 22.3 ± 10.0 | 5.0 ± 2.2 |
+
+**Scannet test, map-covered pixels only** (mean ± std over N = 8; in brackets: scenes where @ug = fuse_p2_ug is better than the row, a tie is not a win)
+
+| Row | mIoU | Acc | ECE | NLL | Brier | AURC |
+|---|---|---|---|---|---|---|
+| ours_P0 | 68.1 ± 10.4 (5/8) | 86.6 ± 5.4 (4/8) | 6.4 ± 5.3 (4/8) | 0.508 ± 0.237 (3/8) | 22.0 ± 10.2 (4/8) | 4.4 ± 1.9 (1/8) |
+| ours_P2 | 68.1 ± 10.4 (5/8) | 86.6 ± 5.4 (4/8) | 6.1 ± 5.8 (5/8) | 0.508 ± 0.233 (6/8) | 22.1 ± 10.1 (5/8) | 5.0 ± 2.2 (7/8) |
+| averaging | 67.7 ± 10.4 (4/8) | 86.4 ± 5.3 (3/8) | 6.2 ± 5.4 (3/8) | 0.510 ± 0.233 (3/8) | 22.2 ± 10.0 (4/8) | 4.4 ± 1.9 (1/8) |
+| 2d_features | 62.5 ± 10.5 (7/8) | 83.7 ± 5.9 (8/8) | 8.8 ± 4.7 (8/8) | 0.638 ± 0.193 (7/8) | 27.3 ± 9.7 (7/8) | 7.2 ± 2.9 (7/8) |
+| fuse_avg_const | 67.8 ± 10.4 (3/8) | 86.4 ± 5.3 (3/8) | 6.3 ± 5.3 (5/8) | 0.509 ± 0.230 (3/8) | 22.2 ± 10.0 (4/8) | 4.4 ± 1.9 (1/8) |
+| fuse_avg_vc | 67.8 ± 10.4 (3/8) | 86.4 ± 5.3 (3/8) | 6.2 ± 5.4 (5/8) | 0.510 ± 0.232 (3/8) | 22.2 ± 10.0 (4/8) | 4.4 ± 1.9 (1/8) |
+| fuse_avg_nl | 67.7 ± 10.4 (4/8) | 86.4 ± 5.3 (3/8) | 6.2 ± 5.4 (3/8) | 0.510 ± 0.233 (3/8) | 22.2 ± 10.0 (4/8) | 4.4 ± 1.9 (1/8) |
+| fuse_p0_const | 68.1 ± 10.4 (2/8) | 86.6 ± 5.4 (4/8) | 6.4 ± 5.2 (4/8) | 0.506 ± 0.233 (2/8) | 22.0 ± 10.1 (1/8) | 4.4 ± 1.9 (1/8) |
+| fuse_p0_ug | 67.7 ± 10.3 (8/8) | 86.4 ± 5.4 (7/8) | 6.2 ± 5.5 (4/8) | 0.513 ± 0.234 (4/8) | 22.3 ± 10.1 (4/8) | 4.5 ± 1.9 (2/8) |
+| fuse_p2_const | 68.1 ± 10.4 (2/8) | 86.6 ± 5.4 (4/8) | 6.0 ± 5.6 (3/8) | 0.505 ± 0.229 (1/8) | 22.0 ± 10.0 (3/8) | 4.9 ± 2.2 (4/8) |
+| **fuse_p2_ug (@ug)** | 67.8 ± 10.3 | 86.5 ± 5.4 | 6.1 ± 5.7 | 0.510 ± 0.229 | 22.2 ± 10.0 | 5.0 ± 2.2 |
+
+Only a few pixels are not map-covered on test: 0.93% (Replica) and 0.10% (ScanNet). The covered-only rows rank the same way as all pixels, so filling holes neither creates nor hides a gain.
+
+Mean 2D weight of @ug on map-covered test pixels, per scene:
+
+| Dataset | Mean w per scene |
+|---|---|
+| Replica | room_0 0.270, room_1 0.220, office_1 0.154, office_2 0.185, office_3 0.156, office_4 0.209 |
+| ScanNet | 0.024–0.152 (median ≈ 0.04) |
+
+### 10f Descriptive (not C1): @ug against the single-source rows, all pixels, x/N
+
+| Dataset | vs ours P2 (map alone) | vs 2D features | vs averaging |
+|---|---|---|---|
+| Replica | mIoU 3/6 (27.7 vs 28.0), NLL 5/6 (0.973 vs 0.996), AURC 4/6 | 5/6 mIoU, 6/6 NLL | 4/6 mIoU, 6/6 NLL, 6/6 AURC |
+| ScanNet | mIoU 6/8 (67.8 vs 68.0 mean), NLL 6/8 (0.510 vs 0.509 mean), AURC 7/8 | 7/8 mIoU, 7/8 NLL | 4/8 mIoU, 3/8 NLL, 1/8 AURC |
+
+### 10g Generated LaTeX rows for a "with the current view" block (Table I format; test means, all pixels)
+
+These rows come from `table_fusion.json`; the scratchpad script that generated them is not kept. They have no bold/underline marks. The 2D-features row is already in Table I and is not repeated. Per Q5 these rows go to the appendix, because C1 failed.
+
+```latex
+%% generated from uags_results/fusion/{replica,scannet}/table_fusion.json (test means, all pixels; no marks)
+\midrule
+\multicolumn{15}{@{}l}{\emph{With the current view (each row also reads the evaluation frame)}}\\
+Averaging + 2D, constant weight & 28.1 & 77.5 & 9.9 & 0.97 & 35.9 & 14.0 & -- & 67.8 & 86.4 & 6.3 & 0.51 & 22.2 & 4.4 & --\\
+Averaging + 2D, view-count weight & 27.6 & 77.0 & 9.7 & 0.98 & 36.3 & 14.2 & -- & 67.8 & 86.4 & 6.2 & 0.51 & 22.2 & 4.4 & --\\
+Averaging + 2D, NormLift weight & 27.8 & 77.2 & 9.8 & 0.98 & 36.1 & 14.0 & -- & 67.7 & 86.4 & 6.2 & 0.51 & 22.2 & 4.4 & --\\
+Ours P2 + 2D, constant weight & 28.1 & 77.5 & 8.6 & 0.96 & 35.5 & 12.5 & -- & 68.1 & 86.6 & 6.0 & 0.50 & 22.0 & 4.9 & --\\
+Ours P2 + 2D, uncertainty-guided weight & 27.7 & 77.2 & 8.7 & 0.97 & 35.8 & 12.1 & -- & 67.8 & 86.5 & 6.1 & 0.51 & 22.3 & 5.0 & --\\
+```
+
+### 10h How often the extreme-coefficient features are far from 0 (test, descriptive)
+
+- **Definition, fixed before any test number was read:** pixels = the labelled map-covered pixels of every test frame (38,130,639 Replica, 54,359,910 ScanNet). "Far" = the weight term |θ_j·x_j| > 1 (it moves the weight's logit by more than 1). The share with > 5 is also given.
+- **Check of the script:** it recomputes the mean w from the renders. It matches `eval_test.json`'s `w2d_mean_map_covered` exactly (pixel-weighted, e.g. fuse_p2_ug 0.200693 Replica and 0.042865 ScanNet) on the same pixel counts.
+- **Record:** `feature_check_test.json`.
+
+| Dataset | Form, term (θ_j) | Feature quantiles p50 / p90 / p99 / max | Share with \|term\| > 1 | > 5 | Effect on w |
+|---|---|---|---|---|---|
+| Replica | fuse_p2_ug, 1−α (−163.4) | 1.8e-4 / 0.0073 / 0.168 / 0.5 | 10.8% | 4.5% | w < 0.01 on 5.9% of pixels (mean w 0.201) |
+| Replica | fuse_p2_ug, u_ale (+61.7) | 0.0066 / 0.031 / 0.050 / 0.10 (undefined on 14.5%) | 24.5% | 0.01% | — |
+| Replica | fuse_p2_ug, u_epi (+7.3) | 0.13 / 0.37 / 0.66 / 1.0 | 48.6% | 0.8% | — |
+| ScanNet | fuse_avg_nl, nl_epi (−389.6) | 0.060 / 0.126 / 0.282 / 1.0 (min 0.016) | **100%** | **100%** | with a0 = +9.76: w < 0.01 on **91.9%** (mean w 0.009), i.e. ≈ averaging alone |
+| ScanNet | fuse_avg_nl, 1−C_inter (−113.4) | 0.011 / 0.037 / 0.063 / 1.0 | 55.6% | 5.7% | (same row) |
+| ScanNet | fuse_avg_nl, 1−α (−271.0) | 1.7e-4 / 0.0029 / 0.109 / 0.5 | 9.1% | 4.2% | (same row) |
+| ScanNet | fuse_avg_vc, view count (−70.6) | 0.025 / 0.070 / 0.190 / 1.0 | 87.0% | 9.5% | w < 0.01 on 25.3% (mean w 0.041) |
+| ScanNet | fuse_p2_ug, u_ale (+56.4) / u_epi (+10.9) | u_ale 0.019 / 0.049 / 0.077 / 0.14 | 48.5% / 54.0% | 0.3% / 1.6% | w < 0.01 on 39.1% (mean w 0.043) |
+
+What it shows:
+- The large Replica coefficient on 1−α acts on about 1 covered pixel in 10: the pixels with α below about 0.99. It switches the frame off there (w ≈ 0 on 6%).
+- ScanNet's AVG+2D NormLift is effectively averaging alone (w < 0.01 on 92% of pixels).
+
+### 10i Open issues
+
+1. **Paper.** Per Q5 this goes to the appendix. The disclosure sentence of the prereg applies, with the result stated plainly: Replica was a further test look and ScanNet the third, and no gain over the fair fusion baselines was found.
+2. **Validation did not predict test.** On Replica validation, @ug had the lowest NLL of every row and passed every binding baseline by 0.010–0.022 nats; on test it loses to its paired constant row in NLL (2/6) and mIoU (1/6). Two validation scenes per dataset are a small basis for a 5-parameter weight; a near-switch weight (e.g. the a_c of 10h) does not transfer.
+3. **The comparison is fair.** Every fused row had the same 2D input and the same hole rule, and every weight was fit the same way. The constant-weight rows are the strongest on test. P2 + 2D constant has the lowest mean NLL on both datasets (0.963 Replica, 0.505 ScanNet) and the lowest Brier on Replica (35.5); on ScanNet, P0 + 2D constant has the lowest Brier (22.01, vs 22.03).

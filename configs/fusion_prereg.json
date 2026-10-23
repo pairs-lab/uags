@@ -1,0 +1,226 @@
+{
+ "name": "Fusion with the current view: each map predictive fused per pixel with the predictive of the evaluation frame's own 2D features, the weight set by our uncertainties (OURS-UG) or by fair baselines; Table I block 'with the current view', Replica and ScanNet",
+ "status": "DRAFT written 2026-10-24, uncommitted. No fused row has run on any real scene (validation or test); only CPU toy tests (tests/test_view_fusion.py) ran. scripts/fusion_tab1.sh refuses every stage while this file is untracked or has uncommitted changes. The lead fixes the open decisions, edits 'registered', and commits this file before any real-data run.",
+ "registered": "2026-10-24, before any real-data run",
+ "pipeline": "scripts/fusion_tab1.sh",
+ "code": {
+  "rows": "usplat/view_fusion.py (FORMS must equal 'forms' below, in order: scripts/fusion_select.py refuses otherwise; tests/test_view_fusion.py checks it)",
+  "evaluation": "scripts/eval_fusion.py (imports scripts/eval_seg.py and usplat/seg_eval.py and edits neither; rows fixed: --rows/--row-factory/--v2-rows/--raw-probs refused)",
+  "selection": "scripts/fusion_select.py (select, check-test, look, table, claim; reuses scripts/make_tables.py choose_v2 / pooled / check_validation_record / check_code and scripts/quant_stats.py sign_test / holm / signed)",
+  "factories": "usplat.baselines:row_factory (averaging, NormLift and the view count from the field checkpoint, as in Table I)"
+ },
+ "after": "A later attempt, after Table I (v1, v2) and the spatial-smoothing attempt were final: Table I shows ours tied with averaging (Replica mIoU 28.0 vs 27.9, ScanNet 68.0 vs 67.7). The idea (use our uncertainty to decide, per pixel, how much to trust the map against the current frame) was fixed before any fused number existed; no fused row was evaluated on any scene before this file was committed.",
+ "protocol_fact": "Table I's row '2D features, per frame' applies LSeg to the evaluation frame itself (scripts/eval_seg.py --with-2d: PixelSource, frame_features_2d; Replica 26.3 / ScanNet 62.5 mIoU). The current image is therefore available at query time in this protocol; the fused rows use exactly that 2D input (same tokens, upsampling, PCA and temperature).",
+ "maps": "The existing Table I maps and fields (Replica: uags_fields/<scene>_lseg.pt on uags_maps/<scene>_seq1.pt; ScanNet: uags_fields/scannet/<scene>_lseg.pt on uags_maps/scannet/<scene>.pt). No re-mapping, no distillation: every map logit is Table I's read-out of the saved field and the saved baselines (ckpt['baselines']); the 2D logits are Table I's 2D row.",
+ "method": {
+  "logits": "L_map,p(c) = beta_map,p F_p . t_c (the map row's own fitted temperature: a scalar beta for ours P0 and averaging, P2's per-pixel beta_p for ours P2; F_p not divided by alpha_p); L_2d,p(c) = beta_2d z_p . t_c (the 2D row's own fitted temperature).",
+  "pool": "fused logits z_p = (1 - w_p) L_map,p + w_p L_2d,p, i.e. the normalised log-linear pool P(c) ~ P_map(c)^(1 - w_p) P_2d(c)^(w_p). One form only; the linear pool (a mixture of the two probability vectors) is not registered.",
+  "pool_justification": [
+   "Endpoints are exact: w = 0 gives the map row's predictive on covered pixels, w = 1 the 2D row's (tests/test_view_fusion.py, bit for bit), so the fused family nests both single-source rows: at its optimum a constant weight matches or beats the better of the two on the fitting pixels.",
+   "The weight acts on the same quantity as the temperatures (logits), so the P2 temperature and the fusion weight are both multiplicative factors on logits: one functional family, no new scale to calibrate.",
+   "The log-linear pool multiplies the sources' probabilities (a weighted product of experts), the way independent evidence combines under Bayes' rule up to the exponents; the linear pool averages them instead.",
+   "A second form would double the fused rows and add a selection; the form is fixed before any data instead."
+  ],
+  "weight": "w_p = sigmoid(theta_0 + sum_j theta_j x_pj) on map-covered pixels; the features x of each form are listed in 'forms' (usplat.view_fusion.FEATURES): u_epi, u_ale (0 where undefined), u_ale_undef = 1[u_ale undefined], one_minus_alpha = 1 - alpha_p (our rendered channels, as P2 reads them); viewcount = rendered 1/(1 + n_vis) of the view-count baseline; nl_epi = rendered 1/(1 + N_eff) and nl_cinter = rendered 1 - C_inter of NormLift. Every channel is composited with the splat weights (sum w u / alpha), as in Table I.",
+  "coverage": "Uncovered pixels (alpha_p < tau_cov = 0.5, or alpha_p <= 1e-6) count as wrong with the uniform predictive for the map rows (Table I's rule). In every fused row w_p = 1 there: the 2D prediction decides. This is part of why fusion can beat a map row; every fused row (OURS-UG and each fair baseline) fills the holes in the same way, so fused rows differ from each other only on map-covered pixels. Every row is also reported on the map-covered pixels alone (variant 'map_covered', the same pixel set for every row), so a gain over a map row is not just filled holes.",
+  "fit": "Two stages, per dataset, on its existing validation scenes only. (1) The single-source temperatures: eval_seg's BetaFitter in Table I's order and seed (--fit-pixels 2000 per view, seed 0), i.e. Table I's procedure; they must reproduce Table I's validation betas ('reproduction'). (2) theta of every form by NLL on a joint subset of covered labelled validation pixels (at most 2000 per view, drawn by a generator seeded 1), with the single-source logits fixed: L-BFGS (strong Wolfe), float64, from theta = 0 (w = 1/2), at most 500 iterations; the fit records the NLL at w = 0 and w = 1 on the same pixels and the gradient norm. Uncovered pixels have w = 1 whatever theta and do not enter the fit. No test pixel is read by either stage."
+ },
+ "forms": [
+  {
+   "name": "fuse_avg_const",
+   "base": "averaging",
+   "features": []
+  },
+  {
+   "name": "fuse_avg_vc",
+   "base": "averaging",
+   "features": [
+    "viewcount",
+    "one_minus_alpha"
+   ]
+  },
+  {
+   "name": "fuse_avg_nl",
+   "base": "averaging",
+   "features": [
+    "nl_epi",
+    "nl_cinter",
+    "one_minus_alpha"
+   ]
+  },
+  {
+   "name": "fuse_p0_const",
+   "base": "ours_P0",
+   "features": []
+  },
+  {
+   "name": "fuse_p0_ug",
+   "base": "ours_P0",
+   "features": [
+    "u_epi",
+    "u_ale",
+    "u_ale_undef",
+    "one_minus_alpha"
+   ]
+  },
+  {
+   "name": "fuse_p2_const",
+   "base": "ours_P2",
+   "features": []
+  },
+  {
+   "name": "fuse_p2_ug",
+   "base": "ours_P2",
+   "features": [
+    "u_epi",
+    "u_ale",
+    "u_ale_undef",
+    "one_minus_alpha"
+   ]
+  }
+ ],
+ "rows": {
+  "reference": [
+   "ours_P0",
+   "ours_P2",
+   "averaging",
+   "2d_features"
+  ],
+  "reference_text": "Table I's rows, recomputed in the same run (eval_seg's evaluate_view) with the temperatures of stage 1; the channel rows viewcount and normlift are rendered for their channels only (their buffer is the averaging feature, checked).",
+  "labels": {
+   "fuse_avg_const": "AVG+2D, constant weight",
+   "fuse_avg_vc": "AVG+2D, view-count weight",
+   "fuse_avg_nl": "AVG+2D, NormLift weight",
+   "fuse_p0_const": "OURS(P0)+2D, constant weight",
+   "fuse_p0_ug": "OURS-UG on P0 logits",
+   "fuse_p2_const": "OURS(P2)+2D, constant weight",
+   "fuse_p2_ug": "OURS-UG on P2 logits"
+  }
+ },
+ "choices": {
+  "@ug": {
+   "rows": [
+    "fuse_p0_ug",
+    "fuse_p2_ug"
+   ],
+   "text": "per dataset: the OURS-UG row of the paper (the 'Ours' line of the new block). fuse_p0_ug is listed first (the simpler: one scalar map temperature instead of P2's four parameters), so P2's logits must beat it by more than tie.tol."
+  }
+ },
+ "paired_const": {
+  "fuse_p0_ug": "fuse_p0_const",
+  "fuse_p2_ug": "fuse_p2_const"
+ },
+ "metric": {
+  "name": "nll",
+  "variant": "all",
+  "pooling": "pixels",
+  "text": "validation NLL in nats, variant 'all' (every labelled pixel), pooled over the labelled pixels of the dataset's validation scenes: sum_s n_s NLL_s / sum_s n_s; all parameters fit by eval_fusion.py on the same validation scenes"
+ },
+ "tie": {
+  "tol": 0.0001,
+  "rule": "candidates within tol nats of the lowest value tie; the tie goes to the one listed first"
+ },
+ "datasets": {
+  "replica": {
+   "scenes": {
+    "validation": "configs/replica_val.json",
+    "test": "configs/replica_test.json"
+   },
+   "eval": {
+    "vocab": "configs/vocab_replica.json",
+    "dataset": "replica_semnerf",
+    "stride": 10,
+    "downscale": 2,
+    "tau_cov": 0.5,
+    "extractor": "lseg"
+   },
+   "text_cache_source": "/home/thanhnc/gauss_ws/data/uags_fields/text_cache_lseg.pt",
+   "out": "/home/thanhnc/gauss_ws/data/uags_results/fusion/replica",
+   "table1": {
+    "val": "docs/reports/2026-09-29-replica-tab1/logs/eval_val_224fe1e.json",
+    "test": "docs/reports/2026-09-29-replica-tab1/logs/eval_test_224fe1e.json"
+   },
+   "test_look": "a FURTHER look at the Replica test split: earlier looks were Table I v1, the views test (and the room_0 repeat), the Table IV ablations, Table I v2, the qualitative render and the spatial-smoothing attempt (smooth/replica/look_test.json)"
+  },
+  "scannet": {
+   "scenes": {
+    "validation": "configs/scannet_val.json",
+    "test": "configs/scannet_test.json"
+   },
+   "eval": {
+    "vocab": "configs/vocab_scannet.json",
+    "dataset": "scannet",
+    "stride": 20,
+    "downscale": 2,
+    "tau_cov": 0.5,
+    "extractor": "lseg"
+   },
+   "text_cache_source": "/home/thanhnc/gauss_ws/data/uags_fields/scannet/text_cache_lseg.pt",
+   "out": "/home/thanhnc/gauss_ws/data/uags_results/fusion/scannet",
+   "table1": {
+    "val": "/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_val.json",
+    "test": "/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_test.json"
+   },
+   "test_look": "the THIRD look at the ScanNet test split: the first was Table I v1 + v2 (scannet_tab1/look_test.json), the second the spatial-smoothing attempt (smooth/scannet/look_test.json)"
+  }
+ },
+ "reproduction": {
+  "nll_tol": 0.01,
+  "miou_tol": 0.005,
+  "required": true,
+  "text": "Independent check before any test run: the reference rows ours_P0, ours_P2, averaging and 2d_features of the validation run must match the dataset's Table I validation record (datasets.<d>.table1.val) within 0.01 nats of per-scene NLL and 0.5 points of per-scene mIoU (variant all); the largest beta differences are reported. check-test refuses otherwise: the gap is recorded and the lead decides (a dated amendment) before any test look. For reference, the smoothing attempt reproduced the map rows within 1.8e-4 nats on this machine; the Replica Table I record was made on another GPU (RTX 5070 Ti), so the 2D row (LSeg on the GPU) may differ more."
+ },
+ "validation_gate": {
+  "enabled": false,
+  "text": "If enabled: the test stage runs only if the chosen OURS-UG row has a lower pooled validation NLL than every binding baseline by more than tie.tol; otherwise the attempt ends on validation (reported as not better on validation, no test look). Disabled in this draft (both datasets are scored on test whatever validation says, as decision D3 of the smoothing attempt); the gate result is recorded either way."
+ },
+ "reporting": [
+  "Every row (the 4 reference rows and the 7 fused rows) is evaluated on validation and test and reported (appendix), with every metric of Table I (mIoU, Acc, ECE, NLL, Brier, AURC), per scene and as the mean over scenes, in both variants: all pixels and map-covered pixels. Calibration metrics also pixel-pooled (ECE from the summed reliability bins, NLL and Brier pixel-weighted). Test numbers of fused rows that are neither @ug nor a binding baseline are labelled 'not selected'.",
+  "Table I: a new block 'with the current view' under the existing rows (they are not changed): OURS-UG (@ug), OURS+2D constant (the paired base), AVG+2D constant, AVG+2D view-count, AVG+2D NormLift; the 2D-features row stays where it is. AUSE_u is '--' for the fused rows (they have no own uncertainty of the Table I kind).",
+  "Also reported: the fitted theta of every form per dataset (with the fit NLL at w = 0, w = 1 and at theta), the mean 2D weight on map-covered pixels per scene, the reproduction check, the validation gate, and descriptive x/N of OURS-UG against the map row of its base, the 2D row and averaging (unadjusted).",
+  "The selection is final once STAGE=test starts: test numbers never change a choice, a form, a feature, the tie rule, the claim rule or this file.",
+  "The test split of each dataset is evaluated once (a crashed run may be rerun with the same selection; a finished test record never)."
+ ],
+ "claim": {
+  "baselines": [
+   "fuse_avg_const",
+   "@paired_const",
+   "fuse_avg_vc",
+   "fuse_avg_nl"
+  ],
+  "baselines_text": "the binding fair baselines, all with the SAME 2D input and the same hole filling: AVG+2D constant, OURS+2D constant on the base of @ug ('@paired_const'), AVG+2D view-count, AVG+2D NormLift. Each weight is fit by validation NLL exactly as OURS-UG's.",
+  "min_wins": {
+   "replica": 4,
+   "scannet": 5
+  },
+  "C1_gain": "The paper may write that our uncertainty makes the fusion better on metric M (mIoU first; also ECE, NLL, Brier, AURC) on dataset D only if, on the test scenes of D, @ug has a better mean (variant all) than EACH binding baseline AND is better in at least min_wins[D] test scenes against each (>= 4/6 Replica, >= 5/8 ScanNet; a tie is not a win). Otherwise the text says 'on par with the fair fusion baselines' (or worse, as measured). The headline claim is C1 on mIoU on both datasets.",
+  "C2_significance": "'Significantly' only if, in addition, the exact two-sided sign test (ties dropped) over the 14 pooled test scenes (Replica 6 + ScanNet 8) gives a Holm-adjusted p < 0.05 within family F3f, and C1 (with R2 for ECE, NLL, Brier: scripts/fusion_select.py 'writable') holds for that metric on both datasets.",
+  "F3f": {
+   "tests": "@ug vs {AVG+2D constant, OURS+2D constant (paired), AVG+2D view-count, AVG+2D NormLift} x {miou, ece, nll, brier, aurc}: 20 sign tests, Holm over the 20",
+   "scenes": "pooled over the test scenes of both datasets (14); the smallest two-sided sign p with 14 of 14 wins is 1.2e-4, times 20 = 0.0024",
+   "difference": "per scene, positive = OURS-UG better, in the metric's own unit (configs/quant_prereg.json F1 conventions: points x100, nats for NLL)",
+   "declared_in": "this file (configs/quant_prereg.json family F3: 'package-2 claims, each declared in its own prereg before it runs')"
+  },
+  "calibration": "configs/quant_prereg.json R2 applies: a calibration difference (ECE, NLL, Brier) is written only if it has the same sign under the scene mean and the pixel-pooled aggregation, in addition to C1.",
+  "coverage": "Any sentence that compares a fused row with a map row (e.g. OURS-UG vs ours P2 or averaging of Table I) gives both variants (all pixels, map-covered pixels); such comparisons are descriptive (x/N, unadjusted), never C1 or C2."
+ },
+ "disclosure": "Paper sentence (Setup or the Table I paragraph): 'After Table I was final we tried one more block that, like the 2D-features row, reads the evaluation frame: each map predictive is fused per pixel with the frame's 2D predictive (a log-linear pool of the two calibrated predictives), the 2D weight set by our two uncertainties and the coverage (ours) or, for the baselines, by one constant, the view count or NormLift's terms; every weight was fit by validation NLL, the base of ours (P0 or P2) was chosen on validation, and the test scenes were scored once (Replica: a further look at its test split; ScanNet: the third); uncovered pixels take the 2D prediction in every fused row, and the appendix also reports covered pixels only.'",
+ "gpu": {
+  "eval_need_mib": 7000,
+  "basis": "the Table I evaluations hold LSeg in the same process (eval_seg --with-2d) and ran under 7000 MiB: peak allocated 2.27-3.65 GiB (Replica val/test 224fe1e records: 2.27, 2.51; ScanNet val/test: 3.59, 3.65), with 17-36 frozen rows. This run freezes 6 rows that share 2 buffers (mu* and the averaging feature, 0.5 GB at N = 1e6), so it needs less than Table I; the cap stays at Table I's 7000 MiB. One eval_fusion.py run per stage and dataset; the measured peak is printed from its record."
+ },
+ "open_decisions": [
+  "Q1: fuse_avg_nl (AVG+2D with NormLift's 1/(1+N_eff) and 1 - C_inter) is a BINDING baseline in this draft (the strongest fair uncertainty-guided averaging: NormLift's terms are the Table I comparators of our two channels). Drop it from claim.baselines to follow the original three-baseline plan.",
+  "Q2: OURS-UG is registered on both P0 and P2 logits, chosen per dataset by validation NLL (tie -> P0); the paired constant row follows the choice.",
+  "Q3: validation_gate.enabled (false in this draft).",
+  "Q4: reproduction tolerances (0.01 nats, 0.5 mIoU points per scene) and whether a failed reproduction blocks the test stage (required: true).",
+  "Q5: where the block goes (Table I under the existing rows, or the appendix) and the extra test looks (Replica further, ScanNet third)."
+ ],
+ "lead_decisions": {
+  "Q1": "AVG+2D NormLift-weighted baseline binding in C1",
+  "Q2": "OURS-UG on P0 and P2 logits, one chosen per dataset by pooled validation NLL (tie: P0)",
+  "Q3": "validation gate off: the test runs once whatever validation shows",
+  "Q4": "reproduction stop as drafted (0.01 nats, 0.5 mIoU points per scene)",
+  "Q5": "rows enter Table I only if C1 holds, else the appendix; every extra test look disclosed"
+ }
+}

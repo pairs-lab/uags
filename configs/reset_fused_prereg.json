@@ -1,0 +1,98 @@
+{
+ "name": "Fused-detector reset: a stronger change detector decides when our field resets a Gaussian (NeRF-Object-Removal)",
+ "status": "DRAFT 2026-10-23, written before any real-data run of this attempt: only CPU toy tests (tests/test_reset_fused.py) have run. scripts/reset_fused.sh refuses every stage while this file is untracked or has uncommitted changes, and refuses STAGE=test before a finished validation selection (scripts/reset_fused_select.py check-test).",
+ "registered": "2026-10-23, before any real-data run; decisions R1-R6 as drafted, accepted by the lead",
+ "after": "A later attempt, after Table III (tab:change) and the pre-registered fused table (configs/nor_fused_prereg.json) were final. Known before this file: on the NOR test scenes our change test alone has Gaussian AP 53.4, ours+depth 75.0, feature residual+depth 81.1, NormLift drop+depth 79.9 (rank fusion over the update population); our reset lowers the N2 stale-answer rate from 34% (change test off / averaging) to 21% (test mean, N = 10), with Rec 56.8% at FA 6.2%. The test scenes were seen by Table III, the Table IV ablations, the fused baselines and the N2 dumps; this is a further look.",
+ "code": {
+  "core": "usplat/reset_fused.py (VARIANTS, MappingRanks, fused_stat, ExternalResetField.external_reset)",
+  "scene": "scripts/reset_fused_nor.py (imports scripts/eval_change_nor.py and scripts/dump_nor_qual.py, never edits them)",
+  "selection": "scripts/reset_fused_select.py (select, check-test, table)",
+  "pipeline": "scripts/reset_fused.sh STAGE=val|test|table",
+  "frozen": "eval_change_nor.py, time_field.py, eval_seg.py, run_mapping.py, every MAPPING_CODE file (incl. usplat/vmf_field.py), usplat/change_baselines.py, dump_nor_qual.py, plot_nor_qual.py, make_tables.py: unchanged; their hashes must equal the Table III records' (eval_code, mapping_code_now)"
+ },
+ "inputs": "the Table III records (uags_results/nor/tab2_relmax/{val,test}/<scene>.json) and the fields, maps and alignments they name (sha256 checked); no re-mapping. Every setting (update stride, tau_cov, undef_frac, k, change quantile, D2 margins) comes from the record.",
+ "scenes": {
+  "validation": [
+   "001",
+   "002",
+   "003",
+   "004"
+  ],
+  "test": [
+   "005",
+   "006",
+   "007",
+   "008",
+   "009",
+   "010",
+   "011",
+   "013",
+   "014",
+   "015"
+  ]
+ },
+ "variants": {
+  "V1": [
+   "feat",
+   "depth"
+  ],
+  "V2": [
+   "ours",
+   "feat",
+   "depth"
+  ],
+  "V3": [
+   "normlift",
+   "depth"
+  ]
+ },
+ "components": {
+  "ours": "the field's own persistent change score c_p (min of the last k = 2 defined c) at the view, where its test is defined (the variant field's own score, after the variant's own resets)",
+  "feat": "min of the last k = 2 covered per-view feature residuals against the frozen map (Table III 'feat' statistic)",
+  "depth": "the same for the rendered-depth residual (Table III 'depth' statistic)",
+  "normlift": "R_ref - R_t, the drop of NormLift's reliability (mapping: since the reference of NormLift's null segment; update: since the end of mapping), on a field copy with the change test off and the saved NormLift on its hooks (Table III 'normlift' statistic)"
+ },
+ "fusion": "rank_X(x) = mid-rank empirical CDF of x among component X's finite per-view values on the mapping replay (pooled over views and Gaussians; NormLift: its null segment); NaN -> 0. s_V = equal-weight mean of rank_X over V's components; defined on a covered Gaussian where at least one component is finite. Nothing is fitted. (Table III's fused rows rank against the update population and have no per-view scale; this is the per-view form of the same equal-weight rank average.)",
+ "threshold": {
+  "quantile": 0.999,
+  "rule": "thr_V = the 0.999 empirical quantile (numpy linear, as eval_change_nor.Null.threshold, in float64) of s_V over the mapping replay's covered Gaussian-views (pooled); V3 over the NormLift null segment's views. The same label-free rule as every Table III row (per-view rate 1 - q on static content)."
+ },
+ "firing": "at each update keyframe, after the field took the view: fire on the covered Gaussians with s_V > thr_V that are not currently 'changed' (a Gaussian the variant reset is not reset again before the depth re-admission clears it); the field's own test is off (thresholds +inf); the reset is the field's own (ExternalResetField.external_reset = the state _ingest gives when its test fires on the same set, checked bit for bit on the CPU)",
+ "kept_unchanged": [
+  "the reset itself (evidence restarted from the current view)",
+  "depth re-admission (readmit_views 3, readmit_depth 0.05 m)",
+  "the robust set (tau_min, r_stable, not changed)",
+  "coverage (EC.covered; each variant pass's observed set must equal ours' up to 1e-4 of the observed Gaussians, since GPU backward sums are not bit-exact; exactly on the CPU)"
+ ],
+ "metrics": {
+  "stale_answer": "N2 (dump_nor_qual.contrast_and_fa): share of the covered masks_real pixels over every update keyframe whose top class (101 classes of configs/vocab_replica.json, LSeg templates, ties = no class) is the scene's N2 query; the query rule of dump_nor_qual (never re-prompted). Lower is better.",
+  "static_relabel": "share of the static observed Gaussians (D2) whose top class of mu* after the update differs from the mapping-pass mu*'s. Lower is better (cost).",
+  "firing_score": "per Gaussian, the max over the update views of the firing statistic (ours: Table III's c_max; V: s_V); Gaussian AP / AUROC on the observed Gaussians (NaN last) and pixel AP / AUROC (EC.pixel_level)",
+  "fa_rec": "flagged = reset at least once in the update; FA on the static observed Gaussians, Rec on the stale observed ones (EC.operating_points), realised per-view rate fires / tests",
+  "kept": "share of the stale observed Gaussians in the robust set at the end of the update"
+ },
+ "reproduction": "each scene first reproduces its Table III record with dump_nor_qual.reproduction (keyframes, per-frame counts, AP/AUROC within the noise tolerance 0.002, ours' FA/Rec within 0.5 points) and ours' N2 stale-answer, change-test-off, averaging and before rates within 0.5 points of the scene's dump (uags_results/qual/nor/<scene>/contrast.json); a failure stops the run (exit 2)",
+ "selection": {
+  "rule": "On the 4 validation scenes: among [ours, V1, V2, V3] (this order), the row with the lowest mean stale-answer rate (unweighted mean over scenes) among those whose mean static-relabel cost is not above ours' validation mean + static_relabel_budget; ours always qualifies; an exact tie goes to the row listed first. If ours has the lowest rate among the qualifying rows, ours is kept and no variant is selected.",
+  "static_relabel_budget": 0.02
+ },
+ "claim": {
+  "rule": "The paper may claim that the fused detector lowers the stale-answer rate only if the selected variant (not ours) has a lower test stale-answer rate than ours in at least 7 of the 10 test scenes (strictly lower; a tie is not a win) AND a lower test mean. The sentence always carries x/10, both means, and the test FA and static-relabel cost of both rows. Otherwise the paper states the measured comparison (or nothing beyond the appendix).",
+  "min_wins": 7
+ },
+ "report_all": "every variant and ours on validation and test, per scene and as mean +- std (stale-answer, static relabel, FA, Rec, Kept, firing-score G AP / P AP, realised rate, resets), selected or not; test rows of variants not selected are labelled 'not selected'",
+ "test_once": "STAGE=test runs only after check-test passes (prereg and code committed unchanged, selection finished with this prereg and reproducible); a finished test scene record is never overwritten; a crashed scene may be rerun",
+ "disclosure": "Paper sentence (with the Table III paragraph or the appendix): 'After Table III was final we tried letting a stronger detector decide the reset (three fused detectors fixed in advance); the variant was chosen on the 4 validation scenes by stale-answer rate under a static-relabel budget, and the test scenes were scored once (a further look at the NOR test split); every variant is in the appendix.'",
+ "gpu": {
+  "need_mib": 6500,
+  "headroom_mib": 1024,
+  "basis": "per scene the Table III passes (peak 4.56 GiB at N = 1e6 in the records) plus three variant passes run one at a time, each holding one field copy (~1 GiB at N = 1e6, d = 64), ChangeBaselines and for V3 the NormLift copy (~1.3 GiB): the variant passes stay below the run_update peak (two field copies + NormLift); the mapping nulls and ranks live on the CPU",
+  "time": "about 1.3-1.6x the N2 dump's wall time per scene (the dumps: 71-968 s, 3645 s for the 14 scenes): ~25-40 min for validation, ~25-35 min for test, under the gate"
+ },
+ "decisions_open": [
+  "R1 rank scale: mapping-pass ECDF per component, pooled over history (fixed above). Alternative: per history bucket.",
+  "R2 no re-fire while changed (fixed above). Alternative: fire whenever s_V passes (the frozen-map residuals would reset a removed object at every view).",
+  "R3 ours is in the selection set and wins ties (fixed above).",
+  "R4 static-relabel budget +2 points on the validation mean (from the task)."
+ ]
+}

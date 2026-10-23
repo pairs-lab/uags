@@ -1,0 +1,302 @@
+{
+ "name": "A stronger open-vocabulary dense extractor for EVERY row of Table I (tab:replica), Replica and ScanNet: three published training-free candidates against the incumbent LSeg, chosen on validation 2D segmentation, then every map re-built and every row re-run once on test",
+ "status": "DRAFT written 2026-10-24, uncommitted. No candidate has run on any test frame. Before this file existed no candidate ran on any dataset frame; after it was written, a smoke check ran each extractor on 3 VALIDATION frames only (load, shapes, memory, time; docs/reports/2026-10-20-figures-video/logs/extractor_stage1.md), which changed no rule (only the gpu caps below are filled from it). scripts/extractor_select.sh and scripts/extractor_tab1.sh refuse every stage while this file is untracked or modified. The lead fixes the open decisions, sets 'registered', and commits this file and the code before any stage-A run.",
+ "registered": "2026-10-24, before any stage A run; lead decisions: Q1 published templates per method, Q2 margin 1.0, Q3 keep all three candidates in stage A, Q4 replace Table I only if C1 holds, Q5 research licences accepted for an academic paper, Q6 keep the existing ProxyCLIP resize convention",
+ "pipeline": {
+  "stage_ab": "scripts/extractor_select.sh (stage A: scripts/extractor_2d.py per dataset and extractor; stage B: scripts/extractor_select.py select)",
+  "stage_c": "scripts/extractor_tab1.sh (DATASET=replica|scannet, STAGE=val|test|table, then STAGE=claim once both tables exist)"
+ },
+ "after": "A later attempt, after Table I (v1 and v2), the spatial-smoothing and the view-fusion attempts were final. Every map row of Table I (ours P0/P1/P2, averaging, NormLift, Feature 3DGS, LEGaussians, CSS) lifts the same LSeg features (ViT-L/16, d = 512, PCA to 64), so the rows tie within ~0.4 mIoU; the 2D row applies LSeg per frame. LSeg was chosen on Replica validation on 2026-09-29 (docs/reports/2026-09-29-data-and-baselines/attempts/05-extractor-study.md: worst-scene 2D mIoU, 20 frames per scene) over ClearCLIP (13.4 vs 23.2), dino.txt (23.7 per pixel but 22.7 on the PCA-64 path), Talk2DINO ViT-B (21.7) and ProxyCLIP ViT-B/16 + DINOv2-B (20.3). The candidates below are stronger published configurations not tried then.",
+ "incumbent": "lseg",
+ "candidates": {
+  "radseg": {
+   "module": "usplat/extractors/radseg.py",
+   "method": "RADSeg (Alama et al., CVPR 2026 Findings, arXiv 2511.19704), without the SAM refinement of RADSeg+ (it prompts SAM with the coarse class masks: class-dependent, gives no feature). C-RADIOv3-B backbone with SCRA in its last block, 336/224 windows, SCGA over the frame, the siglip2 adaptor head; text: the SigLIP2 so400m text tower (RADIO's teacher).",
+   "setting": "the paper's mid-resolution setting for ADE20K / Pascal Context (Table A.1): short side 576, crop 336, stride 224, SCRA and SCGA scaling 10, fp32 (amp False). 640x480 and 648x484 frames -> 896x672 input -> (42, 56, 1152) tokens.",
+   "published": "mid resolution, mean mIoU over Context59, VOC20, COCO-Stuff, ADE20K, Cityscapes: RADSeg base 48.00 vs Trident (ViT-H) 47.02, ProxyCLIP (ViT-H) 43.58, Talk2DINO 43.00 (arXiv 2511.19704v2 Table 1, Table A.2). 3D (RayFronts mapping, feature-space aggregation): Replica 32.29 / ScanNet 36.29 mIoU (Table 2).",
+   "compute": "106M vision parameters; 0.115 s per image on a V100 in fp32 at mid resolution (Table A.3); SigLIP2 text tower 708M parameters (per query, cached)",
+   "code": "github.com/RADSeg-OVSS/RADSeg @ 3fe8789 (MIT; read, re-implemented); RADIO model code github.com/NVlabs/RADIO @ 4ffaf15 (NVIDIA Source Code License for RADIO: research / evaluation use only; imported)"
+  },
+  "proxyclip_h": {
+   "module": "usplat/extractors/proxyclip_h.py",
+   "method": "ProxyCLIP (Lan et al., ECCV 2024, arXiv 2408.04883) at its strongest published configuration: OpenCLIP ViT-H/14 (laion2b_s32b_b79k) with the DINO ViT-B/8 proxy (the repo default 'dino').",
+   "setting": "ADE20K config: short side 448 (sides rounded to multiples of 8 so that windows tile the 8-px proxy grid: 640x480 -> 600x448), crop 336, stride 112, beta 1.2, gamma 3.0, fp16 on CUDA. -> (56, 75, 1024) tokens.",
+   "published": "mean mIoU over 8 benchmarks: 44.4 (ViT-H/14) vs 42.3 (ViT-B/16) (arXiv 2408.04883 Table 1); ADE20K 24.2 vs 20.2",
+   "compute": "CLIP ViT-H/14 632M + DINO ViT-B/8 86M; 8 windows per 640x480 frame",
+   "code": "github.com/mc-lan/ProxyCLIP @ a0e38d1 (NTU S-Lab License 1.0: non-commercial use only; read, re-implemented in usplat/extractors/proxyclip.py, which proxyclip_h.py subclasses)"
+  },
+  "trident": {
+   "module": "usplat/extractors/trident.py",
+   "method": "Trident (Shi, Dong, Xu, ICCV 2025, arXiv 2411.09219) at its ViT-H/14 setting without the SAM refinement (class-dependent prompts): per-window proxy attention (CLIP ViT-H/14 laion2b_s32b_b79k values, DINO ViT-B/16 proxy), windows spliced on the frame's CLIP grid, then aggregated over the whole frame with the thresholded last-block attention of SAM ViT-H.",
+   "setting": "ADE20K / Context config: short side 576, crop 336, stride 224, beta 1.2, gamma 3.0, cos_fac 1.2, refine_neg_cos True, fp16 on CUDA. -> (48, 64, 1024) tokens on SAM's valid grid.",
+   "published": "mean mIoU over 8 benchmarks, ViT-H/14 + SAM-H: 47.1 without refinement (Table 4, 'affinity'), 48.6 with it, ProxyCLIP ViT-H/14 44.4 (arXiv 2411.09219 Tables 2, 4)",
+   "compute": "1749M parameters with SAM-H; 15 images/s on an RTX 4090 at 448x448 in fp16, 5.8 GB (Table 8); 1.451 s per image on a V100 fp32 (RADSeg Table A.3)",
+   "code": "github.com/YuHengsss/Trident @ 7feea10 (Apache-2.0; read, re-implemented); SAM github.com/facebookresearch/segment-anything @ dca509f (Apache-2.0; imported)"
+  }
+ },
+ "order": [
+  "radseg",
+  "proxyclip_h",
+  "trident"
+ ],
+ "order_text": "tie-break order of stage B, fixed by published compute (cheapest first): RADSeg-B 0.115 s, ProxyCLIP-H, Trident-H 1.451 s per image (V100, RADSeg Table A.3)",
+ "not_chosen": {
+  "dinotxt, talk2dino (ViT-B), proxyclip (ViT-B/16), clearclip": "already compared on Replica validation in attempt 05 and lost to LSeg",
+  "NACLIP, SCLIP, ClearCLIP with larger CLIP": "below ProxyCLIP in the same benchmarks (e.g. SCLIP ViT-H/14 29.1 vs ProxyCLIP 44.4, arXiv 2408.04883 Table 1; NACLIP 38.57 vs RADSeg 48.00, arXiv 2511.19704 Table 1)",
+  "RayFronts (NARADIO)": "superseded by RADSeg from the same group (42.14 vs 48.00, base, Table 1)",
+  "dino.txt on DINOv3, TextRegion": "DINOv3 weights are gated (licence acceptance needed); TextRegion (47.65 huge) uses SAM2 region masks and ~10x RADSeg's compute",
+  "RADSeg+, Trident with SAM refinement, CorrCLIP, LPOSS": "they refine class predictions with the class list (masks, label propagation): no class-agnostic feature to lift",
+  "LSeg-like trained segmenters (CAT-Seg, SAN, FC-CLIP)": "they score a given class list, not a text-aligned pixel feature"
+ },
+ "weights": {
+  "/home/thanhnc/gauss_ws/data/weights/lseg/demo_e200_state_dict.pt": {
+   "sha256": "a377d608f6493be72f3419a064a48571b718a75cfedb2a553eadfc9080a089c1",
+   "source": "huggingface.co/isl-org/lang-seg demo_e200.ckpt (state_dict)",
+   "licence": "MIT",
+   "used_by": [
+    "lseg"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/radseg/c-radio_v3-b/c-radio_v3-b_half.pth.tar": {
+   "sha256": "530b0e827b1d409ca3b175466e11062885baedd823ec5dae3a88348e76d4c398",
+   "source": "huggingface.co/nvidia/C-RADIOv3-B @ 44653a0482cf460bb4f12595fc3cc3dfecc403d1 (= HF LFS sha256)",
+   "licence": "NVIDIA Open Model License",
+   "used_by": [
+    "radseg"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/radseg/siglip2-so400m-patch16-naflex/model.safetensors": {
+   "sha256": "11a61a2068800d5f4f35cb041c1fea25de86ce87725e4c97a9ed046d0b22c076",
+   "source": "huggingface.co/google/siglip2-so400m-patch16-naflex @ cc24074f717b612951c2dead130904ab9b65a81e (= HF LFS sha256)",
+   "licence": "Apache-2.0",
+   "used_by": [
+    "radseg"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/radseg/siglip2-so400m-patch16-naflex/tokenizer.json": {
+   "sha256": "58a1696e79c9d97937389ed116f552a15c84811d7b8023918b86f4bc5775b1b0",
+   "source": "same revision (= HF LFS sha256)",
+   "licence": "Apache-2.0",
+   "used_by": [
+    "radseg"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/radseg/siglip2-so400m-patch16-naflex/config.json": {
+   "sha256": "c633ddede50ec15d5818e04325bc4a5ac47c2762194a02486baee7d2a3a3dbc5",
+   "source": "same revision",
+   "licence": "Apache-2.0",
+   "used_by": [
+    "radseg"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/radseg/siglip2-so400m-patch16-naflex/tokenizer_config.json": {
+   "sha256": "d2343400f0f86133053325951b696df8fd0f53a007cf6a546e6c2b4361344f47",
+   "source": "same revision",
+   "licence": "Apache-2.0",
+   "used_by": [
+    "radseg"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/radseg/siglip2-so400m-patch16-naflex/preprocessor_config.json": {
+   "sha256": "1125703e5446d5b6ff4d5893a33bac128cdd21dc12e3dad2469a648fb0ae3bf7",
+   "source": "same revision",
+   "licence": "Apache-2.0",
+   "used_by": [
+    "radseg"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/radseg/siglip2-so400m-patch16-naflex/special_tokens_map.json": {
+   "sha256": "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351",
+   "source": "same revision",
+   "licence": "Apache-2.0",
+   "used_by": [
+    "radseg"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/clip/ViT-H-14-laion2b_s32b_b79k/open_clip_model.safetensors": {
+   "sha256": "0084e75319a50ad85ef45377bad5bc38f2f58824459eb690048d51c9f8863be5",
+   "source": "huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K @ 1c2b8495b28150b8a4922ee1c8edee224c284c0c (= HF LFS sha256)",
+   "licence": "MIT",
+   "used_by": [
+    "proxyclip_h",
+    "trident"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/dino/dino_vitbase8_pretrain.pth": {
+   "sha256": "575f0efc4838938314afa09897a62ed2b87919928b5edcd133abb907328995eb",
+   "source": "dl.fbaipublicfiles.com/dino/dino_vitbase8_pretrain/dino_vitbase8_pretrain.pth (torch.hub dino_vitb8)",
+   "licence": "Apache-2.0",
+   "used_by": [
+    "proxyclip_h"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/dino/dino_vitbase16_pretrain.pth": {
+   "sha256": "bf34ad0f424b9029b593e8dc3ed553bf26e88bcba0d32bf3e62a6209cb64c85e",
+   "source": "dl.fbaipublicfiles.com/dino/dino_vitbase16_pretrain/dino_vitbase16_pretrain.pth (torch.hub dino_vitb16)",
+   "licence": "Apache-2.0",
+   "used_by": [
+    "trident"
+   ]
+  },
+  "/home/thanhnc/gauss_ws/data/weights/sam/sam_vit_h_4b8939.pth": {
+   "sha256": "a7bf3b02f3ebf1267aba913ff637d9a2d5c33d3173bb679e46d9f338c26f262e",
+   "source": "dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth (md5 prefix 4b8939 = the file name)",
+   "licence": "Apache-2.0",
+   "used_by": [
+    "trident"
+   ]
+  }
+ },
+ "third_party_code": {
+  "/home/thanhnc/gauss_ws/third_party/radio/RADIO": "4ffaf15d0ff48197c194e306772bdb5fb92db230",
+  "/home/thanhnc/gauss_ws/third_party/dino/dino": "7c446df5b9f45747937fb0d72314eb9f7b66930a",
+  "/home/thanhnc/gauss_ws/third_party/sam/segment-anything": "dca509fe793f601edb92606367a655c15ac00fdf"
+ },
+ "templates": {
+  "rule": "each method's published template set: the incumbent keeps Table I's 5 LSeg templates; the three candidates use the 80 OpenAI ImageNet templates, which RADSeg, Trident and ProxyCLIP all publish (identical lists). Fixed before any candidate ran on a dataset frame; no template is chosen on our data.",
+  "files": {
+   "replica": "configs/vocab_replica_extractors.json",
+   "scannet": "configs/vocab_scannet_extractors.json"
+  },
+  "files_text": "copies of configs/vocab_replica.json / vocab_scannet.json (sha256 recorded in their derived_from) with only templates_by_extractor extended; classes, prompts, ignore ids and merges unchanged"
+ },
+ "datasets": {
+  "replica": {
+   "scenes": {
+    "validation": "configs/replica_val.json",
+    "test": "configs/replica_test.json"
+   },
+   "eval": {
+    "vocab": "configs/vocab_replica_extractors.json",
+    "dataset": "replica_semnerf",
+    "stride": 10,
+    "downscale": 2,
+    "tau_cov": 0.5
+   },
+   "mapping": {
+    "dataset": "replica_semnerf",
+    "data": "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/{name}/Sequence_1",
+    "stride": 5,
+    "css_eval_data": "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/{name}/Sequence_2",
+    "css_eval_stride": 10
+   },
+   "maps": "/home/thanhnc/gauss_ws/data/uags_maps/{name}_seq1.pt",
+   "table1": {
+    "val": "docs/reports/2026-09-29-replica-tab1/logs/eval_val_224fe1e.json",
+    "test": "docs/reports/2026-09-29-replica-tab1/logs/eval_test_224fe1e.json",
+    "text_cache": "/home/thanhnc/gauss_ws/data/uags_fields/text_cache_lseg.pt"
+   },
+   "fields": "/home/thanhnc/gauss_ws/data/uags_fields/extractor/{extractor}",
+   "out": "/home/thanhnc/gauss_ws/data/uags_results/extractor/{extractor}/replica",
+   "test_look": "a FURTHER look at the Replica test split: earlier looks were Table I v1, the views test (and the room_0 repeat), the Table IV ablations, Table I v2, the qualitative render, the spatial-smoothing attempt and the view-fusion attempt (fusion/replica/look_test.json)"
+  },
+  "scannet": {
+   "scenes": {
+    "validation": "configs/scannet_val.json",
+    "test": "configs/scannet_test.json"
+   },
+   "eval": {
+    "vocab": "configs/vocab_scannet_extractors.json",
+    "dataset": "scannet",
+    "stride": 20,
+    "downscale": 2,
+    "tau_cov": 0.5
+   },
+   "mapping": {
+    "dataset": "scannet",
+    "data": "/home/thanhnc/gauss_ws/data/scannet/uags_f2/{name}",
+    "stride": 10,
+    "css_eval_data": "/home/thanhnc/gauss_ws/data/scannet/uags_f2/{name}/eval_s20o5",
+    "css_eval_stride": 1
+   },
+   "maps": "/home/thanhnc/gauss_ws/data/uags_maps/scannet/{name}.pt",
+   "table1": {
+    "val": "/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_val.json",
+    "test": "/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1/eval_test.json",
+    "text_cache": "/home/thanhnc/gauss_ws/data/uags_fields/scannet/text_cache_lseg.pt"
+   },
+   "fields": "/home/thanhnc/gauss_ws/data/uags_fields/extractor/{extractor}/scannet",
+   "out": "/home/thanhnc/gauss_ws/data/uags_results/extractor/{extractor}/scannet",
+   "test_look": "the FOURTH look at the ScanNet test split: Table I v1 + v2 (scannet_tab1/look_test.json), the spatial-smoothing attempt (smooth/scannet/look_test.json), the view-fusion attempt (fusion/scannet/look_test.json), then this"
+  }
+ },
+ "stage_a": {
+  "what": "per extractor (incumbent + 3 candidates) and dataset: the 2D segmentation of every validation evaluation frame (Replica office_0, room_2: Sequence_2 every 10th frame, 90 each; ScanNet scene0000_00, scene0062_00: frames 5, 25, 45, ..., 279 and 37) through Table I's 2D-row path (scripts/extractor_2d.py): tokens -> bilinear upsample to the label grid (downscale 2) -> unit -> PCA-64 fit like run_mapping.py on the first 20 mapping frames of the scene (seed 0) -> logits with the PCA-projected text of the present classes (decode first, F7) -> argmax over every labelled pixel",
+  "protocol": {
+   "downscale": 2,
+   "feat_dim": 64,
+   "pca_frames": 20,
+   "seed": 0
+  },
+  "out": "/home/thanhnc/gauss_ws/data/uags_results/extractor/select",
+  "metric": "per scene mIoU over the classes present in its evaluation frames (usplat.seg_eval.confusion_iou; Table I's variant 'all'); A_D(x) = mean over dataset D's two validation scenes (Table I reports means over scenes)",
+  "secondary": "pixel accuracy and the full-dimensional (no PCA) 2D mIoU: reported, never used by a rule",
+  "reproduction": {
+   "tol": 0.001,
+   "text": "R0, independent check before any decision: the incumbent's per-scene PCA-64 2D mIoU must equal Table I's validation record (datasets.<d>.table1.val, row 2d_features, variant all) within 0.1 points on all four scenes (same frames, same PCA procedure and seed, same text cache). If not, stage A measures something else than Table I: the attempt stops and the gap goes to the lead."
+  },
+  "text_cache": "the incumbent: a COPY of Table I's cache (datasets.<d>.table1.text_cache) in OUT; candidates: a new cache in OUT (eval_seg's key format, so stage C reuses a copy of it)"
+ },
+ "stage_b": {
+  "rule": "delta_D(x) = A_D(x) - A_D(lseg) for D in {replica, scannet}. Winner = the candidate with the largest min(delta_replica, delta_scannet); candidates within tie_tol of the largest tie and the earliest in 'order' wins.",
+  "tie_tol": 0.001,
+  "margin": 0.01,
+  "gate": "stage C runs only if R0 passed AND the winner's min(delta_replica, delta_scannet) >= margin (1.0 mIoU point on BOTH datasets). Otherwise the attempt ends on validation: LSeg stays in every row, the stage A table is reported (appendix / report), and no test scene is touched.",
+  "why_per_dataset": "Table I and the paper's claims are per dataset, so the new extractor must help on each. A pooled pixel mean would be dominated by ScanNet (scene0000_00 alone holds 18.6M of the 33.5M validation pixels) and could hide a loss on Replica; scene means keep each validation scene equally weighted, as Table I's means do.",
+  "why_margin": "Table I's rows already tie within 0.4 mIoU on the same features, attempt 05 treated a 0.5-point 2D difference (dino.txt vs LSeg) as noise, and two validation scenes per dataset carry large between-scene spread (Table I validation 2D mIoU: Replica 29.6 / 31.9, ScanNet 57.0 / 78.1). A re-mapping of 18 scenes is justified only by a clear 2D gain on both datasets."
+ },
+ "stage_c": {
+  "what": "with the winner W only: re-map every Replica (8) and ScanNet (10) scene on the EXISTING 3DGS maps (datasets.<d>.maps, never refitted), with run_mapping.py exactly as Table I (Replica: Sequence_1 stride 5, CSS frames Sequence_2 stride 10; ScanNet: prepared scan stride 10, CSS frames eval_s20o5 stride 1; --baselines --feat-dim 64 --pca-frames 20 --seed 0 --downscale 2) except --extractor W and --vocab datasets.<d>.eval.vocab; fields in datasets.<d>.fields (never a Table I field path); distillation exactly as Table I (validation: f3dgs and LEGaussians for every lambda_u of usplat.distill.LEGS_LAMBDAS; test: f3dgs and the lambda_u chosen on validation); eval_seg.py exactly as Table I (--with-2d, --row-factory usplat.baselines:row_factory,usplat.distill:row_factory, tau_cov 0.5, downscale 2; no --v2-rows: Table I keeps P2) on scene files derived from configs/<d>_{val,test}.json with only the field paths changed",
+  "rows": "every row of Table I: 2D features per frame, averaging, NormLift (1 - R and 1 - C_inter AUSE), Feature 3DGS, LEGaussians (lambda_u chosen on validation), ours P0 / P1 / P2 (+ the P3 rows Table I evaluates), CSS (alpha0 chosen on validation)",
+  "refit": "temperatures (one beta per row; P2's parameters), CSS alpha0, the P3 temperature and LEGaussians' lambda_u are refit on the validation scenes exactly as for Table I (eval_seg --val-scenes; scripts/make_tables.py choose); nothing is carried over from the LSeg run",
+  "consistency_tol": 0.001,
+  "consistency": "independent check before the test: the winner's 2D row in the stage C validation evaluation must equal its stage-A record per scene within 0.1 points (same frames, PCA procedure, text); otherwise check-test refuses and the lead decides",
+  "test_once": "the test split of each dataset is evaluated once, with the validation choices, at the validation commit (scripts/ usplat/ configs/ unchanged); every attempt is appended to OUT/look_test.json before it runs; a finished test record is never rerun"
+ },
+ "claim": {
+  "row": "ours_P2",
+  "headline": "miou",
+  "min_wins": {
+   "replica": 4,
+   "scannet": 5
+  },
+  "C1": "The paper may write that the stronger extractor improves our map on dataset D only if, on the test scenes of D, ours P2 with W has a higher mean mIoU (P2 shares P0's labels) than ours P2 in Table I with LSeg AND is higher in at least min_wins[D] test scenes (>= 4/6 Replica, >= 5/8 ScanNet; a tie is not a win). The same rule is computed and reported for Acc, ECE, NLL, Brier and AURC (descriptive unless it holds).",
+  "C1_text_if_not": "'with W, ours reaches X vs Y mIoU (better in k of N scenes)': numbers only, no claim of improvement",
+  "vs_averaging": "the standing of ours against averaging (and every other row) with W is reported as it is (means, scenes better x/N): no claim is pre-registered and none may be added after the test",
+  "every_row": "every row of the new table is reported (test, mean +- std over scenes, N), with the validation choices, next to Table I's LSeg numbers"
+ },
+ "disclosure": "Paper sentence (Setup or the Table I paragraph): 'After Table I was final we replaced LSeg by <W> in every row; <W> was chosen among three published training-free extractors by a rule registered before any of them ran on our data (configs/extractor_prereg.json: per-frame 2D mIoU on the validation scenes, at least 1 point better than LSeg on both datasets); all maps were rebuilt, every temperature and choice was refit on validation, and the test scenes were evaluated once. This is a later attempt and a further look at the test scenes (Replica: after Table I and six other looks; ScanNet: the fourth).' If the gate fails: 'A stronger extractor, chosen by a registered rule, did not beat LSeg on the validation scenes of both datasets (<numbers>); Table I keeps LSeg.'",
+ "gpu": {
+  "headroom_mib": 1024,
+  "basis": "Smoke check 2026-10-24 (3 Replica office_0 validation frames per extractor, scripts/extractor_2d.py smoke mode, RTX 4070 Ti, records in /home/thanhnc/gauss_ws/data/uags_results/extractor/smoke/): peak allocated LSeg 1876 MiB, RADSeg 3838 (incl. the fp32 SigLIP2 text tower, 2.8 GB), ProxyCLIP-H 3985, Trident 4896; extraction 70 / 70 / 281 / 353 ms per frame after warm-up. Stage A cap = peak + ~1.6 GB (more text classes, the PCA). Stage C keeps Table I's caps: mapping 9000 (Table I peak 4.8-5.7 GB in the mapping phase; the extractor phase, <= 4.9 GB, does not overlap it), distillation 7000 and evaluation 7000 (Table I evaluation peaks 2.3-3.7 GB; the 2D row's extractor leaves the GPU before the rows are frozen), all >= the new extractor's peak + 2 GB.",
+  "stage_a_need_mib": {
+   "lseg": 4000,
+   "radseg": 5500,
+   "proxyclip_h": 5500,
+   "trident": 6500
+  },
+  "map_need_mib": {
+   "radseg": 9000,
+   "proxyclip_h": 9000,
+   "trident": 9000
+  },
+  "distill_need_mib": {
+   "radseg": 7000,
+   "proxyclip_h": 7000,
+   "trident": 7000
+  },
+  "eval_need_mib": {
+   "radseg": 7000,
+   "proxyclip_h": 7000,
+   "trident": 7000
+  }
+ },
+ "open_decisions": [
+  "Q1 templates: each method's published set (80 ImageNet templates for the candidates, LSeg keeps its 5) as drafted, or the 5 LSeg templates for every extractor (same text input, but not the candidates' published recipe)",
+  "Q2 margin: 1.0 mIoU point on both datasets as drafted, or 0 (any gain), or 0.5",
+  "Q3 candidates: all three as drafted, or drop Trident (1.75B parameters, ~10x RADSeg's time; its published gain over ProxyCLIP-H is the SAM affinity) to save GPU time",
+  "Q4 what C1 changes: if C1 holds on both datasets, the new table replaces Table I and the LSeg table moves to the appendix; if it holds on one or none, Table I stays and the new table goes to the appendix (drafted). Alternative: always appendix",
+  "Q5 licences: RADIO code (NVIDIA Source Code License, research / evaluation only) and ProxyCLIP code (NTU S-Lab, non-commercial) restrict use to research; acceptable for the paper?",
+  "Q6 ProxyCLIP-H geometry: its tokens equal the official code's (cos >= 0.9999996 per crop), but like usplat/extractors/proxyclip.py it rounds the resized frame to the 8-px proxy grid (640x480 -> 600x448 instead of 597x448) and averages window tokens instead of per-pixel window logits: 95.9% pixel argmax agreement with the official code on a 640x480 demo frame, 99.67% on a 672x448 frame that needs no rounding. Keep as drafted (the convention of the extractor already compared in attempt 05), or drop ProxyCLIP-H"
+ ]
+}

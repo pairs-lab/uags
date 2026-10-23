@@ -6,6 +6,8 @@
 
 **Next step:** the lead decides Q1-Q6 (section 9), sets `registered`, commits the prereg and the other 12 new code, config and test files (the 14th untracked file is this log). Then `scripts/extractor_select.sh` runs stages A and B (~20 min GPU).
 
+**Update 2026-10-24 04:06: stages A and B ran (lead decisions Q1-Q6 as drafted; prereg and code committed at dc879b6). Verdict NEGATIVE:** the reproduction gate R0 passed (LSeg = Table I's validation 2D row on all 4 scenes), but no candidate beat LSeg on both datasets. Best smaller-of-the-two gain: RADSeg −24.47 points (Replica +3.23, ScanNet −24.47); the gate needs ≥ +1.0. The attempt ends on validation: **LSeg stays in every Table I row**, stage C is not run, no test scene was touched (section 10).
+
 ## 1 Candidates (survey)
 
 LSeg already beat ClearCLIP, dino.txt, Talk2DINO ViT-B and ProxyCLIP ViT-B/16 on Replica validation ([attempt 05](../../2026-09-29-data-and-baselines/attempts/05-extractor-study.md)). So the new candidates are stronger *published configurations* that were not tried. A candidate must give class-agnostic, text-aligned pixel features (methods that refine a class prediction with the class list cannot be lifted).
@@ -161,3 +163,56 @@ Test command: `cd uags && PATH=$HOME/venvs/uags/bin:$PATH PYTHONDONTWRITEBYTECOD
 | Issue | `eval_seg.py` computes uncached text on `--clip-device cpu`: for RADSeg ~11 s per class with 80 templates (CPU), for Trident / ProxyCLIP-H it builds a second full extractor on the CPU (~4-7 GB RAM). Stage A pre-fills the validation classes; test-only classes cost minutes. |
 | Issue | The smoke ms/frame come from 2 frames; stage C times are estimates from Table I's logs (Replica distillation measured on the earlier 5070 Ti). |
 | Risk | Two validation scenes per dataset: the 1-point gate can still pass on noise, and a pass is not a test result. C1 needs the test scenes (≥ 4/6, ≥ 5/8). |
+
+## 10 Stages A and B (run 2026-10-24 03:54-04:06)
+
+Command: `cd uags && bash scripts/extractor_select.sh` (the file is committed without the executable bit, so `bash` is needed; mode left as is to keep the tree clean). Git dc879b6, clean; prereg sha256 a5c046bbfe61 (registered). All 12 weight files and 3 third-party commits matched the prereg. Records, logs and the selection: /home/thanhnc/gauss_ws/data/uags_results/extractor/select/ (`a_<dataset>_<extractor>.json`, `a_*.20261024-035437.log`, `selection_a.json`); driver log /home/thanhnc/gauss_ws/data/uags_results/extractor/select_driver.20261024.log. Every record: status ok, smoke false, git dc879b6, `dirty_tracked` false.
+
+**2D validation mIoU (%), PCA-64 path (the stage B metric).** In brackets: the full-dimensional path (reported only).
+
+| Extractor | Replica office_0 | Replica room_2 | **Replica mean** | ScanNet scene0000_00 | ScanNet scene0062_00 | **ScanNet mean** | Δ Replica | Δ ScanNet | min Δ |
+|---|---|---|---|---|---|---|---|---|---|
+| LSeg (incumbent) | 29.58 (29.59) | 31.94 (31.98) | **30.76** | 56.97 (56.10) | 78.11 (77.89) | **67.54** | — | — | — |
+| RADSeg | 33.20 (33.56) | 34.78 (38.59) | **33.99** | 36.12 (44.70) | 50.02 (47.94) | **43.07** | +3.23 | −24.47 | **−24.47** |
+| ProxyCLIP-H | 25.54 (32.50) | 26.57 (34.37) | **26.05** | 38.83 (44.03) | 37.09 (38.22) | **37.96** | −4.71 | −29.59 | −29.59 |
+| Trident | 28.57 (33.38) | 30.14 (33.99) | **29.35** | 36.98 (44.04) | 34.74 (37.74) | **35.86** | −1.41 | −31.68 | −31.68 |
+
+Pixel accuracy (PCA path): LSeg 78.3 / 83.7 / 82.6 / 92.8; RADSeg 62.4 / 82.9 / 68.1 / 64.8; ProxyCLIP-H 33.2 / 74.2 / 68.7 / 49.5; Trident 39.5 / 76.2 / 62.8 / 43.0 (office_0 / room_2 / scene0000_00 / scene0062_00). Frames: 90 / 90 / 279 / 37 evaluation frames, plus 20 PCA frames per scene; classes 24 / 21 / 14 / 6.
+
+| Check / rule | Result |
+|---|---|
+| R0: LSeg vs Table I validation `2d_features` (tol 0.1 points) | **PASS**: office_0 −0.0002, room_2 −0.0002 points; scene0000_00 and scene0062_00 identical |
+| Stage B winner (largest min Δ) | RADSeg (−24.47) |
+| Gate (min Δ ≥ +1.0 on both datasets) | **FAIL**: attempt ends on validation; LSeg stays; `extractor_select.py winner` now refuses, so `extractor_tab1.sh` cannot start |
+
+**Timing and memory (RTX 4070 Ti, gated at the prereg caps, headroom 1024 MiB):**
+
+| Extractor | ms / frame (Replica, ScanNet) | Peak GPU alloc (MiB) | Peak RSS (GiB) | Record wall (s): Replica + ScanNet |
+|---|---|---|---|---|
+| LSeg | 70-71, 78-79 | 1876, 1917 | 3.8 | 31 + 52 |
+| RADSeg | 72, 71-72 | 3838, 3852 | 4.1-4.4 | 43 + 56 |
+| ProxyCLIP-H | 276, 277 | 3985 | 8.2 | 81 + 126 |
+| Trident | 350-352 | 4896, 4898 | 8.2 | 107 + 159 |
+
+Total: 655 s of records; the driver took 03:54:21-04:06:03 (11.7 min with weight hashing and model loads). Every run stayed under its cap.
+
+**Why the candidates lose (diagnostic, read from the stage-A records; not a rule).** The input path is not the cause: LSeg goes through the same loader, frames, PCA and evaluation code and reproduces Table I to 1e-5. The candidates' tokens equal their official code (section 3). The ScanNet loss is per class, on indoor categories that LSeg was trained on. scene0000_00 IoU (%), LSeg / RADSeg / Trident:
+
+| Class | LSeg | RADSeg | Trident |
+|---|---|---|---|
+| wall | 72 | 61 | 11 |
+| floor | 94 | 78 | 86 |
+| cabinet | 57 | 24 | 34 |
+| table | 35 | 11 | 17 |
+| window | 38 | 7 | 16 |
+| refrigerator | 82 | 0 | 0 |
+| sink | 26 | 7 | 14 |
+
+The PCA-64 path costs the candidates up to 8.6 points (RADSeg on scene0000_00: 36.1 vs 44.7 full-dim), but even the full-dimensional numbers stay far below LSeg on ScanNet. Interpretation, not tested: training-free CLIP/RADIO features rank indoor "stuff" and appliance classes worse than LSeg, which was trained on labelled segmentation data; the published benchmark gains (VOC, Context, ADE, Cityscapes) do not carry over to these indoor label sets.
+
+| Item | State |
+|---|---|
+| Stage C | NOT RUN (gate failed; as instructed, stopped before stage C anyway) |
+| Test scenes | not touched; no `look_test.json` written |
+| Repo | unchanged (only this note appended; not committed) |
+| Next | Paper: LSeg stays. Possible disclosure line (prereg 'disclosure', gate-fails case): "A stronger extractor, chosen by a registered rule among RADSeg, ProxyCLIP-H and Trident, did not beat LSeg on the validation scenes of both datasets (best: RADSeg +3.2 Replica, −24.5 ScanNet 2D mIoU); Table I keeps LSeg." |

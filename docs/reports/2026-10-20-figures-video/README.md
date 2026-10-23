@@ -3,7 +3,7 @@
 Follows: [Complete the paper](../2026-10-17-paper-completion/README.md)
 Verdict: PARTIAL -- teaser, pipeline, qualitative, calibration and video done; fused-baseline check NEGATIVE for our "fused best" claim (paper corrected); paper 17 pages / 17.9 MB to trim
 Key result: stale-answer rate after the update 20.7% (ours) vs 34.3% (averaging), test N=10, new measurement ([numbers](logs/nor/n2_numbers_test.tex)); fused baselines beat ours+depth (81.1, 79.9 vs 75.0, [verdict](logs/nor_fused/nor_fused_verdict.md))
-Attempts: 3 (0 Good / 3 Bad) | Time: started 2026-10-20 14:50 JST
+Attempts: 4 (0 Good / 4 Bad) | Time: started 2026-10-20 14:50 JST
 
 ## 0 Context
 - Ask (user, 2026-10-20): "in this step, we do not need to keep this in 8 pages, just try to improve results, qualitative
@@ -38,6 +38,7 @@ Attempts: 3 (0 Good / 3 Bad) | Time: started 2026-10-20 14:50 JST
 | 01 | Spatial smoothing of the per-Gaussian sums over 3D neighbours (BKI kernel), 24 kernels, pre-registered (configs/smooth_prereg.json, cafb61d; underflow amendment b4d6205), chosen by pooled val NLL | Replica: no kernel beats P2 on val (more smoothing = worse). ScanNet: k32_s4_g0.8 chosen (val NLL 0.4031 vs 0.4104); test NLL 0.535 vs P2 0.509, averaging 0.512; ECE 6.6 vs 6.1, 6.2; AURC 5.4 vs 5.0, 4.4; C1 fails on all metrics ([note](logs/smooth_stage1.md)) | **Bad**: neighbours carry the same LSeg feature; the val gain was the P2 refit (gamma_e -3.04) overfitting 2 val scans. Disclosed in the appendix; Table I unchanged. |
 | 02 | Fused detectors fire our reset (V1 feat+depth, V2 ours+feat+depth, V3 NormLift+depth), pre-registered (configs/reset_fused_prereg.json, afd693b; memory fix f0fc8ee) | val: V2 chosen (stale-answer 24.14 vs ours 24.77; G-AP 85.7 vs 60.3). Test: stale-answer 26.0 vs ours 20.7, lower in 3/10; G-AP 79.3 vs 53.4, FA 3.7 vs 6.2 ([note](logs/reset_fused_stage1.md)) | **Bad** for the claim: better detector, worse forgetting (misses thin objects, e.g. book 005). Disclosed in Sec. V-D; ours stays. |
 | 03 | Uncertainty-guided fusion of the map with the current frame's 2D prediction (w = sigmoid of u_epi, u_ale, undefined, 1-alpha), pre-registered (configs/fusion_prereg.json, 9671f02) vs constant / view-count / NormLift weights | val Replica: +1.4 mIoU for every fused row, OURS-UG best NLL; test: fused rows move mIoU by <= 0.4; OURS-UG worse than its constant-weight version in 11/14 scenes (mIoU, NLL); C1 fails on all metrics, all Holm p = 1 ([note](logs/fusion_stage1.md)) | **Bad**: the 5-parameter weight overfits 2 val scenes per dataset. Disclosed in the appendix; Table I unchanged. |
+| 04 | Stronger extractor for every row (RADSeg, ProxyCLIP-H, Trident vs LSeg), pre-registered (configs/extractor_prereg.json, dc879b6): winner must gain >= 1.0 val 2D mIoU on both datasets | val 2D mIoU Replica / ScanNet: LSeg 30.8 / 67.5, RADSeg 34.0 / 43.1, ProxyCLIP-H 26.1 / 38.0, Trident 29.4 / 35.9; reproduction gate PASS ([note](logs/extractor_stage1.md)) | **Bad**: training-free extractors lose indoor classes on real scans (refrigerator, window, cabinet). Stopped on validation; no test look. LSeg stays. |
 
 ## 4 Paper framing (user decision 2026-10-22: option 1)
 Table I is presented as a parity check (same LSeg features for every map row). The abstract, introduction, experiment

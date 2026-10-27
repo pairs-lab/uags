@@ -100,8 +100,11 @@ def _find(tex, pattern, n=1):
 
 
 def paper_numbers(path):
-    """{key: number as printed in main.tex}. Raises on any parse failure."""
+    """{key: number as printed in main.tex or supplementary.tex}. Raises on any parse failure."""
     tex = open(path).read()
+    supp = os.path.join(os.path.dirname(path), "supplementary.tex")
+    if os.path.exists(supp):                 # tab:fused, fig:qual-compare moved there (2026-10-27)
+        tex += "\n" + open(supp).read()
     N = {}
     t1 = table_rows(tex, "tab:replica")      # Method | Replica 7 cols | ScanNet 7 cols
     col = dict(miou=1, ece=3, nll=4, ause=7)
@@ -118,8 +121,9 @@ def paper_numbers(path):
         tex, r"the std of mIoU over scenes \(([\d.]+--[\d.]+), ([\d.]+--[\d.]+)\)", 2)
     N["t1.std.rep"], N["t1.std.sn"] = (s.replace("--", "\u2013") for s in
                                        (N["t1.std.rep"], N["t1.std.sn"]))
-    N["nll.f3dgs.wins"], N["nll.f3dgs.n"] = _find(
-        tex, r"lower NLL than Feature 3DGS in (\d+) of (\d+) test scenes", 2)
+    N["nll.f3dgs.n"], N["nll.f3dgs.wins"] = _find(
+        tex, r"Over the (\d+) test scenes, a sign test finds no difference between ours and "
+             r"averaging in any metric, while ours has a lower NLL than Feature 3DGS in (\d+) scenes", 2)
     v = _find(tex, r"\$u\^\{\\mathrm\{epi\}\}\$ ranks \$e_\{\\mathrm\{red\}\}\$ better than "
                    r"\$u\^\{\\mathrm\{ale\}\}\$ \(([\d.]+) vs ([\d.]+) at \$M=10\$", 2)
     N["views.epi_red_10"], N["views.ale_red_10"] = v
@@ -154,7 +158,7 @@ def paper_numbers(path):
     full = [r for r in ab if r[0] == "Full method" and len(r) == 6][-1]
     nodep = _row(ab, "Re-admission without depth")
     N["kept.full"], N["kept.nodepth"] = _num(full[5]), _num(nodep[5])
-    N["lim.rate"] = _find(tex, r"measured median rate is \$([\d.]+)\\times10\^\{-3\}\$", 1)[0]
+    N["lim.rate"] = _find(tex, r"measured median (?:rate )?is \$([\d.]+)\\times10\^\{-3\}\$", 1)[0]
     N["title"] = _find(tex, r"\\title\{([^}]*)\}", 1)[0]
     # fig:qual-compare caption: the ScanNet frame where ours is below three rows
     v = _find(tex, r"On scene0140\\_00, ours \(([\d.]+) mIoU\) is below Feature 3DGS \(([\d.]+)\), "
@@ -560,7 +564,7 @@ def seg_static_path(static):
     cap_play = (f"Replica room_0 (test), held-out frames {int(idx[0])}\u2013{int(idx[-1])}. Top: full map. Bottom: a "
                 "field from M = 30 of the 180 mapping frames on the same geometry. Errors at "
                 "M = 30: blue reducible, red irreducible. Scales as in the paper.")
-    cap_hold = (f"Frame {f_qual} (the paper's qualitative figure): with 30 frames, {U_EPI} rises, also "
+    cap_hold = (f"Frame {f_qual} (the supplement's qualitative figure): with 30 frames, {U_EPI} rises, also "
                 f"where the reducible errors are, while {U_ALE} is still undefined on most "
                 f"pixels; with the full map, {U_ALE} is highest at the rug, where labels stay wrong.")
 
@@ -710,7 +714,7 @@ def seg_table1(N):
         return caption(img, cap)
     return Seg("S3d", "table1", seconds(8), frame, [note, cap],
                ["main.tex tab:replica (rows Averaging, Feature 3DGS, LEGaussians, Ours P0/P2; "
-                "caption std note)", "main.tex abstract (13 of 14) and Sec. V-C (sign test)"])
+                "caption std note)", "main.tex Sec. IV-C (sign test, 13 of 14)"])
 
 
 def seg_nor_setup(nor002):
@@ -785,16 +789,14 @@ def seg_nor_timeline(scene, nor, N, sid, per_kf, label_stage):
     ch_fa = rec["ours"]["changed_end"]["fa"] * 100
     end_avg = curves["averaging"]["stale_is_query"][-1]
     end_ours = curves["ours"]["stale_is_query"][-1]
-    rule_a = end_avg >= 2 * end_ours                 # caption rule R12, fixed before rendering
-    pa, po = 100 * end_avg, 100 * end_ours
-    if rule_a:
-        cap_end = (f"Averaging keeps more of the removed {q}'s old evidence: at the end, '{q}' is "
-                   f"still the top class of {pa:.0f}% of its Gaussians for averaging and {po:.0f}% "
-                   f"for ours (this scene). Ours resets the Gaussians its test flags.")
-    else:
-        cap_end = (f"Both lose the '{q}' label (this scene: {pa:.0f}% vs {po:.0f}% of its Gaussians "
-                   f"keep it as top class); only ours flags these Gaussians and keeps them out of "
-                   f"the robust map until re-admitted.")
+    st_avg = curves["averaging"]["static_changed"][-1]
+    st_ours = curves["ours"]["static_changed"][-1]
+    pa, po, sa, so = 100 * end_avg, 100 * end_ours, 100 * st_avg, 100 * st_ours
+    # Neutral end caption (2026-10-27): it reports both curves, since on 002 ours also changes the
+    # top class of more static Gaussians (replaces the one-sided caption rule R12).
+    cap_end = (f"End of update, this scene: '{q}' is still the top class of {pa:.0f}% of the removed "
+               f"object's Gaussians for averaging and {po:.0f}% for ours; the top class of "
+               f"{sa:.0f}% (averaging) and {so:.0f}% (ours) of the static Gaussians changed (dashed).")
     cap_play = (f"Each update keyframe, our change test resets Gaussians whose evidence no longer "
                 f"agrees with the view (orange). Map shown from one fixed camera (update frame "
                 f"{meta['frame']}); white: the removed object's mask.")
@@ -876,11 +878,11 @@ def seg_nor_timeline(scene, nor, N, sid, per_kf, label_stage):
         return caption(img, cap_play, size=28)
     srcs = [f"nor/{scene}/timeline.npz, curves.json (scripts/video_nor_timeline.py)",
             f"Table III record {os.path.relpath(rec_path, RES)} (FA, Rec, changed_end)",
-            f"caption rule R12: averaging end share {end_avg:.3f} vs ours {end_ours:.3f} -> "
-            f"{'A' if rule_a else 'B'}"]
+            f"end shares (stale_is_query, static_changed): averaging {end_avg:.3f}, {st_avg:.3f}; "
+            f"ours {end_ours:.3f}, {st_ours:.3f}"]
     return Seg(sid, f"nor_{scene}", len(order), frame, [cap_play, cap_fa, cap_end], srcs,
                local=[str(meta["frame"]), f"{rc:.1f}", f"{fa:.1f}", f"{ch_fa:.1f}", f"{pa:.0f}",
-                      f"{po:.0f}"],
+                      f"{po:.0f}", f"{sa:.0f}", f"{so:.0f}"],
                still=len(order) - 2)
 
 
@@ -941,7 +943,7 @@ def seg_ranking(N):
           ("NormLift + depth", N["fused.nl.gap"], GREY, "//"),
           ("ours + depth", N["fused.ours.gap"], OURS, "//")]
     chart = bar_chart(it, 1300, 680, "Gaussian-level AP (%), mean over 10 test scenes",
-                      "Ranking stale Gaussians (Table III and the fused table)")
+                      "Ranking stale Gaussians (Table II)")
     cap = fill("Our test alone is not the best ranking (AP {t3.ours.gap} vs {t3.nl.gap} for "
                "NormLift's drop). Fused with depth, the feature residual ({fused.feat.gap}) and "
                "NormLift ({fused.nl.gap}) rank stale Gaussians better than ours ({fused.ours.gap}).",
@@ -956,7 +958,7 @@ def seg_ranking(N):
         text(img, (1420, 300), side, size=30, width=440)
         return caption(img, cap)
     return Seg("S4e", "ranking", seconds(9), frame, [side, cap],
-               ["main.tex tab:change (G AP, FA, Rec)", "main.tex tab:fused (G AP)"])
+               ["main.tex tab:change (G AP, FA, Rec)", "supplementary.tex tab:fused (G AP)"])
 
 
 def seg_limits(N):
@@ -1081,9 +1083,13 @@ def build_segments(out, figs):
 
 
 def check_caption_numbers(segs, tex_path):
-    """Every number in a caption occurs in main.tex, or is a declared data value of its segment
-    (frame ids, per-scene values labelled 'this scene')."""
-    tex = set(re.findall(r"\d+(?:\.\d+)?", open(tex_path).read()))
+    """Every number in a caption occurs in main.tex or supplementary.tex, or is a declared data
+    value of its segment (frame ids, per-scene values labelled 'this scene')."""
+    text = open(tex_path).read()
+    supp = os.path.join(os.path.dirname(tex_path), "supplementary.tex")
+    if os.path.exists(supp):
+        text += "\n" + open(supp).read()
+    tex = set(re.findall(r"\d+(?:\.\d+)?", text))
     bad = []
     for s in segs:
         for c in s.captions:
@@ -1091,7 +1097,7 @@ def check_caption_numbers(segs, tex_path):
                 if n not in tex and n not in s.local:
                     bad.append((s.sid, n, c[:60]))
     if bad:
-        raise AssertionError(f"caption numbers not in main.tex: {bad}")
+        raise AssertionError(f"caption numbers not in main.tex or supplementary.tex: {bad}")
 
 
 def compose(args):
@@ -1158,7 +1164,7 @@ Player: any standard player (VLC, QuickTime, a web browser).
 Captions are burned into the video; there is no sound.
 
 The video illustrates the method and results of the paper. All numbers shown in captions are
-taken from the paper's tables and text. Values labelled "this scene" are per-scene values of
+taken from the paper and its supplement. Values labelled "this scene" are per-scene values of
 the scene shown; the paper's tables report means over the test scenes.
 """
 
@@ -1177,16 +1183,16 @@ DESCRIBE = dict(
     title="Title",
     questions="The problem: how much evidence, do the views agree, is the content still there",
     pipeline="Method: the paper's pipeline figure, step by step",
-    plane="Epistemic vs aleatoric uncertainty (the paper's uncertainty-plane figure)",
+    plane="Epistemic vs aleatoric uncertainty (the supplement's uncertainty-plane figure)",
     static_path="Replica test scene: labels, both uncertainties and errors along a held-out path",
     views="Does each uncertainty rank its own error (the paper's views figure)",
-    compare="Every method on one Replica and one ScanNet test frame (the paper's figure)",
+    compare="Every method on one Replica and one ScanNet test frame (the supplement's figure)",
     table1="Segmentation and calibration numbers (Table I)",
     nor_setup="Real object removal: setup",
     nor_002="Object removal timeline, validation scene 002 (query 'chair')",
     nor_014="Object removal timeline, test scene 014 (query 'bike')",
     reset_effect="What the reset changes: stale answers and the robust set",
-    ranking="Ranking stale Gaussians: ours against the baselines (Table III, fused table)",
+    ranking="Ranking stale Gaussians: ours against the baselines (Table II)",
     limitations="Limitations",
     end="End")
 

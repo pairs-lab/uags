@@ -1,13 +1,14 @@
 # Reports: uags
 ## Current state
-Final submission set (2026-10-27, [report](2026-10-27-final-8-pages/README.md)): papers/main.pdf 8 pages, 3.8 MB; papers/supplementary.pdf 16 pages (S1-S6); video zip 41.6 MB.
+Submission set (2026-10-27, [report](2026-10-27-ral-self-contained/README.md)): papers/main.pdf 8 pages, 3.8 MB, self-contained; video zip 41.6 MB (RA-L max 50 MB). RA-L allows no supplementary text or figures: do NOT upload papers/supplementary.pdf.
 Claims: the two uncertainty channels separate reducible from irreducible error (Replica 6/6, ScanNet 8/8 test scenes); the reset lowers stale answers 34% -> 21% (N=10).
-Table I is a parity check: ours ties averaging the same features (mIoU Replica 28.0 vs 27.9, ScanNet 68.0 vs 67.7); 5 registered attempts to improve did not hold (Supp. S6).
+Table I is a parity check: ours ties averaging the same features (mIoU Replica 28.0 vs 27.9, ScanNet 68.0 vs 67.7); 5 registered attempts to improve did not hold (paper Secs. IV-C, IV-D).
 Fused baselines rank stale Gaussians above ours + depth (Gaussian AP 81.1, 79.9 vs 75.0).
-Open: push (user; master 39 commits ahead), RA-L size limits for supplement and video. Last updated 2026-10-27.
+Open: push (user; master 42 commits ahead); video shows 2 figures not in the paper (S2b, S3c): keep or cut. Last updated 2026-10-27.
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|
+| 2026-10-27 | [RA-L rules: paper without supplement](2026-10-27-ral-self-contained/README.md) | DONE | RA-L allows no supplementary text/figures: 10 supplement references removed (still 8 pages); ablation rows explained; video zip 41.6 MB with ReadMe.txt/Summary.txt |
 | 2026-10-27 | [Final paper: 8 pages and supplement](2026-10-27-final-8-pages/README.md) | DONE | 8 pages (3.8 MB) + 16-page supplement; abstract 245 words; neutral video caption (scene 002: both 44/15% and 33/20%); push left to user |
 | 2026-10-20 | [Figures, video and stronger results](2026-10-20-figures-video/README.md) | PARTIAL | teaser, pipeline v2, 3 qualitative figs, calibration appendix, 2:24 video; fused baselines beat ours+depth (81.1/79.9 vs 75.0), claim removed; stale-answer 21% vs 34% |
 | 2026-10-17 | [Complete the paper](2026-10-17-paper-completion/README.md) | DONE | all tables filled: NOR Table II (test N=10) ours+depth best G AP 75.0 vs 63.8; ScanNet test (N=8) in Table I, ours best or tied on every mean; Table I v2 negative (P2 kept); 8 pages |

@@ -1,0 +1,16 @@
+# build: scratch copy of papers/ (main.tex, ref.bib, figs/), pdflatex+bibtex+pdflatex x2; 2026-10-27 23:30:30 JST; commit bb8dc0c
+Output written on main.pdf (8 pages, 3804435 bytes).
+LaTeX warnings: 0; undefined/multiply defined: 0; '??' in text: 0
+page 8: left column ends y=748 pt, right column ends y=730 pt (was 676 before this change): about 1-2 lines spare
+pdfinfo: Author:         Anonymous Authors
+fonts: Type 3 = 0, not embedded = 0
+identity strings (user name, home path, workspace, lab) in raw + decoded streams: 0
+non-comment lines citing 'Supp' in papers/main.tex: 0
+
+# ablation rows, unrounded (make_tables body of /home/thanhnc/gauss_ws/data/uags_results/tab3/eval_test.json, summary[row]['all'])
+ours_P2       mIoU=27.9599 ECE=8.6827 NLL=0.9955 AUSE epi=16.3840 AUSE ale=8.4983
+abl_pixels_P2 mIoU=27.9128 ECE=8.0501 NLL=1.0090 AUSE epi=16.5149 AUSE ale=8.8145
+abl_legacy_P2 mIoU=27.9128 ECE=8.0514 NLL=1.0080 AUSE epi=16.5149 AUSE ale=8.7521
+FieldConfig.legacy() = evidence pixels, epistemic pixels, estimator r_tilde, tau_min 5, no change test, fixed kappa (usplat/vmf_field.py)
+
+# scene0140_00 per-scene mIoU (scannet_tab1/eval_test.json scenes.scene0140_00.rows[*].all.miou): ours_P2 68.5, f3dgs 69.6, 2d_features 69.3, averaging 69.1

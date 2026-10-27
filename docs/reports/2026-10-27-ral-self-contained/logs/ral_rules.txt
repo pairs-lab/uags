@@ -1,0 +1,26 @@
+RA-L rules, read 2026-10-27 23:3x JST with WebFetch (quotes as returned by the fetch tool):
+
+https://www.ieee-ras.org/publications/ra-l/ra-l-information-for-authors/
+- "Multimedia materials can include: videos (Only one video is allowed per submission), dataset files
+  (e.g., raw data with programs to manipulate them), source code, and readme and instruction files."
+- "DO NOT submit supplemental text or figures as multimedia materials, as this would circumvent RA-L page limits."
+- "Other supplementary material, such as appendices, cannot be included beyond the allowed eight pages."
+- "Authors submit their multimedia material as a single zipped archive file (max 50 MB)"
+- "The multimedia material will be reviewed together with the submitted paper."
+- "A "ReadMe.txt" file (in ASCII text format) should accompany the multimedia material describing: ..."
+- "A "Summary.txt" file (in ASCII text format) succinctly describing the contents, usage and value of all multimedia objects."
+- "The paper should be self-contained, i.e., fully readable and understandable independently from the multimedia material."
+- "If you have multiple video clips, it should be edited into one single video file."
+
+https://www.ieee-ras.org/publications/ra-l/faq
+- "Multimedia materials (i.e. videos) are the only extra material allowed."
+- "No appendices or other materials can extend beyond a total of 8 pages."
+- "Multimedia attachments cannot be used to circumvent the page limit"
+
+https://www.ieee-ras.org/publications/video-submission-guidelines/
+- "the maximum file size is usually 50-60MB" ; "The format should be mpeg, mpg, or mp4." ; "Only standard codecs are allowed."
+
+Other RA-L checks (2026-10-27):
+- PDF version of papers/main.pdf (pdfinfo): 1.7; RA-L minimum 1.4 -> PASS
+- Index Terms in main.tex: Semantic Scene Understanding, Mapping, Probability and Statistical Methods, RGB-D Perception;
+  all four are in the RA-L keyword list (https://www.ieee-ras.org/publications/ra-l/ra-l-information-for-authors/keywords-5/) -> PASS

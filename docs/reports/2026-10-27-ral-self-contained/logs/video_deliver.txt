@@ -1,0 +1,51 @@
+start 2026-10-27 23:51:03 JST
+{
+ "delivery": {
+  "codec": "h264",
+  "profile": "High",
+  "width": 1920,
+  "height": 1080,
+  "frames": 4326,
+  "seconds": 144.2,
+  "fps": 30.0,
+  "metadata": [
+   "handler_name    : VideoHandler",
+   "vendor_id       : [0][0][0][0]",
+   "encoder         : Lavc libx264"
+  ],
+  "audio": false
+ },
+ "delivery_mb": 41.63636,
+ "target_kbps": 2367,
+ "zip_mb": 41.638459,
+ "master": {
+  "codec": "h264",
+  "profile": "High",
+  "width": 1920,
+  "height": 1080,
+  "frames": 4326,
+  "seconds": 144.2,
+  "fps": 30.0,
+  "metadata": [
+   "handler_name    : VideoHandler",
+   "vendor_id       : [0][0][0][0]"
+  ],
+  "audio": false
+ },
+ "frames_equal": true,
+ "anonymity": {
+  "banned": ["<redacted: user name, home path, workspace, lab and e-mail strings>"],
+  "files": [
+   "supplementary_video.mp4",
+   "supplementary_video.zip",
+   "master.mp4",
+   "ReadMe.txt",
+   "Summary.txt"
+  ],
+  "hits": []
+ },
+ "encode_s": 173.61061692237854,
+ "ok": true
+}
+exit 0
+end 2026-10-27 23:53:57 JST

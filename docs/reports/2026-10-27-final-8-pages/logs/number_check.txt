@@ -1,0 +1,4 @@
+# numbers in the prose of papers/main.tex (comments excluded): now vs before the trim (4e8c296)
+count before 577 now 287
+in the paper now but not before: ['110']
+# '110' is 109.9 ms rounded (Run time paragraph; the exact 109.9 +- 7.6 ms is in Supp. S5). No other new number.

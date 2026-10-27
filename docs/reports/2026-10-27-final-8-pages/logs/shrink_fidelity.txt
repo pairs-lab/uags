@@ -1,0 +1,10 @@
+# JPEG re-encode (scripts/shrink_figs.py, quality 90) vs the committed originals (e7042dc^), page 1 rendered at 150 dpi
+figure | old MB | new MB | PSNR dB | 99th pct abs diff | max abs diff
+teaser | 5.15 | 2.98 | 55.8 | 1 | 7
+pipeline_v2 | 0.80 | 0.57 | 59.4 | 1 | 8
+qual_change | 6.67 | 5.31 | 51.7 | 2 | 7
+qual_query | 3.53 | 2.58 | 53.1 | 2 | 7
+supp_compare_all | 5.45 | 5.23 | 65.2 | 1 | 4
+qual_compare | 0.88 | 0.85 | 39.6 | 1 | 254
+# qual_compare max diff: 268 pixels, all on the top edge of the two colorbars (x 64-197, y 345 and 781 at 150 dpi):
+# the old file drew a 1-px coloured line above the colorbar frame, the new one does not. No panel content changed.

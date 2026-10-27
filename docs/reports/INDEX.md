@@ -1,14 +1,14 @@
 # Reports: uags
 ## Current state
-Every table and figure of the paper is measured and filled ([report](2026-10-17-paper-completion/README.md)); 8 pages.
-Table I: ours best in 6/7 open-vocabulary columns (P2; the pre-registered v2 predictives did not beat it on validation).
-Table II (object removal, N=10): ours + depth best at the Gaussian level (AP 75.0); NormLift drop best at the pixel level.
-ScanNet held-out test (N=8, run once 2026-10-20): ours best or tied on every Table I mean (mIoU 68.0 vs averaging 67.7), small margins (3-5 of 8 scenes); in the paper, 8 pages.
-Figures, video and appendix done (2026-10-21); paper 17 pages, 17.9 MB. Fused baselines rank stale Gaussians above ours+depth; ours ties averaging on Table I. Open: trim pages/PDF size, push. Last updated 2026-10-21.
+Final submission set (2026-10-27, [report](2026-10-27-final-8-pages/README.md)): papers/main.pdf 8 pages, 3.8 MB; papers/supplementary.pdf 16 pages (S1-S6); video zip 41.6 MB.
+Claims: the two uncertainty channels separate reducible from irreducible error (Replica 6/6, ScanNet 8/8 test scenes); the reset lowers stale answers 34% -> 21% (N=10).
+Table I is a parity check: ours ties averaging the same features (mIoU Replica 28.0 vs 27.9, ScanNet 68.0 vs 67.7); 5 registered attempts to improve did not hold (Supp. S6).
+Fused baselines rank stale Gaussians above ours + depth (Gaussian AP 81.1, 79.9 vs 75.0).
+Open: push (user; master 39 commits ahead), RA-L size limits for supplement and video. Last updated 2026-10-27.
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|
-| 2026-10-27 | [Final paper: 8 pages and supplement](2026-10-27-final-8-pages/README.md) | IN PROGRESS | trimming to 8 pages, supplementary PDF, smaller PDFs, neutral video caption |
+| 2026-10-27 | [Final paper: 8 pages and supplement](2026-10-27-final-8-pages/README.md) | DONE | 8 pages (3.8 MB) + 16-page supplement; abstract 245 words; neutral video caption (scene 002: both 44/15% and 33/20%); push left to user |
 | 2026-10-20 | [Figures, video and stronger results](2026-10-20-figures-video/README.md) | PARTIAL | teaser, pipeline v2, 3 qualitative figs, calibration appendix, 2:24 video; fused baselines beat ours+depth (81.1/79.9 vs 75.0), claim removed; stale-answer 21% vs 34% |
 | 2026-10-17 | [Complete the paper](2026-10-17-paper-completion/README.md) | DONE | all tables filled: NOR Table II (test N=10) ours+depth best G AP 75.0 vs 63.8; ScanNet test (N=8) in Table I, ours best or tied on every mean; Table I v2 negative (P2 kept); 8 pages |
 | 2026-09-29 | [Replica Table I](2026-09-29-replica-tab1/README.md) | DONE | test (N=6): u_ale AUSE 8.50 ~ NormLift 8.76, < CSS 11.2, << LEGaussians 19.7; tuned CSS best calibrated; Table I in paper; views + Tab III running |

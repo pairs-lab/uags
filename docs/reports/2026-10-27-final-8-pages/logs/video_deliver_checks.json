@@ -1,0 +1,48 @@
+{
+ "delivery": {
+  "codec": "h264",
+  "profile": "High",
+  "width": 1920,
+  "height": 1080,
+  "frames": 4326,
+  "seconds": 144.2,
+  "fps": 30.0,
+  "metadata": [
+   "handler_name    : VideoHandler",
+   "vendor_id       : [0][0][0][0]",
+   "encoder         : Lavc libx264"
+  ],
+  "audio": false
+ },
+ "delivery_mb": 41.62667,
+ "target_kbps": 2367,
+ "zip_mb": 41.628816,
+ "master": {
+  "codec": "h264",
+  "profile": "High",
+  "width": 1920,
+  "height": 1080,
+  "frames": 4326,
+  "seconds": 144.2,
+  "fps": 30.0,
+  "metadata": [
+   "handler_name    : VideoHandler",
+   "vendor_id       : [0][0][0][0]"
+  ],
+  "audio": false
+ },
+ "frames_equal": true,
+ "anonymity": {
+  "banned": "[8 strings: user name, email prefix, home path, repo and lab names; redacted]",
+  "files": [
+   "supplementary_video.mp4",
+   "supplementary_video.zip",
+   "master.mp4",
+   "README.txt",
+   "SUMMARY.txt"
+  ],
+  "hits": []
+ },
+ "encode_s": 44.43599724769592,
+ "ok": true
+}

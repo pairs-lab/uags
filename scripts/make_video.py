@@ -7,9 +7,9 @@ make_video.py — the anonymous supplementary video of the paper (RA-L multimedi
 Inputs (all read-only): papers/main.tex (every number in a caption is parsed from it at build
 time: paper_numbers; the build fails on a parse error), the paper figures papers/figs/*.pdf,
 the GPU dumps of scripts/video_gpu.sh (<out>/nor/<scene>/timeline.npz, curves.json, meta.json;
-<out>/static/room_0_path.npz) and the NOR dumps (qual/nor/<scene>/frame_<i>.npz) and Table III
-records (nor/tab2_relmax/...), whose per-scene values appear only as overlays labelled
-"this scene". A segment whose dump is missing or did not pass its checks stops the build.
+<out>/static/room_0_path.npz) and the NOR dumps (qual/nor/<scene>/frame_<i>.npz), Table III
+records (nor/tab2_relmax/...) and the ScanNet Table I record (scannet_tab1/eval_test.json),
+whose per-scene values appear only as overlays labelled "this scene". A segment whose dump is missing or did not pass its checks stops the build.
 
 Format: 1920x1080, 30 fps, silent, captions burned in, white background, 0.3 s fades from and
 to white at every cut. Master: H.264 CRF 12 per segment (imageio-ffmpeg, macro_block_size 8 so
@@ -100,11 +100,9 @@ def _find(tex, pattern, n=1):
 
 
 def paper_numbers(path):
-    """{key: number as printed in main.tex or supplementary.tex}. Raises on any parse failure."""
+    """{key: number as printed in main.tex}. Raises on any parse failure. RA-L takes no
+    supplementary text, so the supplement is not a source (2026-10-27)."""
     tex = open(path).read()
-    supp = os.path.join(os.path.dirname(path), "supplementary.tex")
-    if os.path.exists(supp):                 # tab:fused, fig:qual-compare moved there (2026-10-27)
-        tex += "\n" + open(supp).read()
     N = {}
     t1 = table_rows(tex, "tab:replica")      # Method | Replica 7 cols | ScanNet 7 cols
     col = dict(miou=1, ece=3, nll=4, ause=7)
@@ -139,15 +137,10 @@ def paper_numbers(path):
         N[f"t3.{rk}.pap"] = _num(r[4])
         if rk != "fused":
             N[f"t3.{rk}.fa"], N[f"t3.{rk}.rec"] = _num(r[6]), _num(r[7])
-    tf = table_rows(tex, "tab:fused")
-    for rk, prefix in (("ours", "Ours fused"), ("ncc", "NCC photometric residual +"),
+    for rk, prefix in (("ours", "Ours fused"), ("ncc", "NCC residual +"),       # bottom block
                        ("feat", "Feature residual, $k=2$, +"), ("nl", "NormLift reliability drop +"),
                        ("disp", "Dispersion $1-\\hat\\rho$ +")):
-        r = _row(tf, prefix, ncells=6)
-        N[f"fused.{rk}.gap"] = _num(r[2])
-    for rk, prefix in (("feat", "Feature residual"), ("nl", "NormLift reliability drop")):
-        r = [x for x in tf if x[0].startswith(prefix) and x[1] == "Gaussian AP"][0]
-        N[f"fused.{rk}.higher"] = r[2]
+        N[f"fused.{rk}.gap"] = _num(_row(t3, prefix)[2])
     N["stale.before"], N["stale.avg"], N["stale.ours"] = _find(
         tex, r"(\d+)\\% after mapping, (\d+)\\% after the update for averaging and for our "
              r"field with the change test off, and (\d+)\\% for ours", 3)
@@ -160,10 +153,6 @@ def paper_numbers(path):
     N["kept.full"], N["kept.nodepth"] = _num(full[5]), _num(nodep[5])
     N["lim.rate"] = _find(tex, r"measured median (?:rate )?is \$([\d.]+)\\times10\^\{-3\}\$", 1)[0]
     N["title"] = _find(tex, r"\\title\{([^}]*)\}", 1)[0]
-    # fig:qual-compare caption: the ScanNet frame where ours is below three rows
-    v = _find(tex, r"On scene0140\\_00, ours \(([\d.]+) mIoU\) is below Feature 3DGS \(([\d.]+)\), "
-                   r"the 2D features \(([\d.]+)\) and averaging \(([\d.]+)\)", 4)
-    N["qc.ours"], N["qc.f3dgs"], N["qc.2d"], N["qc.avg"] = v
     N["teaser.rec"], N["teaser.fa"] = _find(
         tex, r"\(([\d.]+)\\% of the stale, ([\d.]+)\\% of the static ones\)", 2)
     return N
@@ -528,7 +517,7 @@ def seg_plane(figs):
         paste(img, fig, (W - fig.width) // 2, 130)
         return caption(img, cap)
     return Seg("S2b", "plane", seconds(6), frame, [cap],
-               ["main.tex fig:plane caption (papers/figs/uncertainty_plane.pdf)"])
+               ["papers/figs/uncertainty_plane.pdf (no numbers in the caption)"])
 
 
 def seg_static_path(static):
@@ -564,7 +553,7 @@ def seg_static_path(static):
     cap_play = (f"Replica room_0 (test), held-out frames {int(idx[0])}\u2013{int(idx[-1])}. Top: full map. Bottom: a "
                 "field from M = 30 of the 180 mapping frames on the same geometry. Errors at "
                 "M = 30: blue reducible, red irreducible. Scales as in the paper.")
-    cap_hold = (f"Frame {f_qual} (the supplement's qualitative figure): with 30 frames, {U_EPI} rises, also "
+    cap_hold = (f"Frame {f_qual}: with 30 frames, {U_EPI} rises, also "
                 f"where the reducible errors are, while {U_ALE} is still undefined on most "
                 f"pixels; with the full map, {U_ALE} is highest at the rug, where labels stay wrong.")
 
@@ -660,10 +649,11 @@ def seg_compare(figs, N):
     both.paste(low, (0, head_end))
     halves = [top, both]
     per = seconds(4)
-    cap = fill("Every method on one Replica and one ScanNet test frame, chosen by rules fixed "
-               "before rendering. On the ScanNet frame's scene, ours ({qc.ours} mIoU) is below "
-               "Feature 3DGS ({qc.f3dgs}), the 2D features ({qc.2d}) and averaging ({qc.avg}).",
-               N)
+    qc = scene_miou(os.path.join(RES, "scannet_tab1", "eval_test.json"), "scene0140_00",
+                    dict(ours="ours_P2", f3dgs="f3dgs", d2="2d_features", avg="averaging"))
+    cap = ("Every method on one Replica and one ScanNet test frame, chosen by rules fixed before "
+           f"rendering. ScanNet frame, this scene: ours ({qc['ours']} mIoU) is below Feature 3DGS "
+           f"({qc['f3dgs']}), the 2D features ({qc['d2']}) and averaging ({qc['avg']}).")
 
     cap1 = ("Every method on one Replica test frame (scene and frame chosen by rules fixed before "
             "rendering): labels, errors and each method's own uncertainty.")
@@ -674,7 +664,18 @@ def seg_compare(figs, N):
         paste(img, h, (W - h.width) // 2, MARGIN + 10)
         return caption(img, cap1 if i < per else cap)
     return Seg("S3c", "compare", 2 * per, frame, [cap1, cap],
-               ["main.tex fig:qual-compare caption (papers/figs/qual_compare.pdf)"])
+               ["papers/figs/qual_compare.pdf",
+                "scannet_tab1/eval_test.json scene0140_00 rows (per-scene mIoU)"],
+               local=qc.values())
+
+
+def scene_miou(path, scene, rows):
+    """{key: per-scene mIoU in % (1 decimal) of each eval_seg.py row} of one scene."""
+    d = json.load(open(path))
+    if d.get("status", "ok") != "ok":
+        raise ValueError(f"{path}: status {d.get('status')!r}")
+    r = (d["metrics"] if isinstance(d.get("metrics"), dict) else d)["scenes"][scene]["rows"]
+    return {k: f"{100 * r[v]['all']['miou']:.1f}" for k, v in rows.items()}
 
 
 def seg_table1(N):
@@ -958,7 +959,7 @@ def seg_ranking(N):
         text(img, (1420, 300), side, size=30, width=440)
         return caption(img, cap)
     return Seg("S4e", "ranking", seconds(9), frame, [side, cap],
-               ["main.tex tab:change (G AP, FA, Rec)", "supplementary.tex tab:fused (G AP)"])
+               ["main.tex tab:change (G AP, FA, Rec; G AP of the fused rows)"])
 
 
 def seg_limits(N):
@@ -1083,13 +1084,9 @@ def build_segments(out, figs):
 
 
 def check_caption_numbers(segs, tex_path):
-    """Every number in a caption occurs in main.tex or supplementary.tex, or is a declared data
-    value of its segment (frame ids, per-scene values labelled 'this scene')."""
-    text = open(tex_path).read()
-    supp = os.path.join(os.path.dirname(tex_path), "supplementary.tex")
-    if os.path.exists(supp):
-        text += "\n" + open(supp).read()
-    tex = set(re.findall(r"\d+(?:\.\d+)?", text))
+    """Every number in a caption occurs in main.tex, or is a declared data value of its segment
+    (frame ids, per-scene values labelled 'this scene')."""
+    tex = set(re.findall(r"\d+(?:\.\d+)?", open(tex_path).read()))
     bad = []
     for s in segs:
         for c in s.captions:
@@ -1097,7 +1094,7 @@ def check_caption_numbers(segs, tex_path):
                 if n not in tex and n not in s.local:
                     bad.append((s.sid, n, c[:60]))
     if bad:
-        raise AssertionError(f"caption numbers not in main.tex or supplementary.tex: {bad}")
+        raise AssertionError(f"caption numbers not in main.tex: {bad}")
 
 
 def compose(args):
@@ -1164,8 +1161,8 @@ Player: any standard player (VLC, QuickTime, a web browser).
 Captions are burned into the video; there is no sound.
 
 The video illustrates the method and results of the paper. All numbers shown in captions are
-taken from the paper and its supplement. Values labelled "this scene" are per-scene values of
-the scene shown; the paper's tables report means over the test scenes.
+taken from the paper. Values labelled "this scene" are per-scene values of the scene shown;
+the paper's tables report means over the test scenes.
 """
 
 SUMMARY = """Summary of the supplementary video ({dur:.0f} s)
@@ -1183,10 +1180,10 @@ DESCRIBE = dict(
     title="Title",
     questions="The problem: how much evidence, do the views agree, is the content still there",
     pipeline="Method: the paper's pipeline figure, step by step",
-    plane="Epistemic vs aleatoric uncertainty (the supplement's uncertainty-plane figure)",
+    plane="Epistemic vs aleatoric uncertainty: little evidence and conflicting evidence",
     static_path="Replica test scene: labels, both uncertainties and errors along a held-out path",
     views="Does each uncertainty rank its own error (the paper's views figure)",
-    compare="Every method on one Replica and one ScanNet test frame (the supplement's figure)",
+    compare="Every method on one Replica and one ScanNet test frame",
     table1="Segmentation and calibration numbers (Table I)",
     nor_setup="Real object removal: setup",
     nor_002="Object removal timeline, validation scene 002 (query 'chair')",
@@ -1224,19 +1221,19 @@ def deliver(args):
         lines.append(f"{s['start_s']:6.1f} s  {DESCRIBE[s['name']]}")
     readme = README.format(dur=dur)
     summary = SUMMARY.format(dur=dur, lines="\n".join(lines))
-    for name, txt in (("README.txt", readme), ("SUMMARY.txt", summary)):
+    for name, txt in (("ReadMe.txt", readme), ("Summary.txt", summary)):
         txt.encode("ascii")                     # ASCII only
         with open(os.path.join(sub, name), "w") as f:
             f.write(txt)
     zpath = os.path.join(out, "supplementary_video.zip")
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_STORED) as z:
-        for name in ("supplementary_video.mp4", "README.txt", "SUMMARY.txt"):
+        for name in ("supplementary_video.mp4", "ReadMe.txt", "Summary.txt"):
             zi = zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0))
             zi.external_attr = 0o644 << 16
             with open(os.path.join(sub, name), "rb") as f:
                 z.writestr(zi, f.read())
-    checks = anonymity_checks([mp4, zpath, master, os.path.join(sub, "README.txt"),
-                               os.path.join(sub, "SUMMARY.txt")])
+    checks = anonymity_checks([mp4, zpath, master, os.path.join(sub, "ReadMe.txt"),
+                               os.path.join(sub, "Summary.txt")])
     master_info = probe(master)
     res = dict(delivery=info, delivery_mb=size_mb, target_kbps=kbps,
                zip_mb=os.path.getsize(zpath) / 1e6, master=master_info,

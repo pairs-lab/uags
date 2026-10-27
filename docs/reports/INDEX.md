@@ -8,6 +8,7 @@ Figures, video and appendix done (2026-10-21); paper 17 pages, 17.9 MB. Fused ba
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|
+| 2026-10-27 | [Final paper: 8 pages and supplement](2026-10-27-final-8-pages/README.md) | IN PROGRESS | trimming to 8 pages, supplementary PDF, smaller PDFs, neutral video caption |
 | 2026-10-20 | [Figures, video and stronger results](2026-10-20-figures-video/README.md) | PARTIAL | teaser, pipeline v2, 3 qualitative figs, calibration appendix, 2:24 video; fused baselines beat ours+depth (81.1/79.9 vs 75.0), claim removed; stale-answer 21% vs 34% |
 | 2026-10-17 | [Complete the paper](2026-10-17-paper-completion/README.md) | DONE | all tables filled: NOR Table II (test N=10) ours+depth best G AP 75.0 vs 63.8; ScanNet test (N=8) in Table I, ours best or tied on every mean; Table I v2 negative (P2 kept); 8 pages |
 | 2026-09-29 | [Replica Table I](2026-09-29-replica-tab1/README.md) | DONE | test (N=6): u_ale AUSE 8.50 ~ NormLift 8.76, < CSS 11.2, << LEGaussians 19.7; tuned CSS best calibrated; Table I in paper; views + Tab III running |

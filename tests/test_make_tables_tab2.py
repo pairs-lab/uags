@@ -14,6 +14,7 @@ NeRF-Object-Removal) from a scripts/nor_tab2.py merge record (a fake one here; n
 """
 import importlib.util
 import json
+import re
 import math
 import os
 import pathlib
@@ -192,6 +193,9 @@ def test_warnings_missing_row_and_refusals(tmp_path):
     print("PASS tab2: warnings, missing row, fewer scenes, refusals")
 
 
+FUSED_ROWS = REPO / "docs" / "reports" / "2026-10-20-figures-video" / "logs" / "nor_fused" / "nor_fused_test_rows.tex"
+
+
 def _paper_rows():
     """[(label, input)] of the tab:change rows of papers/main.tex, and its \\midrule indices."""
     tex = (REPO / "papers" / "main.tex").read_text()
@@ -216,8 +220,24 @@ def test_rows_match_the_paper(tmp_path):
         pytest.skip("papers/main.tex not found")
     paper, pmids = _paper_rows()
     rows, mids = _rows(_mt().tab2(_write(tmp_path)))
-    assert [(label, inp) for label, inp, _ in rows] == paper and mids == pmids, (paper, pmids)
-    assert [(label, inp) for (label, inp, _) in [e for e in _mt().TAB2 if e]] == paper
+    n = len(rows)
+    # the paper opens the bottom block of fused rows with one more \midrule, before 'Ours fused'
+    assert [(label, inp) for label, inp, _ in rows] == paper[:n] and pmids == mids + [n - 1], \
+        (paper, pmids)
+    assert [(label, inp) for (label, inp, _) in [e for e in _mt().TAB2 if e]] == paper[:n]
+    # since 2026-10-27 the fused baselines follow in the bottom block: the rows of their own
+    # pre-registered file (plot_nor_qual.py fused), in its order, with its inputs and cells
+    fused = [ln.split("&") for ln in FUSED_ROWS.read_text().splitlines()
+             if "&" in ln and not ln.lstrip().startswith("%")]
+    tex = (REPO / "papers" / "main.tex").read_text()
+    block = tex[tex.index("\\label{tab:change}"):tex.index("\\end{tabular}", tex.index("\\label{tab:change}"))]
+    cells = {c[0].strip(): [x.strip() for x in c] for c in
+             (ln.rstrip("\\ ").split("&") for ln in block.splitlines() if ln.count("&") >= 7)}
+    extra = paper[n:]
+    assert [inp for _, inp in extra] == [f[1].strip() for f in fused[1:]], extra
+    unmark = lambda s: re.sub(r"\\(textbf|underline)\{([^{}]*)\}", r"\2", s)
+    for (label, _), f in zip(extra, fused[1:]):
+        assert [unmark(x) for x in cells[label][2:6]] == [x.strip() for x in f[2:6]], label
 
 
 def test_cli_prints_tab2(tmp_path):

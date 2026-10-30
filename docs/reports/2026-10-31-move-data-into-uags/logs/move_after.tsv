@@ -1,0 +1,11 @@
+uags_results	1120 files	0 links	6455946778 bytes
+uags_fields	112 files	0 links	45569872472 bytes
+uags_maps	32 files	0 links	1539911484 bytes
+uags_cache	2160 files	0 links	2657877072 bytes
+replica_semnerf	57628 files	0 links	7954231253 bytes
+scannet	116747 files	1246 links	23549834176 bytes
+nerf_object_removal	36247 files	0 links	5242832242 bytes
+weights	64 files	0 links	18113232255 bytes
+
+# byte differences: results +12288 = the 3*4096 constant added in the after-command (subfolder dirs already subtracted);
+# scannet +11214 = 1246 symlinks x 9 bytes (target prefix gauss_ws/data -> gauss_ws/src/uags/data is 9 chars longer). File counts identical.

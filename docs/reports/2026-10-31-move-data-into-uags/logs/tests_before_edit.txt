@@ -1,0 +1,65 @@
+start 2026-10-31 00:41:30 JST
+tests/test_views_auroc.py: 8
+tests/test_vote_predictive.py: 12
+
+E               AssertionError: ('', 'conf')
+E               assert False
+E                +  where False = <built-in method equal of type object at 0x7fec14091180>(tensor([0.2000, 0.2000, 0.2000, 0.2000, 0.3926, 0.3858, 0.3815, 0.3784, 0.3730,\n        0.3920, 0.4804, 0.5386, 0.5547...       0.3732, 0.3452, 0.3429, 0.3435, 0.3705, 0.4307, 0.4710, 0.4826, 0.4843,\n        0.4866, 0.4877, 0.4878, 0.4875]), tensor([0.2000, 0.2000, 0.2000, 0.2000, 0.3926, 0.3858, 0.3815, 0.3784, 0.3730,\n        0.3920, 0.4804, 0.5386, 0.5547...       0.3732, 0.3452, 0.3429, 0.3435, 0.3705, 0.4307, 0.4710, 0.4826, 0.4843,\n        0.4866, 0.4877, 0.4878, 0.4875]))
+E                +    where <built-in method equal of type object at 0x7fec14091180> = torch.equal
+
+tests/test_css_fullvocab.py:179: AssertionError
+__________________________ test_rows_match_the_paper ___________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-thanhnc/pytest-133/test_rows_match_the_paper0')
+
+    def test_rows_match_the_paper(tmp_path):
+        if not (REPO / "papers" / "main.tex").exists():
+            pytest.skip("papers/main.tex not found")
+        paper, pmids = _paper_rows()
+        rows, mids = _rows(_mt().tab2(_write(tmp_path)))
+>       assert [(label, inp) for label, inp, _ in rows] == paper and mids == pmids, (paper, pmids)
+E       AssertionError: ([('NCC photometric residual', 'I'), ('Depth residual', 'D'), ('Feature residual, $k=2$~\\cite{ackermann2025clsplats, ...t}\\reimpl', 'F'), ('Dispersion $1-\\hat\\rho$ (ours)', 'F'), ('Ours: test, reset, re-admission', 'F+D'), ...], [5, 6])
+E       assert ([('NCC photom..., 'F+D'), ...] == [('NCC photom..., 'F+D'), ...]
+E         
+E         Right contains 4 more items, first extra item: ('NCC residual + depth residual', 'I+D')
+E         Use -v to get more diff)
+
+tests/test_make_tables_tab2.py:219: AssertionError
+=============================== warnings summary ===============================
+tests/test_pipeline_dryrun.py: 1 warning
+tests/test_static_fa.py: 18 warnings
+  /home/thanhnc/gauss_ws/src/uags/usplat/vmf_field.py:570: UserWarning: readmit_depth is set but no depth was ever supplied: re-admission falls back to views only
+    warnings.warn("readmit_depth is set but no depth was ever supplied: "
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_css_fullvocab.py::test_css_full_equals_css_when_vocab_is_present
+FAILED tests/test_make_tables_tab2.py::test_rows_match_the_paper - AssertionE...
+SKIPPED [1] tests/test_clip_cache.py:11: Replica not downloaded
+SKIPPED [1] tests/test_clip_real.py:15: Replica not downloaded
+SKIPPED [1] tests/test_extractor_candidates.py:181: weights absent: ['/home/thanhnc/gauss_ws/data/weights/radseg/c-radio_v3-b/c-radio_v3-b_half.pth.tar', '/home/thanhnc/gauss_ws/data/weights/radseg/siglip2-so400m-patch16-naflex/model.safetensors']
+SKIPPED [1] tests/test_extractor_candidates.py:205: weights absent: ['/home/thanhnc/gauss_ws/data/weights/radseg/c-radio_v3-b/c-radio_v3-b_half.pth.tar', '/home/thanhnc/gauss_ws/data/weights/radseg/siglip2-so400m-patch16-naflex/model.safetensors']
+SKIPPED [2] tests/test_extractor_candidates.py:181: set UAGS_SLOW_TESTS=1 (ViT-H on the CPU: ~1-2 min per frame)
+SKIPPED [2] tests/test_extractor_candidates.py:205: set UAGS_SLOW_TESTS=1 (ViT-H on the CPU: ~1-2 min per frame)
+SKIPPED [1] tests/test_extractor_dinotxt.py:16: dinov2 repo not cloned
+SKIPPED [1] tests/test_extractor_lseg.py:29: LSeg weights or Replica not downloaded
+SKIPPED [1] tests/test_extractor_lseg.py:53: LSeg weights or Replica not downloaded
+SKIPPED [1] tests/test_extractor_proxyclip.py:31: DINOv2 weights or code absent
+SKIPPED [1] tests/test_extractor_proxyclip.py:47: Replica not downloaded
+SKIPPED [1] tests/test_extractor_talk2dino.py:29: Replica not downloaded
+SKIPPED [1] tests/test_gs_fit.py:600: no CUDA device
+SKIPPED [1] tests/test_gs_fit.py:659: no CUDA device
+SKIPPED [1] tests/test_nor_dataset.py:191: NeRF-Object-Removal scene 001 absent
+SKIPPED [1] tests/test_nor_dataset.py:217: NeRF-Object-Removal scene 001 absent
+SKIPPED [1] tests/test_nor_tab2.py:95: NeRF-Object-Removal data not found
+SKIPPED [1] tests/test_nor_tab2.py:487: no real eval_change_nor.py record (stage-2 smoke)
+SKIPPED [2] tests/test_quant_stats.py:107: saved result records not found
+SKIPPED [6] tests/test_quant_stats.py:174: saved result records not found
+SKIPPED [1] tests/test_quant_stats.py:203: saved result records not found
+SKIPPED [1] tests/test_quant_stats.py:238: saved result records not found
+SKIPPED [1] tests/test_quant_stats.py:262: saved result records not found
+SKIPPED [1] tests/test_quant_stats.py:287: saved result records not found
+SKIPPED [1] tests/test_quant_stats.py:300: saved result records not found
+SKIPPED [1] tests/test_replica_loader.py:12: Replica (Semantic-NeRF) not downloaded
+2 failed, 398 passed, 34 skipped, 19 warnings in 395.45s (0:06:35)
+end 2026-10-31 00:48:10 JST

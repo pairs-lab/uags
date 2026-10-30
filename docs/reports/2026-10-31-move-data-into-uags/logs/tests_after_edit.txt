@@ -1,0 +1,72 @@
+start 2026-10-31 00:54:08 JST
+            f.write("# local edit\n")
+        r = _sh(root, out, "test")                               # dirty tree
+        assert r.returncode == 1 and "uncommitted changes" in r.stdout, r.stdout
+        r = crit()                                               # the Python step refuses too
+        assert r.returncode == 1 and "uncommitted changes" in r.stderr, r.stderr
+        assert not (out / "test_criterion.json").exists()
+>       (out / "runs" / "static_fa").mkdir(parents=True)
+
+tests/test_static_fa.py:537: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/tmp/pytest-of-thanhnc/pytest-134/test_shell_refusals0/out/runs/static_fa')
+mode = 511, parents = True, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileExistsError: [Errno 17] File exists: '/tmp/pytest-of-thanhnc/pytest-134/test_shell_refusals0/out/runs/static_fa'
+
+../../../.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/pathlib.py:1311: FileExistsError
+=============================== warnings summary ===============================
+tests/test_extractor_talk2dino.py::test_talk2dino_contract_and_semantics
+  /home/thanhnc/gauss_ws/third_party/talk2dino/dinov2/dinov2/layers/swiglu_ffn.py:45: UserWarning: xFormers is disabled (SwiGLU)
+    warnings.warn("xFormers is disabled (SwiGLU)")
+
+tests/test_extractor_talk2dino.py::test_talk2dino_contract_and_semantics
+  /home/thanhnc/gauss_ws/third_party/talk2dino/dinov2/dinov2/layers/swiglu_ffn.py:51: UserWarning: xFormers is not available (SwiGLU)
+    warnings.warn("xFormers is not available (SwiGLU)")
+
+tests/test_extractor_talk2dino.py::test_talk2dino_contract_and_semantics
+  /home/thanhnc/gauss_ws/third_party/talk2dino/dinov2/dinov2/layers/attention.py:29: UserWarning: xFormers is disabled (Attention)
+    warnings.warn("xFormers is disabled (Attention)")
+
+tests/test_extractor_talk2dino.py::test_talk2dino_contract_and_semantics
+  /home/thanhnc/gauss_ws/third_party/talk2dino/dinov2/dinov2/layers/attention.py:33: UserWarning: xFormers is not available (Attention)
+    warnings.warn("xFormers is not available (Attention)")
+
+tests/test_extractor_talk2dino.py::test_talk2dino_contract_and_semantics
+  /home/thanhnc/gauss_ws/third_party/talk2dino/dinov2/dinov2/layers/block.py:35: UserWarning: xFormers is disabled (Block)
+    warnings.warn("xFormers is disabled (Block)")
+
+tests/test_extractor_talk2dino.py::test_talk2dino_contract_and_semantics
+  /home/thanhnc/gauss_ws/third_party/talk2dino/dinov2/dinov2/layers/block.py:40: UserWarning: xFormers is not available (Block)
+    warnings.warn("xFormers is not available (Block)")
+
+tests/test_pipeline_dryrun.py: 1 warning
+tests/test_static_fa.py: 18 warnings
+  /home/thanhnc/gauss_ws/src/uags/usplat/vmf_field.py:570: UserWarning: readmit_depth is set but no depth was ever supplied: re-admission falls back to views only
+    warnings.warn("readmit_depth is set but no depth was ever supplied: "
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_css_fullvocab.py::test_css_full_equals_css_when_vocab_is_present
+FAILED tests/test_make_tables_tab2.py::test_rows_match_the_paper - AssertionE...
+FAILED tests/test_nor_tab2.py::test_real_record_layout - assert ["001: field ...
+FAILED tests/test_scannet_loader.py::test_vocab_and_scene_configs - Assertion...
+FAILED tests/test_scannet_loader.py::test_script_dry_run_val - StopIteration
+FAILED tests/test_static_fa.py::test_shell_refusals - FileExistsError: [Errno...
+SKIPPED [2] tests/test_extractor_candidates.py:181: set UAGS_SLOW_TESTS=1 (ViT-H on the CPU: ~1-2 min per frame)
+SKIPPED [2] tests/test_extractor_candidates.py:205: set UAGS_SLOW_TESTS=1 (ViT-H on the CPU: ~1-2 min per frame)
+SKIPPED [1] tests/test_extractor_dinotxt.py:16: dinov2 repo not cloned
+SKIPPED [1] tests/test_extractor_proxyclip.py:31: ProxyCLIP weights unavailable: Failed to download weights for tag 'openai': Failed to download file (open_clip_pytorch_model.bin) for timm/vit_base_patch16_clip_224.openai. Last error: An error happened while trying to locate the file on the Hub and we cannot find the requested files in the local cache. Please check your connection and try again or make sure your Internet connection is on.
+SKIPPED [1] tests/test_extractor_proxyclip.py:47: ProxyCLIP weights unavailable: Failed to download weights for tag 'openai': Failed to download file (open_clip_pytorch_model.bin) for timm/vit_base_patch16_clip_224.openai. Last error: An error happened while trying to locate the file on the Hub and we cannot find the requested files in the local cache. Please check your connection and try again or make sure your Internet connection is on.
+SKIPPED [1] tests/test_extractor_talk2dino.py:26: Talk2DINO unavailable: Failed to download weights for tag 'openai': Failed to download file (open_clip_pytorch_model.bin) for timm/vit_base_patch16_clip_224.openai. Last error: An error happened while trying to locate the file on the Hub and we cannot find the requested files in the local cache. Please check your connection and try again or make sure your Internet connection is on.
+SKIPPED [1] tests/test_gs_fit.py:600: no CUDA device
+SKIPPED [1] tests/test_gs_fit.py:659: no CUDA device
+6 failed, 418 passed, 10 skipped, 25 warnings in 629.87s (0:10:29)
+end 2026-10-31 01:04:40 JST

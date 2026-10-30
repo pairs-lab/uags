@@ -2,7 +2,7 @@
  "schema": "uags.rio10_change/1",
  "frozen": "2026-10-10, before any RIO10 data or method output exists. Values marked [A] in the plan (docs/reports/2026-09-28-paper-completion-plan/1-plan.md section 3) are taken as they are; the alignment rule below may only make d_move LARGER (refuse otherwise) and is checked on val scene 01 before any method output is read.",
  "amended": "2026-10-10, review fixes, still before any RIO10 data: the update keyframe rule (kf_trans, kf_rot), labels_id_property, rscan_max_absent_share and the G3 precondition (plan section 6) were added; no threshold changed.",
- "data_root": "/home/thanhnc/gauss_ws/data/rio10",
+ "data_root": "/home/thanhnc/gauss_ws/src/uags/data/rio10",
  "splits": {
   "val": ["01", "04", "06"],
   "test": ["02", "03", "05", "07", "08", "09", "10"]

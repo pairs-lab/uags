@@ -7,10 +7,10 @@ import os
 import pytest
 import torch
 
-SEQ = "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_2/Sequence_1"
+SEQ = "/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset/room_2/Sequence_1"
 VOCAB = os.path.join(os.path.dirname(__file__), "..", "configs", "vocab_replica.json")
 WEIGHTS = os.environ.get("UAGS_LSEG_WEIGHTS",
-                         "/home/thanhnc/gauss_ws/data/weights/lseg/demo_e200_state_dict.pt")
+                         "/home/thanhnc/gauss_ws/src/uags/data/weights/lseg/demo_e200_state_dict.pt")
 
 pytestmark = pytest.mark.skipif(not (os.path.isfile(WEIGHTS) and os.path.isdir(SEQ)),
                                 reason="LSeg weights or Replica not downloaded")

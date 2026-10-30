@@ -37,7 +37,7 @@ import torch.nn.functional as Fn
 from usplat.clip_dense import upsample_tokens
 
 THIRD = "/home/thanhnc/gauss_ws/third_party/talk2dino"
-WEIGHTS = "/home/thanhnc/gauss_ws/data/weights/talk2dino"
+WEIGHTS = "/home/thanhnc/gauss_ws/src/uags/data/weights/talk2dino"
 BACKBONES = {   # name -> (dinov2 hub factory, DINOv2 weights file, Talk2DINO projection file)
     "vitb": ("dinov2_vitb14_reg", "dinov2_vitb14_reg4_pretrain.pth", "vitb_mlp_infonce.pth"),
     "vitl": ("dinov2_vitl14_reg", "dinov2_vitl14_reg4_pretrain.pth", "vitl_mlp_infonce.pth"),

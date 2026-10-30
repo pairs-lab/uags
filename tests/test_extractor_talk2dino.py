@@ -7,9 +7,9 @@ import os
 import pytest
 import torch
 
-SEQ = "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_2/Sequence_1"
+SEQ = "/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset/room_2/Sequence_1"
 VOCAB = os.path.join(os.path.dirname(__file__), "..", "configs", "vocab_replica.json")
-WEIGHTS = "/home/thanhnc/gauss_ws/data/weights/talk2dino"
+WEIGHTS = "/home/thanhnc/gauss_ws/src/uags/data/weights/talk2dino"
 NEEDED = ("dinov2_vitb14_reg4_pretrain.pth", "vitb_mlp_infonce.pth")
 
 

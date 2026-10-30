@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH=$HOME/venvs/uags/bin:$HOME/.local/cuda-12.8/bin:$PATH CUDA_HOME=$HOME/.local/cuda-12.8
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. UAGS_GPU_HEADROOM_MIB=1024 UAGS_GPU_POLL_S=5
-D=/home/thanhnc/gauss_ws/data; R=$D/uags_results; V=$R/video; Q=$R/qual/nor
+R=/home/thanhnc/gauss_ws/src/uags/results; V=$R/video; Q=$R/qual/nor
 stamp=$(date +%Y%m%d-%H%M%S)
 jobs=("$@"); [ ${#jobs[@]} -eq 0 ] && jobs=(nor002 nor014 static)
 hdr() { echo "# $(date '+%F %T') git $(git rev-parse --short HEAD) job $1"; sha256sum "$2"; }

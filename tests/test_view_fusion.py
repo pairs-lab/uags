@@ -470,9 +470,9 @@ def test_fusion_driver(tmp_path, monkeypatch):
     assert refused(r, "is not a finished val record"), r.stdout + r.stderr
     r = run("val", SCENES="configs/toy_test.json")
     assert refused(r, "validation scenes are ['toy']"), r.stdout + r.stderr
-    r = run("val", OUT="/home/thanhnc/gauss_ws/data/uags_results/tab1")
+    r = run("val", OUT="/home/thanhnc/gauss_ws/src/uags/results/tab1")
     assert refused(r, "never touched"), r.stdout + r.stderr
-    r = run("val", OUT="/home/thanhnc/gauss_ws/data/uags_results/smooth/scannet")
+    r = run("val", OUT="/home/thanhnc/gauss_ws/src/uags/results/smooth/scannet")
     assert refused(r, "never touched"), r.stdout + r.stderr
     r = run("val", EVAL_EXTRA="--clip-model m --rows ours_P2")
     assert refused(r, "EVAL_EXTRA option '--rows'"), r.stdout + r.stderr

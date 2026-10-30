@@ -155,11 +155,11 @@ def test_registry_names():
 # ------------------------------------------------------------------------- with weights
 WEIGHTS = {
     "radseg": [R.RADIO_CKPT, os.path.join(R.TEXT_DIR, "model.safetensors")],
-    "proxyclip_h": ["/home/thanhnc/gauss_ws/data/weights/clip/ViT-H-14-laion2b_s32b_b79k/open_clip_model.safetensors",
-                    "/home/thanhnc/gauss_ws/data/weights/dino/dino_vitbase8_pretrain.pth"],
-    "trident": ["/home/thanhnc/gauss_ws/data/weights/clip/ViT-H-14-laion2b_s32b_b79k/open_clip_model.safetensors",
-                "/home/thanhnc/gauss_ws/data/weights/dino/dino_vitbase16_pretrain.pth",
-                "/home/thanhnc/gauss_ws/data/weights/sam/sam_vit_h_4b8939.pth"],
+    "proxyclip_h": ["/home/thanhnc/gauss_ws/src/uags/data/weights/clip/ViT-H-14-laion2b_s32b_b79k/open_clip_model.safetensors",
+                    "/home/thanhnc/gauss_ws/src/uags/data/weights/dino/dino_vitbase8_pretrain.pth"],
+    "trident": ["/home/thanhnc/gauss_ws/src/uags/data/weights/clip/ViT-H-14-laion2b_s32b_b79k/open_clip_model.safetensors",
+                "/home/thanhnc/gauss_ws/src/uags/data/weights/dino/dino_vitbase16_pretrain.pth",
+                "/home/thanhnc/gauss_ws/src/uags/data/weights/sam/sam_vit_h_4b8939.pth"],
 }
 GRIDS = {"radseg": ((42, 56), (42, 56), 1152), "proxyclip_h": ((56, 75), (56, 75), 1024),
          "trident": ((48, 64), (47, 64), 1024)}

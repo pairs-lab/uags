@@ -10,7 +10,7 @@ SECOND half to the patch tokens. Dense features = the head's patch tokens (1024-
 text embedding = text[:, 1024:] (the official notebooks/dinotxt.ipynb recipe).
 
 Code: /home/thanhnc/gauss_ws/third_party/dinotxt/dinov2 (git 7764ea0f, imported via sys.path).
-Weights: /home/thanhnc/gauss_ws/data/weights/dinotxt (see MANIFEST.json there: the backbone and
+Weights: /home/thanhnc/gauss_ws/src/uags/data/weights/dinotxt (see MANIFEST.json there: the backbone and
 text-tower 2-D matrices are stored in fp16, everything else as released).
 
 Inference (defaults chosen on the VALIDATION scenes office_0/room_2, see the run report):
@@ -32,7 +32,7 @@ import torch.nn.functional as Fn
 from usplat.clip_dense import upsample_tokens
 
 REPO = "/home/thanhnc/gauss_ws/third_party/dinotxt/dinov2"
-WEIGHTS = "/home/thanhnc/gauss_ws/data/weights/dinotxt"
+WEIGHTS = "/home/thanhnc/gauss_ws/src/uags/data/weights/dinotxt"
 FILES = dict(
     backbone="dinov2_vitl14_reg4_pretrain_fp16.pth",
     head="dinov2_vitl14_reg4_dinotxt_tet1280d20h24l_vision_head.pth",

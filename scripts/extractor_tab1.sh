@@ -41,9 +41,9 @@ DATASET=${DATASET:-}
 STAGE=${STAGE:-val}
 DRY_RUN=${DRY_RUN:-0}
 DISK_FACTOR=${DISK_FACTOR:-1.5}
-FIELDS_ROOT=${UAGS_FIELDS_ROOT:-/home/thanhnc/gauss_ws/data/uags_fields}
-RESULTS_ROOT=${UAGS_RESULTS_ROOT:-/home/thanhnc/gauss_ws/data/uags_results}
-TABLE1_DIRS="/home/thanhnc/gauss_ws/data/uags_results/tab1 /home/thanhnc/gauss_ws/data/uags_results/tab1_v2 /home/thanhnc/gauss_ws/data/uags_results/scannet_tab1 /home/thanhnc/gauss_ws/data/uags_results/tab3 /home/thanhnc/gauss_ws/data/uags_results/views /home/thanhnc/gauss_ws/data/uags_results/smooth /home/thanhnc/gauss_ws/data/uags_results/fusion"
+FIELDS_ROOT=${UAGS_FIELDS_ROOT:-/home/thanhnc/gauss_ws/src/uags/results/fields}
+RESULTS_ROOT=${UAGS_RESULTS_ROOT:-/home/thanhnc/gauss_ws/src/uags/results}
+TABLE1_DIRS="/home/thanhnc/gauss_ws/src/uags/results/tab1 /home/thanhnc/gauss_ws/src/uags/results/tab1_v2 /home/thanhnc/gauss_ws/src/uags/results/scannet_tab1 /home/thanhnc/gauss_ws/src/uags/results/tab3 /home/thanhnc/gauss_ws/src/uags/results/views /home/thanhnc/gauss_ws/src/uags/results/smooth /home/thanhnc/gauss_ws/src/uags/results/fusion"
 TS=$(date +%Y%m%d-%H%M%S)
 case "$STAGE" in val|test|table|claim) ;; *) echo "STAGE must be val, test, table or claim (got '$STAGE')"; exit 2 ;; esac
 [ "$STAGE" = claim ] || [ -n "$DATASET" ] || { echo "set DATASET (replica or scannet)"; exit 2; }
@@ -63,17 +63,17 @@ for f in usplat/extractors/radseg.py usplat/extractors/trident.py usplat/extract
     echo "refused: $f is not committed (the records must name the code that ran)"; exit 1
   fi
 done
-A_OUT=$(python3 -c "import json,sys; p=json.load(open(sys.argv[1])); print(p['stage_a']['out'])" "$PREREG")
-python3 -c "import json,sys; p=json.load(open(sys.argv[1])); sys.exit(0 if str((p.get('pipeline') or {}).get('stage_c','')).startswith('scripts/extractor_tab1.sh') and str(p.get('registered') or '').strip() else 1)" "$PREREG" \
+A_OUT=$(python3 -c "import json,sys; from usplat.paths import moved_tree; p=moved_tree(json.load(open(sys.argv[1]))); print(p['stage_a']['out'])" "$PREREG")
+python3 -c "import json,sys; from usplat.paths import moved_tree; p=moved_tree(json.load(open(sys.argv[1]))); sys.exit(0 if str((p.get('pipeline') or {}).get('stage_c','')).startswith('scripts/extractor_tab1.sh') and str(p.get('registered') or '').strip() else 1)" "$PREREG" \
   || { echo "refused: the prereg is not registered or names another stage C pipeline"; exit 1; }
 W=$(python3 scripts/extractor_select.py winner --prereg "$PREREG" --dir "$A_OUT") || exit 1
 echo "[extractor stage C] $TS git $(git rev-parse --short HEAD); winner $W; prereg sha256 $(sha256sum "$PREREG" | cut -c1-12)"
 
 if [ "$STAGE" = claim ]; then
-  read -r -a DS <<< "$(python3 -c "import json,sys; print(' '.join(json.load(open(sys.argv[1]))['datasets']))" "$PREREG")"
+  read -r -a DS <<< "$(python3 -c "import json,sys; from usplat.paths import moved_tree; print(' '.join(moved_tree(json.load(open(sys.argv[1])))['datasets']))" "$PREREG")"
   TESTS=()
   for d in "${DS[@]}"; do
-    o=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['datasets'][sys.argv[2]]['out'].format(extractor=sys.argv[3]))" "$PREREG" "$d" "$W")
+    o=$(python3 -c "import json,sys; from usplat.paths import moved_tree; print(moved_tree(json.load(open(sys.argv[1])))['datasets'][sys.argv[2]]['out'].format(extractor=sys.argv[3]))" "$PREREG" "$d" "$W")
     python3 -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get('status') == 'ok' else 1)" "$o/eval_test.json" 2>/dev/null \
       || { echo "refused: no finished test record $o/eval_test.json ($d)"; exit 1; }
     TESTS+=("$o/eval_test.json")
@@ -85,7 +85,8 @@ fi
 
 CFG=$(python3 - "$PREREG" "$DATASET" "$W" <<'PY'
 import json, shlex, sys
-p, d, w = json.load(open(sys.argv[1])), sys.argv[2], sys.argv[3]
+from usplat.paths import moved_tree
+p, d, w = moved_tree(json.load(open(sys.argv[1]))), sys.argv[2], sys.argv[3]
 s = (p.get("datasets") or {}).get(d)
 if s is None:
     sys.exit(f"refused: dataset {d} not in the prereg")
@@ -111,7 +112,7 @@ for r in "$OUT" "$FIELDS"; do
     case "$(realpath -m "$r")/" in "$(realpath -m "$t")"/*) echo "refused: $r is inside the result directory $t (never touched)"; exit 1 ;; esac
   done
   case "$(realpath -m "$r")" in
-    /home/thanhnc/gauss_ws/data/uags_fields|/home/thanhnc/gauss_ws/data/uags_fields/scannet) echo "refused: $r is a Table I field directory"; exit 1 ;;
+    /home/thanhnc/gauss_ws/src/uags/results/fields|/home/thanhnc/gauss_ws/src/uags/results/fields/scannet) echo "refused: $r is a Table I field directory"; exit 1 ;;
   esac
   case "$(realpath -m "$r")/" in
     "$(realpath -m "$RESULTS_ROOT/extractor")"/*|"$(realpath -m "$FIELDS_ROOT/extractor")"/*) ;;
@@ -139,7 +140,8 @@ fi
 # weights of W (sha256 of the prereg) and the scene files with W's fields
 python3 - "$PREREG" "$W" <<'PY' || exit 1
 import hashlib, json, os, sys
-p, w = json.load(open(sys.argv[1])), sys.argv[2]
+from usplat.paths import moved_tree
+p, w = moved_tree(json.load(open(sys.argv[1]))), sys.argv[2]
 bad = []
 for path, e in p["weights"].items():
     if w not in e["used_by"]:
@@ -190,7 +192,7 @@ else
   chosen=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['choices']['legs'])" "$SEL")
   DISTILL_JOBS="f3dgs legs:${chosen#legs_l}"
   SC="$OUT/scenes_test.json"
-  python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['datasets'][sys.argv[2]]['test_look'])" "$PREREG" "$DATASET"
+  python3 -c "import json,sys; from usplat.paths import moved_tree; print(moved_tree(json.load(open(sys.argv[1])))['datasets'][sys.argv[2]]['test_look'])" "$PREREG" "$DATASET"
 fi
 step() {
   local L=$1; shift

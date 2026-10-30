@@ -79,6 +79,7 @@ from typing import Dict, Optional, Sequence
 import numpy as np
 import torch
 
+from .paths import moved
 from .rows import Row, _field_channel
 
 # ---- the candidate grid of configs/smooth_prereg.json (tests check that they agree)
@@ -459,7 +460,7 @@ def map_path(ckpt):
     """The 3DGS map the field was built on: ckpt["inputs"]["ply"]["path"] (fields saved since
     2026-10-18, with its sha256) or ckpt["config"]["ply"] (run_mapping.py --ply)."""
     entry = (ckpt.get("inputs") or {}).get("ply") or {}
-    path = entry.get("path") or (ckpt.get("config") or {}).get("ply")
+    path = moved(entry.get("path") or (ckpt.get("config") or {}).get("ply"))
     if not path:
         raise KeyError("the field checkpoint names no 3DGS map (inputs.ply or config.ply)")
     if not os.path.exists(path):

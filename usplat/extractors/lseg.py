@@ -44,7 +44,7 @@ import torch.nn.functional as Fn
 from usplat.clip_dense import DenseCLIP, upsample_tokens
 
 WEIGHTS = os.environ.get("UAGS_LSEG_WEIGHTS",
-                         "/home/thanhnc/gauss_ws/data/weights/lseg/demo_e200_state_dict.pt")
+                         "/home/thanhnc/gauss_ws/src/uags/data/weights/lseg/demo_e200_state_dict.pt")
 HOOKS = (5, 11, 17, 23)
 VIT_W = 1024
 FEATS = (256, 512, 1024, 1024)

@@ -22,7 +22,7 @@ import sys
 import torch
 
 DINO_REPO = "/home/thanhnc/gauss_ws/third_party/dino/dino"
-WEIGHTS = "/home/thanhnc/gauss_ws/data/weights"
+WEIGHTS = "/home/thanhnc/gauss_ws/src/uags/data/weights"
 DINO_FILES = {8: os.path.join(WEIGHTS, "dino", "dino_vitbase8_pretrain.pth"),
               16: os.path.join(WEIGHTS, "dino", "dino_vitbase16_pretrain.pth")}
 CLIP_H = os.path.join(WEIGHTS, "clip", "ViT-H-14-laion2b_s32b_b79k", "open_clip_model.safetensors")

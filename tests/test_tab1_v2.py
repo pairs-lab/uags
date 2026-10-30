@@ -412,14 +412,14 @@ def test_replica_tab1_v2_script(tmp_path):
 
     r = run("test")                                             # nothing validated yet
     assert refused(r, "refused: no validation record"), r.stdout + r.stderr
-    r = run("val", OUT="/home/thanhnc/gauss_ws/data/uags_results/tab1")
+    r = run("val", OUT="/home/thanhnc/gauss_ws/src/uags/results/tab1")
     assert refused(r, "v1 result directory"), r.stdout + r.stderr
     r = run("val", OUT="")                                      # another prereg: its own OUT
     assert refused(r, "set OUT"), r.stdout + r.stderr
     for stage in ("val", "test"):                               # ScanNet's prereg: its own gate
         r = run(stage, PREREG=str(REPO / "configs" / "scannet_v2_prereg.json"))
         assert refused(r, "is not a prereg of scripts/replica_tab1_v2.sh"), r.stdout + r.stderr
-    r = run("val", TEXT_CACHE="/home/thanhnc/gauss_ws/data/uags_fields/text_cache_lseg.pt")
+    r = run("val", TEXT_CACHE="/home/thanhnc/gauss_ws/src/uags/results/fields/text_cache_lseg.pt")
     assert refused(r, "inside the v1 fields directory"), r.stdout + r.stderr
     r = run("val", SCENES="configs/toy_test.json")              # never select on test scenes
     assert refused(r, "validation scenes are ['toy']"), r.stdout + r.stderr

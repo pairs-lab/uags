@@ -13,9 +13,9 @@ cd "$(dirname "$0")/.."
 export PATH=$HOME/venvs/uags/bin:$HOME/.local/cuda-12.8/bin:$PATH
 export CUDA_HOME=$HOME/.local/cuda-12.8 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
 export UAGS_GPU_HEADROOM_MIB=1024 UAGS_GPU_POLL_S=5
-D=${D:-/home/thanhnc/gauss_ws/data}
-Q=${Q:-$D/uags_results/qual/nor}
-T=${T:-$D/uags_results/nor/tab2_relmax}
+D=${D:-/home/thanhnc/gauss_ws/src/uags}
+Q=${Q:-$D/results/qual/nor}
+T=${T:-$D/results/nor/tab2_relmax}
 STAGE=${STAGE:?STAGE=val or test}
 SCENES=${SCENES:-}
 FEATURES=" 002 006 013 015 "          # fp16 features for the figure scenes (qual_review step h)
@@ -33,8 +33,8 @@ for s in $SCENES; do
   echo "[nor_qual] $(date '+%F %T') $STAGE $s git $(git rev-parse --short HEAD) -> $log"
   scripts/gpu_gate.sh 6500 python3 scripts/dump_nor_qual.py --table "$T/$STAGE/$s.json" \
     --tolerance "$Q/noise/tolerance.json" --vocab configs/vocab_replica.json \
-    --text-cache "$D/uags_results/qual/text_cache_lseg_nor.pt" \
-    --betas "$D/uags_results/tab1/eval_val.json" --stage "$STAGE" $CURVES "${extra[@]}" \
+    --text-cache "$D/results/qual/text_cache_lseg_nor.pt" \
+    --betas "$D/results/tab1/eval_val.json" --stage "$STAGE" $CURVES "${extra[@]}" \
     --out "$Q/$s" > "$log" 2>&1
   rc=$?
   tail -1 "$log"

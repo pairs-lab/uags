@@ -1,12 +1,12 @@
 {
  "split": "test",
  "rule": "NeRF-Object-Removal protocol of 2026-10-17 (D1-D6). Mapping = frames [0, split_start) every stride-th frame, update = frames [split_end, N) every update_stride-th frame. stride: the stride whose mapping frame count is nearest 125 (scripts/check_nor.py suggested_stride, D4); update_stride = stride (scripts/eval_change_nor.py default). Keyframes: run_mapping.py's defaults (drop a frame < 5 cm AND < 5 deg from the last kept one), the same rule for both parts; n_*_keyframes are the counts it keeps (aligned poses, checked by scripts/nor_tab2.py merge). align: the D3 update-pose alignment (scripts/align_nor.py), applied to the update part in every scene (it moves no mapping frame, so only scripts/eval_change_nor.py reads it). Validation 001-004, test 005-016 (D6, run once). Paths: ply = the 3DGS map (scripts/fit_gs.py), field = the mapping-only field (scripts/run_mapping.py); scripts/nor_tab2.sh builds both. PROTOCOL CHANGE fixed on 2026-10-18 before any method ran: no D3 alignment (it lowered the photometric agreement of update and map frames in 6 well-aligned scenes and left 1.3 cm in 012); instead, a scene whose before->after median depth error (scripts/check_nor.py, object masks left out) exceeds 1 cm is excluded: 012 (3.54 cm) and 016 (2.50 cm), both test scenes. Test N = 10.",
- "root": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal",
+ "root": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal",
  "scenes": [
   {
    "name": "005",
    "dataset": "nor",
-   "data": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/005",
+   "data": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/005",
    "stride": 1,
    "update_stride": 1,
    "n_map_frames": 100,
@@ -14,13 +14,13 @@
    "n_update_frames": 94,
    "n_update_keyframes": 22,
    "align": "none",
-   "ply": "/home/thanhnc/gauss_ws/data/uags_maps/nor_005_map.pt",
-   "field": "/home/thanhnc/gauss_ws/data/uags_fields/nor_005_lseg.pt"
+   "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/nor_005_map.pt",
+   "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/nor_005_lseg.pt"
   },
   {
    "name": "006",
    "dataset": "nor",
-   "data": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/006",
+   "data": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/006",
    "stride": 1,
    "update_stride": 1,
    "n_map_frames": 108,
@@ -28,13 +28,13 @@
    "n_update_frames": 102,
    "n_update_keyframes": 35,
    "align": "none",
-   "ply": "/home/thanhnc/gauss_ws/data/uags_maps/nor_006_map.pt",
-   "field": "/home/thanhnc/gauss_ws/data/uags_fields/nor_006_lseg.pt"
+   "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/nor_006_map.pt",
+   "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/nor_006_lseg.pt"
   },
   {
    "name": "007",
    "dataset": "nor",
-   "data": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/007",
+   "data": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/007",
    "stride": 1,
    "update_stride": 1,
    "n_map_frames": 152,
@@ -42,13 +42,13 @@
    "n_update_frames": 131,
    "n_update_keyframes": 39,
    "align": "none",
-   "ply": "/home/thanhnc/gauss_ws/data/uags_maps/nor_007_map.pt",
-   "field": "/home/thanhnc/gauss_ws/data/uags_fields/nor_007_lseg.pt"
+   "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/nor_007_map.pt",
+   "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/nor_007_lseg.pt"
   },
   {
    "name": "008",
    "dataset": "nor",
-   "data": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/008",
+   "data": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/008",
    "stride": 2,
    "update_stride": 2,
    "n_map_frames": 105,
@@ -56,13 +56,13 @@
    "n_update_frames": 109,
    "n_update_keyframes": 61,
    "align": "none",
-   "ply": "/home/thanhnc/gauss_ws/data/uags_maps/nor_008_map.pt",
-   "field": "/home/thanhnc/gauss_ws/data/uags_fields/nor_008_lseg.pt"
+   "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/nor_008_map.pt",
+   "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/nor_008_lseg.pt"
   },
   {
    "name": "009",
    "dataset": "nor",
-   "data": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/009",
+   "data": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/009",
    "stride": 2,
    "update_stride": 2,
    "n_map_frames": 149,
@@ -70,13 +70,13 @@
    "n_update_frames": 139,
    "n_update_keyframes": 33,
    "align": "none",
-   "ply": "/home/thanhnc/gauss_ws/data/uags_maps/nor_009_map.pt",
-   "field": "/home/thanhnc/gauss_ws/data/uags_fields/nor_009_lseg.pt"
+   "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/nor_009_map.pt",
+   "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/nor_009_lseg.pt"
   },
   {
    "name": "010",
    "dataset": "nor",
-   "data": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/010",
+   "data": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/010",
    "stride": 2,
    "update_stride": 2,
    "n_map_frames": 118,
@@ -84,13 +84,13 @@
    "n_update_frames": 87,
    "n_update_keyframes": 29,
    "align": "none",
-   "ply": "/home/thanhnc/gauss_ws/data/uags_maps/nor_010_map.pt",
-   "field": "/home/thanhnc/gauss_ws/data/uags_fields/nor_010_lseg.pt"
+   "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/nor_010_map.pt",
+   "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/nor_010_lseg.pt"
   },
   {
    "name": "011",
    "dataset": "nor",
-   "data": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/011",
+   "data": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/011",
    "stride": 2,
    "update_stride": 2,
    "n_map_frames": 126,
@@ -98,13 +98,13 @@
    "n_update_frames": 232,
    "n_update_keyframes": 41,
    "align": "none",
-   "ply": "/home/thanhnc/gauss_ws/data/uags_maps/nor_011_map.pt",
-   "field": "/home/thanhnc/gauss_ws/data/uags_fields/nor_011_lseg.pt"
+   "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/nor_011_map.pt",
+   "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/nor_011_lseg.pt"
   },
   {
    "name": "013",
    "dataset": "nor",
-   "data": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/013",
+   "data": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/013",
    "stride": 2,
    "update_stride": 2,
    "n_map_frames": 144,
@@ -112,13 +112,13 @@
    "n_update_frames": 117,
    "n_update_keyframes": 32,
    "align": "none",
-   "ply": "/home/thanhnc/gauss_ws/data/uags_maps/nor_013_map.pt",
-   "field": "/home/thanhnc/gauss_ws/data/uags_fields/nor_013_lseg.pt"
+   "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/nor_013_map.pt",
+   "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/nor_013_lseg.pt"
   },
   {
    "name": "014",
    "dataset": "nor",
-   "data": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/014",
+   "data": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/014",
    "stride": 3,
    "update_stride": 3,
    "n_map_frames": 132,
@@ -126,13 +126,13 @@
    "n_update_frames": 99,
    "n_update_keyframes": 79,
    "align": "none",
-   "ply": "/home/thanhnc/gauss_ws/data/uags_maps/nor_014_map.pt",
-   "field": "/home/thanhnc/gauss_ws/data/uags_fields/nor_014_lseg.pt"
+   "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/nor_014_map.pt",
+   "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/nor_014_lseg.pt"
   },
   {
    "name": "015",
    "dataset": "nor",
-   "data": "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/015",
+   "data": "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/015",
    "stride": 2,
    "update_stride": 2,
    "n_map_frames": 143,
@@ -140,8 +140,8 @@
    "n_update_frames": 135,
    "n_update_keyframes": 69,
    "align": "none",
-   "ply": "/home/thanhnc/gauss_ws/data/uags_maps/nor_015_map.pt",
-   "field": "/home/thanhnc/gauss_ws/data/uags_fields/nor_015_lseg.pt"
+   "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/nor_015_map.pt",
+   "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/nor_015_lseg.pt"
   }
  ],
  "excluded": {

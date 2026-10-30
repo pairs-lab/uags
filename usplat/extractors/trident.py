@@ -64,7 +64,7 @@ from usplat.extractors.proxyclip import ProxyCLIPDense
 from usplat.extractors.radseg import rescale_size, preprocess_size, windows
 
 SAM_REPO = "/home/thanhnc/gauss_ws/third_party/sam/segment-anything"
-SAM_CKPT = "/home/thanhnc/gauss_ws/data/weights/sam/sam_vit_h_4b8939.pth"
+SAM_CKPT = "/home/thanhnc/gauss_ws/src/uags/data/weights/sam/sam_vit_h_4b8939.pth"
 SAM_HEADS = {"vit_b": 12, "vit_l": 16, "vit_h": 16}
 
 

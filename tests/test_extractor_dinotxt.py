@@ -9,7 +9,7 @@ import torch
 from usplat.datasets import ReplicaSemNeRFDataset
 from usplat.extractors import dinotxt
 
-SEQ = "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_2/Sequence_1"
+SEQ = "/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset/room_2/Sequence_1"
 VOCAB = os.path.join(os.path.dirname(__file__), "..", "configs", "vocab_replica.json")
 
 

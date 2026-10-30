@@ -59,7 +59,7 @@ import torch.nn.functional as Fn
 from usplat.clip_dense import upsample_tokens
 
 REPO = "/home/thanhnc/gauss_ws/third_party/radio/RADIO"
-WEIGHTS = "/home/thanhnc/gauss_ws/data/weights/radseg"
+WEIGHTS = "/home/thanhnc/gauss_ws/src/uags/data/weights/radseg"
 RADIO_CKPT = os.path.join(WEIGHTS, "c-radio_v3-b", "c-radio_v3-b_half.pth.tar")
 RADIO_SHA256 = "530b0e827b1d409ca3b175466e11062885baedd823ec5dae3a88348e76d4c398"
 TEXT_DIR = os.path.join(WEIGHTS, "siglip2-so400m-patch16-naflex")

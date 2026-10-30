@@ -14,10 +14,10 @@ export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
 export UAGS_GPU_USGLOC_EXTRA_MIB=${UAGS_GPU_USGLOC_EXTRA_MIB:-99999}   # never beside USGLoc
 export UAGS_GPU_POLL_S=${UAGS_GPU_POLL_S:-5}
 TS=$(date +%Y%m%d-%H%M%S)
-ROOT=/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset
-MAPS=/home/thanhnc/gauss_ws/data/uags_maps
-FIELDS=/home/thanhnc/gauss_ws/data/uags_fields
-OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/tab3}
+ROOT=/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset
+MAPS=/home/thanhnc/gauss_ws/src/uags/results/maps
+FIELDS=/home/thanhnc/gauss_ws/src/uags/results/fields
+OUT=${OUT:-/home/thanhnc/gauss_ws/src/uags/results/tab3}
 STAGE=${STAGE:-val}
 DOWNSCALE=${DOWNSCALE:-2}
 TAU_COV=${TAU_COV:-0.5}

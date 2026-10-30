@@ -9,9 +9,9 @@ import pytest
 import torch
 from usplat.datasets import ReplicaSemNeRFDataset
 
-SEQ = "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/room_2/Sequence_1"
+SEQ = "/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset/room_2/Sequence_1"
 VOCAB = os.path.join(os.path.dirname(__file__), "..", "configs", "vocab_replica.json")
-DINO = "/home/thanhnc/gauss_ws/data/weights/proxyclip/dinov2_vitb14_reg4_pretrain.pth"
+DINO = "/home/thanhnc/gauss_ws/src/uags/data/weights/proxyclip/dinov2_vitb14_reg4_pretrain.pth"
 DINO_CODE = "/home/thanhnc/gauss_ws/third_party/proxyclip/dinov2"
 
 

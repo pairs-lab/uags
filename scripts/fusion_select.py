@@ -42,6 +42,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
 import make_tables as mt                                            # noqa: E402
+from usplat.paths import moved_tree                                  # noqa: E402
 
 REFERENCE = ("ours_P0", "ours_P2", "averaging", "2d_features")
 TAB_COLS = ("miou", "acc", "ece", "nll", "brier", "aurc")
@@ -58,7 +59,7 @@ def die(msg):
 # ------------------------------------------------------------------------------ prereg
 def load(prereg):
     with open(prereg) as f:
-        return json.load(f)
+        return moved_tree(json.load(f))      # frozen: paths from before the 2026-10-31 move
 
 
 def view(p, dataset):
@@ -74,7 +75,7 @@ def prereg_rows(p):
 
 def _raw(path):
     with open(path) as f:
-        return json.load(f)
+        return moved_tree(json.load(f))
 
 
 def _body(raw):

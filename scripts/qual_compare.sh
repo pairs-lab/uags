@@ -17,8 +17,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH=$HOME/venvs/uags/bin:$HOME/.local/cuda-12.8/bin:$PATH
 export CUDA_HOME=$HOME/.local/cuda-12.8 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
-D=${UAGS_DATA:-/home/thanhnc/gauss_ws/data}
-R=$D/uags_results
+D=${UAGS_DATA:-/home/thanhnc/gauss_ws/src/uags}
+R=$D/results
 C=$R/qual/compare
 GATE="env UAGS_GPU_HEADROOM_MIB=1024 UAGS_GPU_POLL_S=5 scripts/gpu_gate.sh ${QC_GATE_MIB:-4500}"
 RF=usplat.baselines:row_factory,usplat.distill:row_factory

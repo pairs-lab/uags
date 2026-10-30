@@ -40,11 +40,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
+from usplat.paths import moved_tree                                  # noqa: E402
 
 
 def _load_prereg(path):
     with open(path) as f:
-        return json.load(f)
+        return moved_tree(json.load(f))      # frozen: paths from before the 2026-10-31 move
 
 
 def dataset_spec(prereg, dataset):

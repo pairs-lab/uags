@@ -97,6 +97,7 @@ sys.path.insert(0, HERE)
 import eval_change_nor as EC                                                # noqa: E402
 import eval_seg as ES                                                       # noqa: E402
 from usplat import baselines as B                                           # noqa: E402
+from usplat.paths import moved                                              # noqa: E402
 from usplat.change_baselines import fuse_rank                               # noqa: E402
 from usplat.datasets import _imread                                         # noqa: E402
 from usplat.rows import TensorRow                                           # noqa: E402
@@ -524,14 +525,14 @@ def build_parser():
 def ec_namespace(m, args):
     """eval_change_nor's arguments, every value from the record's settings and provenance."""
     s, p = m["settings"], m["provenance"]
-    align = "none" if m.get("alignment") is None else p["align"]["path"]
-    argv = ["--field", p["field"]["path"], "--align", align,
+    align = "none" if m.get("alignment") is None else moved(p["align"]["path"])
+    argv = ["--field", moved(p["field"]["path"]), "--align", align,
             "--update-stride", str(s["update_stride"]), "--tau-cov", repr(s["tau_cov"]),
             "--undef-frac", repr(s["undef_frac"]), "--k", str(s["k"]),
             "--change-quantile", repr(s["change_quantile"]), "--inflate", repr(s["inflate_m"]),
             "--near", repr(s["near_m"]), "--backend", args.backend, "--device", args.device,
             "--max-update-keyframes", str(args.smoke or s.get("max_update_keyframes") or 0),
-            "--ply", p["ply"]["path"], "--data", p["data"], "--out", os.devnull]
+            "--ply", moved(p["ply"]["path"]), "--data", moved(p["data"]), "--out", os.devnull]
     ns = EC.build_parser().parse_args(argv)
     for key, attr in (("update_stride", "update_stride"), ("tau_cov", "tau_cov"),
                       ("undef_frac", "undef_frac"), ("k", "k"),

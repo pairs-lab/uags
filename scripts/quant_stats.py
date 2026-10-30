@@ -17,7 +17,7 @@ declared family F1 may be called significant.
     python3 scripts/quant_stats.py betas    fitted P2 coefficients in the paper's symbols
     python3 scripts/quant_stats.py v2grid   every pre-registered v2 candidate on test
 
-Every input has a default (the saved records under $RES = <repo>/../../data/uags_results, or
+Every input has a default (the saved records under $RES = <repo>/results, or
 $UAGS_RESULTS), and --json / --tex default to docs/reports/2026-10-20-figures-video/logs/quant/
 <subcommand>.{json,tex}.
 
@@ -61,9 +61,9 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
 
 RES = os.path.normpath(os.environ.get(
-    "UAGS_RESULTS", os.path.join(ROOT, "..", "..", "data", "uags_results")))
+    "UAGS_RESULTS", os.path.join(ROOT, "results")))
 NORD = os.path.normpath(os.environ.get(
-    "UAGS_NOR_DATA", os.path.join(ROOT, "..", "..", "data", "nerf_object_removal",
+    "UAGS_NOR_DATA", os.path.join(ROOT, "data", "nerf_object_removal",
                                   "nerf-object-removal")))
 OUT = os.path.join(ROOT, "docs", "reports", "2026-10-20-figures-video", "logs", "quant")
 PREREG = os.path.join(ROOT, "configs", "quant_prereg.json")

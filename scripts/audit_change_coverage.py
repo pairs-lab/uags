@@ -37,8 +37,8 @@ PRE-REGISTERED decision (written 2026-10-10, before any audit run; constants bel
   STAGE=audit); on test fields the audit is descriptive, run after the configs are frozen.
 
     PYTHONPATH=. python3 scripts/audit_change_coverage.py \\
-        --field /home/thanhnc/gauss_ws/data/uags_fields/office_0_lseg.pt \\
-        --out /home/thanhnc/gauss_ws/data/uags_results/static_fa/audit_office_0.json
+        --field /home/thanhnc/gauss_ws/src/uags/results/fields/office_0_lseg.pt \\
+        --out /home/thanhnc/gauss_ws/src/uags/results/static_fa/audit_office_0.json
 Several --field paths give one report per field. The JSON is a usplat.runlog record
 (--plain-json: plain JSON) with metrics.fields[<path>] = the report and metrics.passed.
 """

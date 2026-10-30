@@ -5,7 +5,7 @@ import pytest
 import torch
 from usplat.clip_dense import OpenCLIPDense, upsample_tokens
 
-IMG = "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset/office_0/Sequence_1/rgb/rgb_0.png"
+IMG = "/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset/office_0/Sequence_1/rgb/rgb_0.png"
 
 
 @pytest.mark.skipif(not os.path.exists(IMG), reason="Replica not downloaded")

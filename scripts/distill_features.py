@@ -5,7 +5,7 @@ frames, LSeg tokens and PCA basis as the scene's main field (run_mapping.py --ou
 them next to it as <main>_f3dgs.pt or <main>_legs.pt.
 
     scripts/gpu_gate.sh 7000 python3 scripts/distill_features.py \
-        --field /home/thanhnc/gauss_ws/data/uags_fields/office_0_lseg.pt --method legs
+        --field /home/thanhnc/gauss_ws/src/uags/results/fields/office_0_lseg.pt --method legs
 
 The mapping frames are those of the main field: its dataset, --stride, --downscale, the
 evenly spaced --max-keyframes subset and the near-duplicate pose filter (kf_trans, kf_rot).

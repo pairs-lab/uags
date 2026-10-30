@@ -40,10 +40,10 @@ cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
 export UAGS_GPU_USGLOC_EXTRA_MIB=${UAGS_GPU_USGLOC_EXTRA_MIB:-99999}   # never beside USGLoc
 export UAGS_GPU_POLL_S=${UAGS_GPU_POLL_S:-5}
-ROOT=${ROOT:-/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset}
-MAPS=${MAPS:-/home/thanhnc/gauss_ws/data/uags_maps}
-FIELDS=/home/thanhnc/gauss_ws/data/uags_fields
-OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/static_fa}
+ROOT=${ROOT:-/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset}
+MAPS=${MAPS:-/home/thanhnc/gauss_ws/src/uags/results/maps}
+FIELDS=/home/thanhnc/gauss_ws/src/uags/results/fields
+OUT=${OUT:-/home/thanhnc/gauss_ws/src/uags/results/static_fa}
 STAGE=${STAGE:-val}
 # mapping peaks at ~4.8-5.7 GB (Table I); the residual baselines add three renders per view
 MAP_NEED=${MAP_NEED:-10000}

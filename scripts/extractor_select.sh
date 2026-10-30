@@ -9,13 +9,13 @@
 # Gates (every run, DRY_RUN too): the prereg is committed, unmodified and 'registered'; it names
 # this script; the extractor code, the drivers and the vocabularies are committed; no
 # uncommitted change to tracked files (the records must name a commit); OUT is neither a
-# Table I result directory nor inside uags_fields; the weight files match the prereg's sha256
+# Table I result directory nor inside results/fields; the weight files match the prereg's sha256
 # and the third-party code its commits; no UAGS_LSEG_* / UAGS_PROXYCLIP_* override is set (they
 # change an extractor that the records would not show).
 # GPU: each run through scripts/gpu_gate.sh at the prereg's gpu.stage_a_need_mib[<extractor>]
 # (measured peak + margin), headroom UAGS_GPU_HEADROOM_MIB (default 1024 here), never beside a
 # USGLoc job. Text caches: the incumbent gets a COPY of Table I's cache in $OUT; the
-# candidates get new caches in $OUT. Nothing under uags_fields or a Table I directory is written.
+# candidates get new caches in $OUT. Nothing under results/fields or a Table I directory is written.
 # Overrides: PREREG, OUT, DEVICE (cpu: tests), DRY_RUN=1 (print the GPU steps after the checks).
 # Logs: $OUT/a_<dataset>_<extractor>.<timestamp>.log (never overwritten).
 set -euo pipefail
@@ -27,7 +27,7 @@ export UAGS_GPU_HEADROOM_MIB=${UAGS_GPU_HEADROOM_MIB:-1024}
 PREREG=${PREREG:-configs/extractor_prereg.json}
 DEVICE=${DEVICE:-cuda}
 DRY_RUN=${DRY_RUN:-0}
-FIELDS_ROOT=/home/thanhnc/gauss_ws/data/uags_fields
+FIELDS_ROOT=/home/thanhnc/gauss_ws/src/uags/results/fields
 TS=$(date +%Y%m%d-%H%M%S)
 
 for v in $(env | grep -oE '^UAGS_(LSEG|PROXYCLIP)_[A-Z_]+' || true); do
@@ -47,7 +47,8 @@ for f in usplat/extractors/radseg.py usplat/extractors/trident.py usplat/extract
 done
 CFG=$(python3 - "$PREREG" <<'PY'
 import json, shlex, sys
-p = json.load(open(sys.argv[1]))
+from usplat.paths import moved_tree
+p = moved_tree(json.load(open(sys.argv[1])))
 if not str((p.get("pipeline") or {}).get("stage_ab") or "").startswith("scripts/extractor_select.sh"):
     sys.exit("refused: the prereg names another pipeline")
 if not str(p.get("registered") or "").strip():
@@ -71,7 +72,7 @@ eval "$CFG"
 OUT=${OUT:-$P_OUT}
 for d in tab1 tab1_v2 scannet_tab1 tab3 views views_repro smooth fusion; do
   case "$(realpath -m "$OUT")/" in
-    "$(realpath -m "/home/thanhnc/gauss_ws/data/uags_results/$d")"/*)
+    "$(realpath -m "/home/thanhnc/gauss_ws/src/uags/results/$d")"/*)
       echo "refused: OUT is inside the result directory $d (never touched)"; exit 1 ;;
   esac
 done
@@ -84,7 +85,8 @@ if ! python3 -c "import sys; from usplat.runlog import git_state; g = git_state(
 fi
 python3 - "$PREREG" <<'PY' || exit 1
 import hashlib, json, os, subprocess, sys
-p = json.load(open(sys.argv[1]))
+from usplat.paths import moved_tree
+p = moved_tree(json.load(open(sys.argv[1])))
 bad = []
 for path, w in p["weights"].items():
     if not os.path.exists(path):
@@ -112,7 +114,8 @@ if [ -e "$SEL" ]; then
 fi
 started=$(python3 - "$PREREG" <<'PY'
 import glob, json, sys
-p = json.load(open(sys.argv[1]))
+from usplat.paths import moved_tree
+p = moved_tree(json.load(open(sys.argv[1])))
 hits = []
 for d, s in p["datasets"].items():
     for x in p["order"]:

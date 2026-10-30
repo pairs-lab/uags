@@ -26,7 +26,7 @@ the unit features). One guard not in the original: the diagonal of the masked si
 kept finite (a window whose mean similarity exceeds 1/beta would otherwise give NaN rows).
 
 DINOv2 code: /home/thanhnc/gauss_ws/third_party/proxyclip/dinov2 (facebookresearch/dinov2,
-Apache-2.0); weights /home/thanhnc/gauss_ws/data/weights/proxyclip/dinov2_vitb14{_reg4,}_pretrain.pth
+Apache-2.0); weights /home/thanhnc/gauss_ws/src/uags/data/weights/proxyclip/dinov2_vitb14{_reg4,}_pretrain.pth
 (Apache-2.0). CLIP weights through open_clip's HF cache (openai: MIT licence; laion2b: MIT).
 
 Development overrides (for the frozen validation check, which passes no kwargs):
@@ -42,7 +42,7 @@ import torch.nn.functional as Fn
 from usplat.clip_dense import upsample_tokens
 
 THIRD_PARTY = "/home/thanhnc/gauss_ws/third_party/proxyclip"
-WEIGHTS = "/home/thanhnc/gauss_ws/data/weights/proxyclip"
+WEIGHTS = "/home/thanhnc/gauss_ws/src/uags/data/weights/proxyclip"
 VFM_WEIGHTS = {"dinov2_vitb14_reg": "dinov2_vitb14_reg4_pretrain.pth",
                "dinov2_vitb14": "dinov2_vitb14_pretrain.pth"}
 CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)

@@ -30,7 +30,7 @@
 #                      run_mapping.py reads them from $PREP/<scene>/eval_s20o5 (symlinks to the
 #                      evaluation frames with a finite pose, usplat.datasets.scannet_frame_view)
 #                      with --css-eval-stride 1
-# Data root /home/thanhnc/gauss_ws/data/scannet (ScanNet's download-scannet.py -o <root>
+# Data root /home/thanhnc/gauss_ws/src/uags/data/scannet (ScanNet's download-scannet.py -o <root>
 # --id <scene> with --type .sens and --type _2d-label-filt.zip, and --label_map), layout:
 #   scannetv2-labels.combined.tsv                 (top level of the ScanNet download)
 #   scans/<scene>/color/<i>.jpg depth/<i>.png pose/<i>.txt intrinsic/intrinsic_color.txt
@@ -108,11 +108,11 @@ cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
 export UAGS_GPU_USGLOC_EXTRA_MIB=${UAGS_GPU_USGLOC_EXTRA_MIB:-99999}   # never beside USGLoc
 export UAGS_GPU_POLL_S=${UAGS_GPU_POLL_S:-5}
-DATA=/home/thanhnc/gauss_ws/data/scannet
+DATA=/home/thanhnc/gauss_ws/src/uags/data/scannet
 PREP=$DATA/uags_f2
-MAPS=/home/thanhnc/gauss_ws/data/uags_maps/scannet
-FIELDS=/home/thanhnc/gauss_ws/data/uags_fields/scannet
-OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/scannet_tab1}
+MAPS=/home/thanhnc/gauss_ws/src/uags/results/maps/scannet
+FIELDS=/home/thanhnc/gauss_ws/src/uags/results/fields/scannet
+OUT=${OUT:-/home/thanhnc/gauss_ws/src/uags/results/scannet_tab1}
 VOCAB=configs/vocab_scannet.json
 PREREG=configs/scannet_v2_prereg.json   # Table I v2 rules on ScanNet
 STAGE=${STAGE:-val}

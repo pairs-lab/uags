@@ -486,7 +486,7 @@ def test_replica_views_sh_never_touches_v1(tmp_path):
     sh = lambda **kw: subprocess.run(["bash", str(root / "scripts" / "replica_views.sh")],
                                      env=dict(env, **kw), capture_output=True, text=True,
                                      timeout=300)
-    r = sh(OUT="/home/thanhnc/gauss_ws/data/uags_results/views")
+    r = sh(OUT="/home/thanhnc/gauss_ws/src/uags/results/views")
     assert r.returncode == 1 and "v1 views directory" in r.stdout, r.stdout + r.stderr
     r = sh(KFIELDS=str(fields))
     assert r.returncode == 1 and "KFIELDS is the fields directory" in r.stdout, r.stdout

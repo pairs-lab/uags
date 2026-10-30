@@ -10,9 +10,9 @@ One file per frame: <out>/<scene>/<sequence>/tok_<index>.pt ; frames already cac
 so the script can be stopped and resumed.
 Usage:
   PYTHONPATH=. python3 scripts/extract_clip.py --dataset replica_semnerf \
-      --root /home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset \
+      --root /home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset \
       --scenes office_0,room_2 --sequences Sequence_1:5,Sequence_2:10 \
-      --out /home/thanhnc/gauss_ws/data/uags_cache/clip_tokens
+      --out /home/thanhnc/gauss_ws/src/uags/results/cache/clip_tokens
 """
 from __future__ import annotations
 import argparse

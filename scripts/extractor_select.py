@@ -30,7 +30,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
+from usplat.paths import moved_tree                                  # noqa: E402
 
 
 def sha256_file(path):
@@ -40,7 +42,7 @@ def sha256_file(path):
 
 def load(path):
     with open(path) as f:
-        return json.load(f)
+        return moved_tree(json.load(f))      # prereg and records predate the 2026-10-31 move
 
 
 def _abs(p, root=ROOT):

@@ -49,14 +49,14 @@ cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
 export UAGS_GPU_USGLOC_EXTRA_MIB=${UAGS_GPU_USGLOC_EXTRA_MIB:-99999}   # never beside USGLoc
 export UAGS_GPU_POLL_S=${UAGS_GPU_POLL_S:-5}
-FIELDS=/home/thanhnc/gauss_ws/data/uags_fields
-V1_OUT=/home/thanhnc/gauss_ws/data/uags_results/tab1
+FIELDS=/home/thanhnc/gauss_ws/src/uags/results/fields
+V1_OUT=/home/thanhnc/gauss_ws/src/uags/results/tab1
 PREREG_REPLICA=configs/tab1_v2_prereg.json
 PREREG=${PREREG:-$PREREG_REPLICA}
 if [ -z "${OUT:-}" ] && [ "$(realpath -m "$PREREG")" != "$(realpath -m "$PREREG_REPLICA")" ]; then
   echo "refused: PREREG=$PREREG is not the Replica prereg; set OUT for its records"; exit 1
 fi
-OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/tab1_v2}
+OUT=${OUT:-/home/thanhnc/gauss_ws/src/uags/results/tab1_v2}
 python3 -c "import json, sys; sys.exit(0 if str(json.load(open(sys.argv[1])).get('pipeline') or '').startswith('scripts/replica_tab1_v2.sh') else 1)" "$PREREG" || {
   echo "refused: $PREREG is not a prereg of scripts/replica_tab1_v2.sh (its \"pipeline\" names another script, whose test split has its own gate)"; exit 1; }
 STAGE=${STAGE:-val}

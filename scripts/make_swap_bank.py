@@ -15,8 +15,8 @@ The extractor runs on --device: gate it like every GPU step. CPU tests pass a fa
 to run().
 
     scripts/gpu_gate.sh 4000 python3 scripts/make_swap_bank.py --spec configs/swap_replica.json \
-        --scene office_0 --root /home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset \
-        --out /home/thanhnc/gauss_ws/data/uags_swap/banks/office_0.pt
+        --scene office_0 --root /home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset \
+        --out /home/thanhnc/gauss_ws/src/uags/results/swap/banks/office_0.pt
 """
 from __future__ import annotations
 import argparse
@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from usplat import swap as SW                                              # noqa: E402
 
-ROOT = "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset"
+ROOT = "/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset"
 
 
 def run(args, rec=None, extractor=None):

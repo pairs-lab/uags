@@ -66,6 +66,8 @@ REPO = os.path.dirname(HERE)
 sys.path.insert(0, REPO)
 sys.path.insert(0, HERE)
 
+from usplat.paths import moved, moved_tree                                  # noqa: E402
+
 # eval_change_nor.py settings every scene (and the test against validation) must share
 SAME = ("change_quantile", "k", "tau_cov", "undef_frac", "inflate_m", "near_m", "kf_trans",
         "kf_rot", "max_keyframes", "max_update_keyframes", "downscale", "extractor",
@@ -111,7 +113,7 @@ def read_config(path):
 
 
 def _abs(p):
-    return os.path.abspath(p) if p else p
+    return os.path.abspath(moved(p)) if p else p
 
 
 def _key(v):
@@ -217,7 +219,7 @@ def changed_inputs(rec, keys=("field", "ply")):
     out = []
     for key in keys:
         e = pv.get(key) or {}
-        p = e.get("path")
+        p = moved(e.get("path"))
         if not p or not os.path.isfile(p) or sha256(p) != e.get("sha256"):
             out.append(f"its {key} {p} changed after the evaluation (sha256)")
     return out
@@ -226,6 +228,7 @@ def changed_inputs(rec, keys=("field", "ply")):
 def reuse_problems(kind, path, args):
     """Why the output at `path` was not built by `args` with the code of now (empty: it was)."""
     saved, code, problem = saved_options(kind, path)
+    saved = moved_tree(saved)                 # options saved before the 2026-10-31 move
     given = vars(_parser(kind).parse_args(args))
     out = [] if problem is None else [problem]
     if kind == "eval" and problem is None:
@@ -314,10 +317,10 @@ def check_scene(entry, rec):
     s, v, pv = m["settings"], m["views"], m["provenance"]
     align = entry.get("align") or "none"
     want = dict(scene=(m.get("scene"), name),
-                field=(pv["field"]["path"], _abs(entry["field"])),
-                ply=(pv["ply"]["path"], _abs(entry["ply"])),
-                data=(pv["data"], _abs(entry["data"])),
-                align=((m.get("alignment") or {}).get("path"),
+                field=(moved(pv["field"]["path"]), _abs(entry["field"])),
+                ply=(moved(pv["ply"]["path"]), _abs(entry["ply"])),
+                data=(moved(pv["data"]), _abs(entry["data"])),
+                align=(moved((m.get("alignment") or {}).get("path")),
                        None if align == "none" else _abs(align)),
                 stride=(s["mapping_stride"], entry["stride"]),
                 update_stride=(s["update_stride"], entry["update_stride"]),

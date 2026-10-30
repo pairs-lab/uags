@@ -18,7 +18,7 @@ fig:pipeline). Validation scenes only. Four sub-commands:
                   papers/figs/pipeline_thumbs/; meta.json holds every number used.
 
 Run (from the repo root, environment of the paper):
-  O=/home/thanhnc/gauss_ws/data/uags_results/pipeline
+  O=/home/thanhnc/gauss_ws/src/uags/results/pipeline
   python3 scripts/render_pipeline_thumbs.py select --out $O
   UAGS_GPU_HEADROOM_MIB=1024 UAGS_GPU_POLL_S=5 scripts/gpu_gate.sh 4500 \
       python3 scripts/render_pipeline_thumbs.py replica --out $O
@@ -44,17 +44,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, REPO)
 sys.path.insert(0, HERE)
+from usplat.paths import moved_tree                                  # noqa: E402
 
-DATA = "/home/thanhnc/gauss_ws/data"
-OUT = f"{DATA}/uags_results/pipeline"
+RESULTS = os.path.join(REPO, "results")
+OUT = f"{RESULTS}/pipeline"
 FIGS = os.path.join(REPO, "papers", "figs", "pipeline_thumbs")
-TEXT_CACHE_SRC = f"{DATA}/uags_fields/text_cache_lseg.pt"
+TEXT_CACHE_SRC = f"{RESULTS}/fields/text_cache_lseg.pt"
 TEXT_CACHE = "text_cache_lseg_pipeline.pt"          # our own copy, inside --out
 REPLICA_SCENES = os.path.join(REPO, "configs", "replica_val.json")
 REPLICA_VOCAB = os.path.join(REPO, "configs", "vocab_replica.json")
-REPLICA_BETAS = f"{DATA}/uags_results/tab1/eval_val.json"
-NOR_CONFIG = f"{DATA}/uags_results/nor/tab2_relmax/config_val.json"
-NOR_RECORD = f"{DATA}/uags_results/nor/tab2_relmax/val/002.json"
+REPLICA_BETAS = f"{RESULTS}/tab1/eval_val.json"
+NOR_CONFIG = f"{RESULTS}/nor/tab2_relmax/config_val.json"
+NOR_RECORD = f"{RESULTS}/nor/tab2_relmax/val/002.json"
 NOR_SCENE = "002"
 
 # Selection rules, fixed 2026-10-21 BEFORE any thumbnail was rendered. Validation scenes only.
@@ -135,7 +136,7 @@ def dump_json(obj, path):
 
 
 def nor_entry():
-    cfg = load_json(NOR_CONFIG)
+    cfg = moved_tree(load_json(NOR_CONFIG))     # a record: paths from before the 2026-10-31 move
     return next(s for s in cfg["scenes"] if s["name"] == NOR_SCENE)
 
 

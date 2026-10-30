@@ -1,18 +1,18 @@
 [
  {
   "name": "scene0000_00",
-  "field": "/home/thanhnc/gauss_ws/data/uags_fields/scannet/scene0000_00_lseg.pt",
-  "ply": "/home/thanhnc/gauss_ws/data/uags_maps/scannet/scene0000_00.pt",
-  "data": "/home/thanhnc/gauss_ws/data/scannet/uags_f2/scene0000_00",
+  "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/scannet/scene0000_00_lseg.pt",
+  "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/scannet/scene0000_00.pt",
+  "data": "/home/thanhnc/gauss_ws/src/uags/data/scannet/uags_f2/scene0000_00",
   "dataset": "scannet",
   "stride": 20,
   "offset": 5
  },
  {
   "name": "scene0062_00",
-  "field": "/home/thanhnc/gauss_ws/data/uags_fields/scannet/scene0062_00_lseg.pt",
-  "ply": "/home/thanhnc/gauss_ws/data/uags_maps/scannet/scene0062_00.pt",
-  "data": "/home/thanhnc/gauss_ws/data/scannet/uags_f2/scene0062_00",
+  "field": "/home/thanhnc/gauss_ws/src/uags/results/fields/scannet/scene0062_00_lseg.pt",
+  "ply": "/home/thanhnc/gauss_ws/src/uags/results/maps/scannet/scene0062_00.pt",
+  "data": "/home/thanhnc/gauss_ws/src/uags/data/scannet/uags_f2/scene0062_00",
   "dataset": "scannet",
   "stride": 20,
   "offset": 5

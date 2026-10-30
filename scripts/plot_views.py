@@ -59,7 +59,7 @@ import matplotlib.pyplot as plt                                            # noq
 from matplotlib.lines import Line2D                                        # noqa: E402
 from matplotlib.ticker import MaxNLocator                                  # noqa: E402
 
-RESULTS = "/home/thanhnc/gauss_ws/data/uags_results"
+RESULTS = "/home/thanhnc/gauss_ws/src/uags/results"
 FIGS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "papers", "figs")
 CHANNELS = [("u_epi", r"ours: $u^{\mathrm{epi}}$"), ("u_ale", r"ours: $u^{\mathrm{ale}}$")]
 TARGETS = [("e_red", r"reducible error $e_{\mathrm{red}}$"),

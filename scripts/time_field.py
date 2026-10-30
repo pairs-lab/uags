@@ -29,9 +29,9 @@ field holds in memory, also the all-zero ones the saved state leaves out); the G
 sentence with the numbers is printed and saved in the JSON.
 
     scripts/gpu_gate.sh 9000 python3 scripts/time_field.py \
-        --field /home/thanhnc/gauss_ws/data/uags_fields/office_0_lseg.pt \
-        --fit-maps "/home/thanhnc/gauss_ws/data/uags_maps/*_seq1.pt" \
-        --out /home/thanhnc/gauss_ws/data/uags_results/timing/time_office_0.json
+        --field /home/thanhnc/gauss_ws/src/uags/results/fields/office_0_lseg.pt \
+        --fit-maps "/home/thanhnc/gauss_ws/src/uags/results/maps/*_seq1.pt" \
+        --out /home/thanhnc/gauss_ws/src/uags/results/timing/time_office_0.json
     python3 scripts/time_field.py --latex-from <replica.json> [<rio10.json>]
 
 On the CPU (GPU busy): --device cpu --backend mock renders with eval_seg.py's pinhole mock
@@ -60,6 +60,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 import run_mapping as RM                                                   # noqa: E402
 from usplat import vmf_field                                               # noqa: E402
+from usplat.paths import moved_tree                                         # noqa: E402
 from usplat import baselines as B                                          # noqa: E402
 from usplat.clip_dense import upsample_tokens                              # noqa: E402
 from usplat.datasets import make_dataset, downscale                        # noqa: E402
@@ -200,7 +201,7 @@ def rasterizer_factory(backend, channel_chunk=32):
 
 def context(ckpt, args):
     """What both passes share: the map, the dataset, the keyframes, the PCA and the centre."""
-    cfg = ckpt["config"]
+    cfg = moved_tree(ckpt["config"])
     dev = args.device
     splats = load_gaussians(cfg["ply"], device=dev)
     N = int(splats["means"].shape[0])

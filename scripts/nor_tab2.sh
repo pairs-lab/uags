@@ -48,7 +48,7 @@ FIELD_CONFIG=${FIELD_CONFIG:-}
 ABLATION=${ABLATION:-0}
 [ "$ABLATION" = 0 ] || [ -n "$VARIANT" ] || { echo "ABLATION needs VARIANT"; exit 2; }
 [ -z "$VARIANT" ] || [ -n "$FIELD_CONFIG" ] || { echo "VARIANT needs FIELD_CONFIG"; exit 2; }
-OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/nor/tab2${VARIANT:+_$VARIANT}}
+OUT=${OUT:-/home/thanhnc/gauss_ws/src/uags/results/nor/tab2${VARIANT:+_$VARIANT}}
 STAGE=${STAGE:-val}
 EVAL=${EVAL:-1}
 DRY_RUN=${DRY_RUN:-0}

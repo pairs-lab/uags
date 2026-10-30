@@ -5,7 +5,7 @@ import pytest
 import torch
 from usplat.datasets import ReplicaSemNeRFDataset
 
-ROOT = "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset"
+ROOT = "/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset"
 SEQ = os.path.join(ROOT, "office_0", "Sequence_1")
 
 

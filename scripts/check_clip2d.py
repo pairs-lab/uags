@@ -32,7 +32,7 @@ from usplat.datasets import ReplicaSemNeRFDataset
 from usplat.clip_dense import OpenCLIPDense
 from usplat.feature_pca import StreamingPCA
 
-ROOT = "/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset"
+ROOT = "/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset"
 USGLOC = "/home/thanhnc/gauss_ws/src/usgloc"
 TEMPLATES = {"photo": ("a photo of a {}.",), "room": ("a photo of a {} in a room.",),
              "ensemble": ("a photo of a {}.", "a photo of the {}.", "there is a {} in the scene.",

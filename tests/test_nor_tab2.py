@@ -37,8 +37,8 @@ import pytest
 import torch
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-DATA = pathlib.Path("/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal")
-ALIGN = pathlib.Path("/home/thanhnc/gauss_ws/data/uags_results/nor/align")
+DATA = pathlib.Path("/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal")
+ALIGN = pathlib.Path("/home/thanhnc/gauss_ws/src/uags/results/nor/align")
 
 
 def _load(path, name):
@@ -481,7 +481,7 @@ def test_pipeline_end_to_end(pipe):
     print("PASS pipeline: dry run, val, reuse, smoke refusal, test once, dirty, frozen")
 
 
-SMOKE = pathlib.Path("/home/thanhnc/gauss_ws/data/uags_results/nor/smoke/eval_change_001_smoke.json")
+SMOKE = pathlib.Path("/home/thanhnc/gauss_ws/src/uags/results/nor/smoke/eval_change_001_smoke.json")
 
 
 @pytest.mark.skipif(not SMOKE.is_file(), reason="no real eval_change_nor.py record (stage-2 smoke)")
@@ -503,7 +503,7 @@ def test_real_record_layout(tmp_path):
     cfg = _cfg("val")["scenes"][0]
     e = dict(cfg, ply=m["provenance"]["ply"]["path"], field=m["provenance"]["field"]["path"])
     assert NT.check_scene(e, real) == [                    # the smoke's subsets, nothing else
-        "001: align '/home/thanhnc/gauss_ws/data/uags_results/nor/align/001.json' in the record, "
+        "001: align '/home/thanhnc/gauss_ws/src/uags/results/nor/align/001.json' in the record, "
         "None in the config",
         "001: n_map_keyframes 6 in the record, 65 in the config",
         "001: n_update_keyframes 10 in the record, 55 in the config",

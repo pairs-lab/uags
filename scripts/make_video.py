@@ -38,8 +38,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-DATA = "/home/thanhnc/gauss_ws/data"
-RES = os.path.join(DATA, "uags_results")
+RES = os.path.join(REPO, "results")
 
 W, H, FPS = 1920, 1080, 30
 MARGIN = 40                                   # safe area
@@ -1142,7 +1141,7 @@ def compose(args):
                                       os.path.join(REPO, "papers", "figs", "pipeline_v2.pdf")]}
     info = probe(master)
     sb = dict(total_frames=t, total_s=t / FPS, fps=FPS, size=[W, H], segments=board,
-              numbers=N, inputs_sha256={os.path.relpath(k, DATA): v for k, v in inputs.items()},
+              numbers=N, inputs_sha256={os.path.relpath(k, REPO): v for k, v in inputs.items()},
               script_sha256=sha256(os.path.abspath(__file__)), master=info,
               master_mb=os.path.getsize(master) / 1e6, wall_s=time.time() - t0)
     with open(os.path.join(out, "storyboard.json"), "w") as f:

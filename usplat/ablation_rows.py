@@ -30,6 +30,7 @@ import warnings
 
 import torch
 
+from .paths import moved
 from .rows import FieldRow
 from .vmf_field import DirectionalSemanticField
 
@@ -82,7 +83,7 @@ def row_factory(ckpt, field, device, class_ids=None, field_path=None, variants=N
     for name, over in READOUT.items():
         if want is None or name in want:
             rows += variant_rows(readout_copy(field, **over), name)
-    main = field_path or (ckpt.get("config") or {}).get("out")
+    main = field_path or moved((ckpt.get("config") or {}).get("out"))
     for name in REMAPPED:
         if want is not None and name not in want:
             continue

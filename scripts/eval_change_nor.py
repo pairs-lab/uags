@@ -148,6 +148,7 @@ from eval_seg import _nearest                                               # no
 from time_field import (select_keyframes, field_config, rasterizer_factory,  # noqa: E402
                         load_extractor, check_extractor, evenly)
 from usplat import baselines as B                                           # noqa: E402
+from usplat.paths import moved                                              # noqa: E402
 from usplat.box3d import read_box_corners, points_in_box                    # noqa: E402
 from usplat.change_baselines import ChangeBaselines, common_defined, fuse_rank  # noqa: E402
 from usplat.clip_dense import upsample_tokens                               # noqa: E402
@@ -700,7 +701,7 @@ def load_context(args):
     ckpt = torch.load(args.field, map_location="cpu", weights_only=False)
     check_mapping_only(ckpt, args.field)
     cfg, dev = ckpt["config"], args.device
-    ply, data = args.ply or cfg["ply"], args.data or cfg["data"]
+    ply, data = args.ply or moved(cfg["ply"]), args.data or moved(cfg["data"])
     align = None if args.align == "none" else args.align
     ply_entry = file_entry(ply)
     built_on = ((ckpt.get("inputs") or {}).get("ply") or {}).get("sha256")

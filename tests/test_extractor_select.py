@@ -356,9 +356,9 @@ def test_drivers_end_to_end(tmp_path):
     # stage A/B gates
     r = run("extractor_select.sh", UAGS_LSEG_FLIP="1")
     assert refused(r, "UAGS_LSEG_FLIP is set"), r.stdout + r.stderr
-    r = run("extractor_select.sh", OUT="/home/thanhnc/gauss_ws/data/uags_results/tab1/x")
+    r = run("extractor_select.sh", OUT="/home/thanhnc/gauss_ws/src/uags/results/tab1/x")
     assert refused(r, "never touched"), r.stdout + r.stderr
-    r = run("extractor_select.sh", OUT="/home/thanhnc/gauss_ws/data/uags_fields/x")
+    r = run("extractor_select.sh", OUT="/home/thanhnc/gauss_ws/src/uags/results/fields/x")
     assert refused(r, "OUT inside"), r.stdout + r.stderr
     (repo / pr).write_text((repo / pr).read_text().replace('"registered": "toy"', '"registered": ""'))
     r = run("extractor_select.sh")
@@ -403,7 +403,7 @@ def test_drivers_end_to_end(tmp_path):
     assert r.returncode == 2 and "set DATASET" in r.stdout, r.stdout + r.stderr
     r = run("extractor_tab1.sh", DATASET="toy1", STAGE="val", UAGS_PROXYCLIP_SHORT="448")
     assert refused(r, "UAGS_PROXYCLIP_SHORT is set"), r.stdout + r.stderr
-    r = run("extractor_tab1.sh", DATASET="toy1", STAGE="val", UAGS_RESULTS_ROOT="/home/thanhnc/gauss_ws/data")
+    r = run("extractor_tab1.sh", DATASET="toy1", STAGE="val", UAGS_RESULTS_ROOT="/home/thanhnc/gauss_ws/src/uags/data")
     assert refused(r, "is not under"), r.stdout + r.stderr
     r = run("extractor_tab1.sh", DATASET="toy1", STAGE="test")
     assert refused(r, "no finished stage C validation selection"), r.stdout + r.stderr

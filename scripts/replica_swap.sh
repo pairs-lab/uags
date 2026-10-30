@@ -39,10 +39,10 @@ cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
 export UAGS_GPU_USGLOC_EXTRA_MIB=${UAGS_GPU_USGLOC_EXTRA_MIB:-99999}   # never beside USGLoc
 export UAGS_GPU_POLL_S=${UAGS_GPU_POLL_S:-5}
-ROOT=${ROOT:-/home/thanhnc/gauss_ws/data/replica_semnerf/Replica_Dataset}
-MAPS=${MAPS:-/home/thanhnc/gauss_ws/data/uags_maps}
-SWAP=${SWAP:-/home/thanhnc/gauss_ws/data/uags_swap}
-OUT=${OUT:-/home/thanhnc/gauss_ws/data/uags_results/swap}
+ROOT=${ROOT:-/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset}
+MAPS=${MAPS:-/home/thanhnc/gauss_ws/src/uags/results/maps}
+SWAP=${SWAP:-/home/thanhnc/gauss_ws/src/uags/results/swap}
+OUT=${OUT:-/home/thanhnc/gauss_ws/src/uags/results/swap}
 SPEC=${SPEC:-configs/swap_replica.json}
 STAGE=${STAGE:-val}
 DRY_RUN=${DRY_RUN:-0}

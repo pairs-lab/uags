@@ -17,12 +17,12 @@ cd "$(dirname "$0")/.."
 export PATH=$HOME/venvs/uags/bin:$HOME/.local/cuda-12.8/bin:$PATH
 export CUDA_HOME=$HOME/.local/cuda-12.8 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.
 export UAGS_GPU_HEADROOM_MIB=1024 UAGS_GPU_POLL_S=5
-D=${D:-/home/thanhnc/gauss_ws/data}
-T=${T:-$D/uags_results/nor/tab2_relmax}
-Q=${Q:-$D/uags_results/qual/nor}
-OUT=${OUT:-$D/uags_results/reset_fused}
+D=${D:-/home/thanhnc/gauss_ws/src/uags}
+T=${T:-$D/results/nor/tab2_relmax}
+Q=${Q:-$D/results/qual/nor}
+OUT=${OUT:-$D/results/reset_fused}
 PREREG=configs/reset_fused_prereg.json
-CACHE_SRC=${CACHE_SRC:-$D/uags_results/qual/text_cache_lseg_nor.pt}
+CACHE_SRC=${CACHE_SRC:-$D/results/qual/text_cache_lseg_nor.pt}
 STAGE=${STAGE:?STAGE=val, test or table}
 DRY=${DRY_RUN:-0}
 CODE="scripts/reset_fused_nor.py scripts/reset_fused_select.py scripts/reset_fused.sh usplat/reset_fused.py scripts/dump_nor_qual.py"

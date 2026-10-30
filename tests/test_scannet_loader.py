@@ -384,8 +384,8 @@ def test_vocab_and_scene_configs():
         assert s["data"] == f"{roots['prep']}/{s['name']}"
         assert s["ply"] == f"{roots['maps']}/{s['name']}.pt"
         assert s["field"] == f"{roots['fields']}/{s['name']}_lseg.pt"
-    assert data == "/home/thanhnc/gauss_ws/data/scannet"
-    assert "uags_results/scannet_tab1" in var("OUT")
+    assert data == "/home/thanhnc/gauss_ws/src/uags/data/scannet"
+    assert "/results/scannet_tab1}" in var("OUT")
     print(f"PASS ScanNet configs: 19 classes, {len(v['ignore'])} ignored ids, val {vn}, "
           f"test {len(tn)} scenes")
 
@@ -403,6 +403,19 @@ def script_repo(tmp_path_factory):
     ign = shutil.ignore_patterns("__pycache__", "*.pyc")
     for d in ("scripts", "usplat", "configs"):
         shutil.copytree(REPO / d, repo / d, ignore=ign)
+    # empty map and field folders, in the script and in its scene configs: the dry run then
+    # plans every fit and mapping, whatever the real results/ holds (its ScanNet maps exist)
+    sh = repo / "scripts" / "scannet_tab1.sh"
+    cfgs = [repo / "configs" / f"scannet_{s}.json" for s in ("val", "test")]
+    t, ct = sh.read_text(), [c.read_text() for c in cfgs]
+    for k in ("MAPS", "FIELDS"):
+        line = next(ln for ln in t.splitlines() if ln.startswith(f"{k}="))
+        (repo / k.lower()).mkdir()
+        t = t.replace(line, f"{k}={repo / k.lower()}")
+        ct = [c.replace(line.split("=", 1)[1] + "/", f"{repo / k.lower()}/") for c in ct]
+    sh.write_text(t)
+    for c, x in zip(cfgs, ct):
+        c.write_text(x)
     _git(repo, "init", "-q")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "copy")
@@ -538,7 +551,7 @@ def test_script_dry_run_val(script_repo, tmp_path):
     assert "--dataset scannet" in fit and "--stride 10" in fit and "--max-res 0" in fit
     mp = next(ln for ln in o.splitlines() if "run_mapping.py" in ln)
     assert "--stride 10" in mp and "vocab_scannet.json" in mp
-    assert "--css-eval-data /home/thanhnc/gauss_ws/data/scannet/uags_f2/scene0000_00/eval_s20o5 " \
+    assert "--css-eval-data /home/thanhnc/gauss_ws/src/uags/data/scannet/uags_f2/scene0000_00/eval_s20o5 " \
            "--css-eval-stride 1 " in mp
     ev = next(ln for ln in o.splitlines() if "eval_seg.py" in ln)
     assert "--val-scenes configs/scannet_val.json" in ev and "--with-2d" in ev

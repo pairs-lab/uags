@@ -27,7 +27,7 @@ from usplat.datasets import (NeRFObjectRemovalDataset, make_dataset, downscale,
                              read_colmap_images, read_colmap_cameras, qvec_to_rotmat)
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-SCENE = "/home/thanhnc/gauss_ws/data/nerf_object_removal/nerf-object-removal/001"
+SCENE = "/home/thanhnc/gauss_ws/src/uags/data/nerf_object_removal/nerf-object-removal/001"
 
 
 def _script(name):

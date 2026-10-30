@@ -466,7 +466,7 @@ def test_config_and_script_agree():
         assert f"{flag} {v} " in sh or f"{flag} {v}\n" in sh, flag
     assert "within [0.5x, 2x] of the nominal 1e-3 on >= 5 of the 6" in sh
     assert "scripts/gpu_gate.sh" in sh and "--no-save-field" in sh
-    assert "/home/thanhnc/gauss_ws/data/uags_results/static_fa" in sh
+    assert "/home/thanhnc/gauss_ws/src/uags/results/static_fa" in sh
 
 
 # ---------------------------------------------------------------- shell refusal rules
@@ -534,7 +534,7 @@ def test_shell_refusals(tmp_path):
     r = crit()                                               # the Python step refuses too
     assert r.returncode == 1 and "uncommitted changes" in r.stderr, r.stderr
     assert not (out / "test_criterion.json").exists()
-    (out / "runs" / "static_fa").mkdir(parents=True)
+    (out / "runs" / "static_fa").mkdir(parents=True, exist_ok=True)   # the gate run made it
     (out / "runs" / "static_fa" / "room_0.json").write_text("{}")
     r = _sh(root, out, "val")                                # validation closed
     assert r.returncode == 1 and "validation is closed" in r.stdout, r.stdout

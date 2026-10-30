@@ -44,7 +44,7 @@ STAGE=${STAGE:-val}
 BACKEND=${BACKEND:-gsplat}
 DEVICE=${DEVICE:-cuda}
 DRY_RUN=${DRY_RUN:-0}
-FIELDS_ROOT=/home/thanhnc/gauss_ws/data/uags_fields
+FIELDS_ROOT=/home/thanhnc/gauss_ws/src/uags/results/fields
 TS=$(date +%Y%m%d-%H%M%S)
 case "$STAGE" in
   val)   SPLIT=validation ;;
@@ -65,7 +65,8 @@ done
 # the dataset's settings, from the prereg only
 eval "$(python3 - "$PREREG" "$DATASET" <<'PY'
 import json, shlex, sys
-p = json.load(open(sys.argv[1]))
+from usplat.paths import moved_tree
+p = moved_tree(json.load(open(sys.argv[1])))
 if not str(p.get("pipeline") or "").startswith("scripts/smooth_tab1.sh"):
     sys.exit('echo "refused: the prereg names another pipeline"; exit 1')
 d = (p.get("datasets") or {}).get(sys.argv[2])
@@ -83,7 +84,7 @@ PY
 OUT=${OUT:-$P_OUT}
 EVAL_NEED=${EVAL_NEED:-$P_NEED}
 for d in tab1 tab1_v2 scannet_tab1 tab3 views views_repro; do
-  if [ "$(realpath -m "$OUT")" = "$(realpath -m "/home/thanhnc/gauss_ws/data/uags_results/$d")" ]; then
+  if [ "$(realpath -m "$OUT")" = "$(realpath -m "/home/thanhnc/gauss_ws/src/uags/results/$d")" ]; then
     echo "refused: OUT is the Table I/III result directory $d (never touched)"; exit 1
   fi
 done
@@ -93,9 +94,10 @@ esac
 if [ "$STAGE" = val ]; then SCENES=${SCENES:-$P_VAL}; else SCENES=${SCENES:-$P_TEST}; fi
 python3 - "$PREREG" "$DATASET" "$SCENES" "$SPLIT" <<'PY' || exit 1
 import json, sys
+from usplat.paths import moved_tree
 sys.path.insert(0, "scripts")
 import make_tables as mt
-p = json.load(open(sys.argv[1]))
+p = moved_tree(json.load(open(sys.argv[1])))
 v = dict(p, scenes=p["datasets"][sys.argv[2]]["scenes"])
 print(f"{sys.argv[4]} scenes: {mt.check_scenes(sys.argv[3], sys.argv[4], v)}")
 PY
@@ -114,12 +116,12 @@ echo "[smooth $DATASET $STAGE] $TS git $(git rev-parse --short HEAD) dirty: $(gi
 table_stage() {
   "${SS[@]}" table
   local tabs=() d o
-  for d in $(python3 -c "import json,sys; print(' '.join(json.load(open(sys.argv[1]))['datasets']))" "$PREREG"); do
+  for d in $(python3 -c "import json,sys; from usplat.paths import moved_tree; print(' '.join(moved_tree(json.load(open(sys.argv[1])))['datasets']))" "$PREREG"); do
     if [ "$d" = "$DATASET" ]; then o=$OUT; else
-      o=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['datasets'][sys.argv[2]]['out'])" "$PREREG" "$d"); fi
+      o=$(python3 -c "import json,sys; from usplat.paths import moved_tree; print(moved_tree(json.load(open(sys.argv[1])))['datasets'][sys.argv[2]]['out'])" "$PREREG" "$d"); fi
     if [ -f "$o/table_smooth.json" ]; then tabs+=("$o/table_smooth.json"); fi
   done
-  if [ "${#tabs[@]}" -eq "$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))['datasets']))" "$PREREG")" ]; then
+  if [ "${#tabs[@]}" -eq "$(python3 -c "import json,sys; from usplat.paths import moved_tree; print(len(moved_tree(json.load(open(sys.argv[1])))['datasets']))" "$PREREG")" ]; then
     python3 scripts/smooth_select.py claim --prereg "$PREREG" --tables "${tabs[@]}" --out "$OUT/claim_smooth.json"
   else
     echo "claim (family F3s) waits for the other dataset's table"
@@ -130,6 +132,7 @@ if [ "$STAGE" = table ]; then table_stage; exit 0; fi
 # the existing maps and fields only; the field must have been built on the scene's map
 python3 - "$SCENES" <<'PY' || exit 1
 import json, os, sys
+from usplat.paths import moved
 import torch, yaml
 sc = yaml.safe_load(open(sys.argv[1]))
 bad = []
@@ -138,7 +141,7 @@ for s in sc:
     if miss:
         bad.append(f"{s['name']}: missing " + ", ".join(miss)); continue
     ck = torch.load(s["field"], map_location="cpu", mmap=True, weights_only=False)
-    ply = ((ck.get("inputs") or {}).get("ply") or {}).get("path") or (ck.get("config") or {}).get("ply")
+    ply = moved(((ck.get("inputs") or {}).get("ply") or {}).get("path") or (ck.get("config") or {}).get("ply"))
     if not ply or os.path.realpath(ply) != os.path.realpath(s["ply"]):
         bad.append(f"{s['name']}: the field was built on {ply}, the scenes file names {s['ply']}")
     if not any(e.get("type") in ("Averaging", "NormLift") for e in ck.get("baselines") or []):
@@ -177,7 +180,7 @@ else
   for line in "${BATCHES[@]}"; do
     if grep -qx "batch ${line%% *}" <<< "$todo"; then TODO+=("$line"); fi
   done
-  echo "$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['datasets'][sys.argv[2]]['test_look'])" "$PREREG" "$DATASET")"
+  echo "$(python3 -c "import json,sys; from usplat.paths import moved_tree; print(moved_tree(json.load(open(sys.argv[1])))['datasets'][sys.argv[2]]['test_look'])" "$PREREG" "$DATASET")"
   echo "choices fixed on validation ($SEL); test batches to run: ${#TODO[@]}"
   if [ "$DRY_RUN" != 1 ]; then
     "${SS[@]}" look --ts "$TS" --log "$OUT/eval_test_*.$TS.log"   # from here on: final

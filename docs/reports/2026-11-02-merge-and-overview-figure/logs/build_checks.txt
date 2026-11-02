@@ -1,0 +1,2 @@
+Output written on main.pdf (24 pages, 18576743 bytes).
+LaTeX warnings: 0; undefined: 0; '??': 0; Type 3 fonts: 0; overfull: 0

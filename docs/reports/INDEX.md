@@ -1,14 +1,15 @@
 # Reports: uags
 ## Current state
-Submission set (2026-10-27, [report](2026-10-27-ral-self-contained/README.md)): papers/main.pdf 8 pages, 3.8 MB, self-contained; video zip 41.6 MB (RA-L max 50 MB). RA-L allows no supplementary text or figures: do NOT upload papers/supplementary.pdf.
+Working draft (2026-11-02, [report](2026-11-02-merge-and-overview-figure/README.md)): papers/main.tex is ONE merged paper (24 pages) with the supplement items as marked SUPP-CANDIDATE blocks; the user decides which go to a supplement. The 8-page submission version is commit bb8dc0c. RA-L allows no supplementary text or figures (video zip only, 41.6 MB).
 Claims: the two uncertainty channels separate reducible from irreducible error (Replica 6/6, ScanNet 8/8 test scenes); the reset lowers stale answers 34% -> 21% (N=10).
 Table I is a parity check: ours ties averaging the same features (mIoU Replica 28.0 vs 27.9, ScanNet 68.0 vs 67.7); 5 registered attempts to improve did not hold (paper Secs. IV-C, IV-D).
 Fused baselines rank stale Gaussians above ours + depth (Gaussian AP 81.1, 79.9 vs 75.0).
 Data and results live inside the repo since 2026-10-31 ([report](2026-10-31-move-data-into-uags/README.md)): uags/data (datasets, weights), uags/results (records, fields, maps, video).
-Open: push (user; master 45 commits ahead); video shows 2 figures not in the paper (S2b, S3c): keep or cut. Last updated 2026-10-31.
+Open: user picks the supplement items; push (user); the video's method segment still shows the old Figure 2. Last updated 2026-11-02.
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|
+| 2026-11-02 | [One merged paper and a lighter Figure 2](2026-11-02-merge-and-overview-figure/README.md) | DONE | supplement merged into main.tex (24 pages; 9 marked SUPP-CANDIDATE blocks, Appendices A-D); Figure 2 redrawn: 5 stages, one picture each |
 | 2026-10-31 | [Move data and results inside uags](2026-10-31-move-data-into-uags/README.md) | DONE | gauss_ws/data (105 GB) -> uags/data + uags/results (git-ignored); old paths in records read via usplat/paths.py; CPU tests 423 passed / 1 pre-existing fail |
 | 2026-10-27 | [RA-L rules: paper without supplement](2026-10-27-ral-self-contained/README.md) | DONE | RA-L allows no supplementary text/figures: 10 supplement references removed (still 8 pages); ablation rows explained; video zip 41.6 MB with ReadMe.txt/Summary.txt |
 | 2026-10-27 | [Final paper: 8 pages and supplement](2026-10-27-final-8-pages/README.md) | DONE | 8 pages (3.8 MB) + 16-page supplement; abstract 245 words; neutral video caption (scene 002: both 44/15% and 33/20%); push left to user |

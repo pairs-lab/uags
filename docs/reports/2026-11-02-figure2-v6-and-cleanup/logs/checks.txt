@@ -1,0 +1,6 @@
+# 2026-11-02, after the cleanup (CUDA hidden)
+video numbers parsed: 84
+dry run ok
+25 passed in 52.14s
+
+[exited with code 0]

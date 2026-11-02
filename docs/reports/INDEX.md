@@ -5,11 +5,12 @@ Claims: the two uncertainty channels separate reducible from irreducible error (
 Table I is a parity check: ours ties averaging the same features (mIoU Replica 28.0 vs 27.9, ScanNet 68.0 vs 67.7); 5 registered attempts to improve did not hold (paper Secs. IV-C, IV-D).
 Fused baselines rank stale Gaussians above ours + depth (Gaussian AP 81.1, 79.9 vs 75.0).
 Data and results live inside the repo since 2026-10-31 ([report](2026-10-31-move-data-into-uags/README.md)): uags/data (datasets, weights), uags/results (records, fields, maps, video).
-Figure 2 = papers/figs/pipeline_v4.tex (v2, v3 kept).
+Figure 2 = papers/figs/pipeline_v6.tex (v3 + equations; v2 kept for the video, v3 kept).
 Open: user picks the supplement items; push (user); the video's method segment still shows v2. Last updated 2026-11-02.
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|
+| 2026-11-02 | [Figure 2 v6 and cleanup](2026-11-02-figure2-v6-and-cleanup/README.md) | DONE | Fig. 2 = v3 + 4 equations (page 2); deleted 2.5 GB CLIP cache, merged supplement, old figure versions; third_party checked only |
 | 2026-11-02 | [Figure 2 v4](2026-11-02-figure2-v4/README.md) | DONE | v2's blocks and key equations (8 numbered + threshold) in v3's clean style; replaces v3 in the paper |
 | 2026-11-02 | [One merged paper and a lighter Figure 2](2026-11-02-merge-and-overview-figure/README.md) | DONE | supplement merged into main.tex (24 pages; 9 marked SUPP-CANDIDATE blocks, Appendices A-D); Figure 2 redrawn: 5 stages, one picture each |
 | 2026-10-31 | [Move data and results inside uags](2026-10-31-move-data-into-uags/README.md) | DONE | gauss_ws/data (105 GB) -> uags/data + uags/results (git-ignored); old paths in records read via usplat/paths.py; CPU tests 423 passed / 1 pre-existing fail |

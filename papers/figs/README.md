@@ -1,24 +1,18 @@
-# Manuscript figures (TikZ)
+# Manuscript figures
 
-Each figure is a standalone TikZ document compiled to the PDF that
-`main.tex` includes via `\includegraphics`:
+PDFs that `main.tex` includes (`\includegraphics`), and how each is made:
 
-| Source | PDF | Used in | Width |
-|---|---|---|---|
-| `pipeline_v6.tex` | `pipeline_v6.pdf` | Fig. 2 (`fig:pipeline`, `figure*`) | two-column (`\textwidth`) |
-| `pipeline_v3.tex` | `pipeline_v3.pdf` | earlier Fig. 2 (v6 = v3 + equations) | two-column |
-| `pipeline_v2.tex` | `pipeline_v2.pdf` | the video's method segment (scripts/make_video.py) | two-column |
-| `vmf_sphere.tex` | `vmf_sphere.pdf` | `fig:vmf`, Sec. III-A | single column |
-| `gradient_trick.tex` | `gradient_trick.pdf` | `fig:gradtrick`, Sec. III-B | single column |
-| `uncertainty_plane.tex` | `uncertainty_plane.pdf` | `fig:plane`, Sec. III-C/D | single column |
+| PDF | Figure | Made by |
+|---|---|---|
+| `teaser.pdf` | Fig. 1 (`fig:teaser`) | `scripts/plot_nor_qual.py teaser` (NeRF-Object-Removal dumps) |
+| `pipeline_v6.pdf` | Fig. 2 (`fig:pipeline`) | TikZ `pipeline_v6.tex`, thumbnails in `pipeline_thumbs/` (`scripts/render_pipeline_thumbs.py`) |
+| `uncertainty_plane.pdf` | `fig:plane` | TikZ `uncertainty_plane.tex` |
+| `qual.pdf` | `fig:qual` | `scripts/render_qual.py` |
+| `views.pdf` | `fig:views` | `scripts/plot_views.py` |
+| `qual_compare.pdf`, `supp_compare_all.pdf` | `fig:qual-compare`, `fig:supp-grid` | `scripts/qual_compare.sh` |
+| `qual_change.pdf`, `qual_query.pdf` | `fig:qual-change`, `fig:qual-query` | `scripts/plot_nor_qual.py` |
+| `calibration.pdf` | `fig:calibration` | `scripts/plot_calibration.py` |
 
-Rebuild after editing a source (from `papers/`):
-
-```bash
-tectonic figs/<name>.tex            # or: pdflatex -output-directory figs figs/<name>.tex
-```
-
-On Overleaf either upload the compiled PDFs, or add the `.tex` sources and
-compile them as separate standalone projects. The drawings' natural widths
-match their print widths, so fonts render at the intended ~8 pt.
-
+`pipeline_v2.tex/.pdf` is not in the paper: `scripts/make_video.py` builds the video's method segment from it.
+Build a TikZ figure from `papers/`: `pdflatex -output-directory <dir> figs/<name>.tex`.
+Large raster images inside the PDFs can be re-encoded with `scripts/shrink_figs.py`.

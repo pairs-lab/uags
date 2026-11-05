@@ -1,0 +1,31 @@
+{
+ "name": "Attempt 06: a sequential (CUSUM) change test fires our reset (NeRF-Object-Removal)",
+ "status": "REGISTERED 2026-11-06, written and committed before any real-data run of this attempt; only CPU toy tests (tests/test_cusum_reset.py) have run. scripts/cusum_reset.sh refuses every stage while this file or the attempt's code is untracked or has uncommitted changes, and refuses STAGE=test before a finished, accepted validation selection.",
+ "after": "A later attempt, after Table III (tab:change), the fused baselines and attempts 01-05 (Appendix D) were final. Known before this file: on the test scenes our change test has Gaussian AP 53.4, Rec 56.8% at FA 6.2%; NormLift's drop, which accumulates evidence over the whole update, ranks better (AP 63.8); the N2 stale-answer rate is 34.3% for averaging and 20.7% for ours, and 19.5% vs 4.8% on the eight test scenes whose query is an object class (split made after the results, 2026-11-05). Attempt 03 let fused detectors fire the reset: higher firing AP, more stale answers on test (26.0 vs 20.7%). The test scenes were seen by all of these; this is a further look.",
+ "idea": "Our test fires when the 2-view persistent score c_p (min of the last k = 2 defined c = 1 - cos(R_old, R_new)) exceeds a per-view threshold. A persistent but moderate change, seen over many update views, never reaches it. Page's CUSUM accumulates the excess of c_p over a reference level and fires when the sum is large, the classical sequential change detector.",
+ "code": {
+  "core": "usplat/cusum_reset.py (cusum_null, cusum_decider)",
+  "scene": "scripts/cusum_reset_nor.py (imports scripts/reset_fused_nor.py, scripts/eval_change_nor.py, scripts/dump_nor_qual.py; never edits them)",
+  "selection": "scripts/cusum_reset_select.py (select, check-test, table)",
+  "pipeline": "scripts/cusum_reset.sh STAGE=val|test|table",
+  "frozen": "every file of the Table III evaluation and of attempt 03 is used as is. Their hashes differ from the Table III records only by the path lines of the 2026-10-31 move (usplat/paths.py: scripts/eval_change_nor.py, scripts/time_field.py, usplat/extractors/lseg.py), so hash equality is recorded, not required; the reproduction stop rule below is the equivalence check."
+ },
+ "inputs": "the Table III records (results/nor/tab2_relmax/{val,test}/<scene>.json), the fields, maps and alignments they name (sha256 checked), the N2 dumps (results/qual/nor/<scene>) for the stale-answer cross-check, results/qual/nor/noise/tolerance.json; no re-mapping.",
+ "scenes": {"validation": ["001", "002", "003", "004"], "test": ["005", "006", "007", "008", "009", "010", "011", "013", "014", "015"]},
+ "variants": {"C90": 0.90, "C97": 0.97, "C99": 0.99},
+ "statistic": "per Gaussian, at every view where our persistent score c_p is defined (the field's own test statistic, Table III's 'ours' component): S <- max(0, S + c_p - delta); S starts at 0 at the start of the mapping replay and of the update; after a firing S <- 0. delta of variant Cxx = the xx quantile of the pooled mapping-replay c_p values (finite, covered Gaussian-views).",
+ "threshold": {"quantile": 0.999, "rule": "theta_S = the 0.999 quantile (numpy linear, float64) of S over every tested covered Gaussian-view of the mapping replay (pooled), the rule of every Table III row and of attempt 03; computed per variant and per scene from that scene's own static mapping pass"},
+ "firing": "covered, c_p defined at this view, S > theta_S, and the Gaussian is not currently changed (as attempt 03); our reset (sums restart from this view), depth re-admission and robust set are unchanged (usplat/reset_fused.ExternalResetField). Ranking score for AP: max over the update views of S where tested (as ours' c_max).",
+ "metrics": "per row (ours replayed, C90, C97, C99, and each fused with the depth residual by fuse_rank): Gaussian AP / AUROC, pixel AP / AUROC, FA and Rec (reset at least once during the update, on the static / stale observed Gaussians), realised rates, kept (stale Gaussians in the robust set at the end), N2 stale-answer rate, static relabel; the object-query split (query not in wall, floor, ceiling) is reported next to the all-scene means.",
+ "reproduction": "stop rule (exit 2) per scene, as attempt 03: the Table III reproduction of dump_nor_qual.reproduction (keyframes, per-frame counts, every AP / AUROC within the tolerance, ours' FA / Rec within 0.5 points) and ours' N2 stale-answer rate within 0.5 points of the scene's dump.",
+ "selection": {
+  "data": "the 4 validation scenes, all of them (as attempt 03)",
+  "eligible": "mean FA <= 2 x ours' mean FA (same replays)",
+  "choose": "the eligible variant with the lowest mean N2 stale-answer rate; a tie within 0.1 point goes to the higher mean firing Gaussian AP",
+  "accept": "the chosen variant runs on the test scenes only if its mean stale-answer rate is at least 2.0 points below ours' on validation; otherwise the attempt stops here (negative, no test run)"
+ },
+ "test_once": "the accepted variant (and ours, replayed) runs once on the 10 test scenes; a finished test scene is never redone.",
+ "adopt": "the variant replaces our change test in the paper only if on the test scenes: its mean stale-answer rate is at least 2.0 points below ours', it is higher than ours in at most 2 of the 10 scenes, and its mean FA is at most 2 x ours'. Otherwise the method stays and the attempt is reported as negative.",
+ "report_all": "every variant's validation rows and the test rows are reported, whatever the outcome, in Appendix D (registered later attempts) and in docs/reports/2026-11-06-stale-split-and-cusum.",
+ "gpu": "scripts/gpu_gate.sh 6500 MiB, headroom 1 GiB, poll 5 s, as attempt 03; never beside a USGLoc job that needs the card (UAGS_GPU_USGLOC_EXTRA_MIB default)."
+}

@@ -648,13 +648,13 @@ def seg_compare(figs, N):
     both.paste(low, (0, head_end))
     halves = [top, both]
     per = seconds(4)
-    qc = scene_miou(os.path.join(RES, "scannet_tab1", "eval_test.json"), "scene0140_00",
+    qc = scene_miou(os.path.join(RES, "scannet_tab1", "eval_test.json"), "scene0070_00",
                     dict(ours="ours_P2", f3dgs="f3dgs", d2="2d_features", avg="averaging"))
-    cap = ("Every method on one Replica and one ScanNet test frame, chosen by rules fixed before "
-           f"rendering. ScanNet frame, this scene: ours ({qc['ours']} mIoU) is below Feature 3DGS "
-           f"({qc['f3dgs']}), the 2D features ({qc['d2']}) and averaging ({qc['avg']}).")
+    cap = ("Every method on our best Replica and ScanNet test scenes (largest margin of ours). "
+           f"ScanNet frame, this scene: ours ({qc['ours']} mIoU) is above averaging ({qc['avg']}), "
+           f"Feature 3DGS ({qc['f3dgs']}) and the 2D features ({qc['d2']}).")
 
-    cap1 = ("Every method on one Replica test frame (scene and frame chosen by rules fixed before "
+    cap1 = ("Every method on our best Replica test scene (the frame chosen by a rule fixed before "
             "rendering): labels, errors and each method's own uncertainty.")
 
     def frame(i):
@@ -664,7 +664,7 @@ def seg_compare(figs, N):
         return caption(img, cap1 if i < per else cap)
     return Seg("S3c", "compare", 2 * per, frame, [cap1, cap],
                ["papers/figs/qual_compare.pdf",
-                "scannet_tab1/eval_test.json scene0140_00 rows (per-scene mIoU)"],
+                "scannet_tab1/eval_test.json scene0070_00 rows (per-scene mIoU)"],
                local=qc.values())
 
 
@@ -1182,7 +1182,7 @@ DESCRIBE = dict(
     plane="Epistemic vs aleatoric uncertainty: little evidence and conflicting evidence",
     static_path="Replica test scene: labels, both uncertainties and errors along a held-out path",
     views="Does each uncertainty rank its own error (the paper's views figure)",
-    compare="Every method on one Replica and one ScanNet test frame",
+    compare="Every method on our best Replica and ScanNet test scenes",
     table1="Segmentation and calibration numbers (Table I)",
     nor_setup="Real object removal: setup",
     nor_002="Object removal timeline, validation scene 002 (query 'chair')",

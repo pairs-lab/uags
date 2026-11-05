@@ -739,6 +739,120 @@ def teaser_figure(dump_dir, record, out):
                 curves=cur, outputs=paths)
 
 
+def _object_outline(gt, close_iter=6):
+    """One smooth region for the removed object: gt closed, holes filled, largest component
+    (the pixel mask is fragmented; this is only for drawing its outline)."""
+    from scipy import ndimage
+    m = ndimage.binary_fill_holes(ndimage.binary_closing(gt, iterations=close_iter))
+    lab, n = ndimage.label(m)
+    if n == 0:
+        return m
+    sizes = ndimage.sum(m, lab, range(1, n + 1))
+    return lab == (1 + int(np.argmax(sizes)))
+
+
+def teaser_figure_b(dump_dir, record, out):
+    """Fig. 1, layout B (2026-11-02): one row in two groups, after mapping (the map with
+    p(query), u_epi, u_ale) and after the removal (camera, p(query) of averaging and of ours
+    with the Gaussians our test reset), then the curves of layout A. Same dump and numbers as
+    layout A; fewer, larger-titled panels and one outline of the object."""
+    RQ = _rq()
+    import matplotlib
+    import matplotlib.colors as mcolors
+    meta, fi, z = load_dump(dump_dir)
+    k = int(meta["frames"][str(fi)]["quarter_turns"])
+    rec = body(record)
+    cur = json.load(open(os.path.join(dump_dir, "curves.json")))
+    cov = z["full_covered"].astype(bool)
+    R = lambda a: rot(a, k)
+    q = meta["query"]["name"]
+    photo, maprgb = z["full_photo"], np.clip(z["full_map_rgb"].astype(float), 0, 1)
+    g_map, g_photo = _grey(maprgb), _grey(photo)
+    gt = cov & (np.nan_to_num(z["full_share/stale"].astype(float)) >= 0.5)
+    ue0, ua0 = z["full_share/u_epi_before"].astype(float), z["full_share/u_ale_before"].astype(float)
+    ok = lambda a: a[cov & np.isfinite(a)]
+    epi_max = RQ.nice_up(float(np.quantile(ok(ue0), 0.99)))
+    ale_max = RQ.nice_up(float(np.quantile(ok(ua0), 0.99))) if ok(ua0).size else 1.0
+    qi = int(meta["query"]["index"])
+    top = {s: (z[f"full_pred/{s}"] == qi).astype(float) for s in ("before", "ours", "avg_after")}
+    flag = z["full_share/flag_ours"].astype(float)
+    pink = OKABE["pink"]
+    panels = {                                     # pink: top class is the query
+        "a": R(overlay(g_map, top["before"], pink, cov)),
+        "b": R(RQ.u_image(ue0, cov, epi_max)),
+        "c": R(RQ.u_image(ua0, cov, ale_max)),
+        "d": R(photo),
+        "e": R(overlay(g_photo, top["avg_after"], pink, cov)),
+        "f": R(overlay(overlay(g_photo, flag, RESET, cov, strength=0.6), top["ours"], pink, cov))}
+    obj = R(_object_outline(gt).astype(float))
+    titles = {"a": "(a) Map", "b": "(b) $u^{\\mathrm{epi}}$: evidence",
+              "c": "(c) $u^{\\mathrm{ale}}$: agreement", "d": "(d) Camera",
+              "e": "(e) Averaging", "f": "(f) Ours"}
+    frame_col = {"e": OKABE["vermillion"], "a": OKABE["blue"], "b": OKABE["blue"],
+                 "c": OKABE["blue"], "f": OKABE["blue"]}
+    W, left, gp, ggap = 7.16, 0.04, 0.035, 0.14       # group gap between (c) and (d)
+    xk_gap, wk = 0.36, 1.50                            # the curves: label room and width
+    pw = (W - left - 4 * gp - ggap - xk_gap - wk - 0.06) / 6
+    ph = pw * panels["a"].shape[0] / panels["a"].shape[1]
+    head, title_h, strip = 0.14, 0.15, 0.30
+    H = strip + ph + title_h + head
+    xs_p = [left + c * (pw + gp) + (ggap - gp if c >= 3 else 0) for c in range(6)]
+    with matplotlib.rc_context(RQ.RC):
+        from matplotlib.figure import Figure
+        fig = Figure(figsize=(W, H))
+        box = lambda x, y, bw, bh: fig.add_axes((x / W, y / H, bw / W, bh / H))
+        y0 = strip
+        for c, key in enumerate("abcdef"):
+            ax = box(xs_p[c], y0, pw, ph)
+            ax.imshow(panels[key], interpolation="nearest")
+            if key in "def":
+                outline(ax, obj, dashed=False, lw=0.6)
+            ax.set_title(titles[key], fontsize=6.5, pad=1.5)
+            _frame(ax, frame_col.get(key))
+        # group headers
+        for (c0, c1), txt in (((0, 2), "After mapping"),
+                              ((3, 5), f"After the {q} is removed ({len(rec['views']['update'])} update views)")):
+            xm = (xs_p[c0] + xs_p[c1] + pw) / 2
+            fig.text(xm / W, (H - 0.07) / H, txt, ha="center", va="center", fontsize=7,
+                     fontweight="bold")
+            fig.add_artist(matplotlib.lines.Line2D(
+                [(xs_p[c0] + 0.02) / W, (xs_p[c1] + pw - 0.02) / W], [(H - 0.135) / H] * 2,
+                color="black", linewidth=0.4))
+        # colour keys under the panels
+        yb = 0.10
+        _cbar(fig, box, xs_p[1] + 0.06, yb, pw - 0.12, 0, epi_max, None)
+        _cbar(fig, box, xs_p[2] + 0.06, yb, pw - 0.12, 0, ale_max, None)
+        _legend_patches(box(xs_p[3] + 0.04, 0.0, 3 * pw, strip - 0.04),
+                        [("removed object", "white"), (f"top class '{q}'", pink),
+                         ("reset by our test", RESET)], ncol=3, loc="center left", fs=5.5)
+        # (g) curves
+        xk = W - wk - 0.06
+        ax = box(xk, y0, wk, ph)
+        xs = np.arange(len(cur["ours"]["stale_is_query"]))
+        for name, col, lab in (("averaging", OKABE["vermillion"], "Averaging"),
+                               ("ours", OKABE["blue"], "Ours")):
+            ax.plot(xs, 100 * np.array(cur[name]["stale_is_query"]), color=col, lw=1.1,
+                    label=f"{lab}, object")
+            ax.plot(xs, 100 * np.array(cur[name]["static_changed"]), color=col, lw=0.8,
+                    ls="--", label=f"{lab}, static")
+        ax.set_xlim(0, xs[-1])
+        ax.set_ylim(0, 100)
+        ax.set_xlabel("update keyframes", fontsize=6, labelpad=1)
+        ax.set_ylabel("% of Gaussians", fontsize=6, labelpad=1)
+        ax.tick_params(labelsize=5.5, length=1.5, width=0.3, pad=1.0)
+        for s in ax.spines.values():
+            s.set_linewidth(0.4)
+        ax.set_title("(g) Top class during the update", fontsize=6.5, pad=1.5)
+        ax.legend(fontsize=5.0, frameon=False, loc="center left", bbox_to_anchor=(0.0, 0.40),
+                  handlelength=1.5, borderaxespad=0.2, labelspacing=0.2)
+    paths = RQ.save(fig, out)
+    op = rec["operating_point"]["ours"]
+    return dict(scene=meta["scene"], frame=fi, quarter_turns=k, query=q, layout="B",
+                epi_max=epi_max, ale_max=ale_max,
+                published=dict(rec=op["rec"], fa=op["fa"], n_update=len(rec["views"]["update"])),
+                outputs=paths)
+
+
 # ----------------------------------------------------------------------------- captions
 def _f(x):
     return f"{x:.1f}"
@@ -877,6 +991,8 @@ def build_parser():
                        help="figure width [in]")
     p = sub.add_parser("teaser")
     p.add_argument("--dump", required=True, help="the validation scene's dump folder")
+    p.add_argument("--layout", choices=["A", "B"], default="A",
+                   help="A: two rows of 5 panels (2026-10-21); B: one row of 6 panels (2026-11-02)")
     p.add_argument("--record", required=True, help="its Table III record")
     p.add_argument("--out", required=True)
     p.add_argument("--caption", default="")
@@ -937,8 +1053,12 @@ def main(argv=None):
         return rep
     if args.cmd in ("change", "query", "grid", "teaser"):
         if args.cmd == "teaser":
-            res = teaser_figure(args.dump, args.record, args.out)
-            cap = teaser_caption(res)
+            if args.layout == "B":
+                res = teaser_figure_b(args.dump, args.record, args.out)
+                cap = ""                           # layout B: the caption is written in main.tex
+            else:
+                res = teaser_figure(args.dump, args.record, args.out)
+                cap = teaser_caption(res)
         else:
             recs = {s: os.path.join(args.records, sp, f"{s}.json")
                     for sp, ss in (("val", VAL), ("test", TEST)) for s in ss}

@@ -78,6 +78,7 @@ from usplat.rows import TensorRow                                          # noq
 from usplat.seg_eval import (evaluate_view, SegAccumulator, confusion_iou,  # noqa: E402
                              ranking_signals)
 from usplat.evaluation import sparsification_curve                        # noqa: E402
+from usplat.paths import moved                                              # noqa: E402
 
 # colours: Okabe-Ito vermillion for wrong; class colours from render_qual.scene_palette;
 # viridis ranks (RQ.U_CMAP), RQ.UNDEF grey undefined, black not covered / not scored
@@ -470,9 +471,10 @@ def published(block):
     """{column: mIoU}, {column: own-channel AUSE} of the block's scene, read from its table
     (whose sha256 must equal the one recorded at render time)."""
     m = block["meta"]
-    if sha256(m["table"]) != m["table_sha256"]:
+    table = moved(m["table"])                    # blocks rendered before the 2026-10-31 move
+    if sha256(table) != m["table_sha256"]:
         raise SystemExit(f"{m['table']} changed since the block was rendered")
-    sc = table_body(m["table"])["scenes"][m["scene"]]["rows"]
+    sc = table_body(table)["scenes"][m["scene"]]["rows"]
     miou = {c: sc[r]["all"]["miou"] for c, r in m["table_rows"].items()}
     ause = {}
     for c, r in m["columns"].items():
@@ -695,10 +697,12 @@ def caption(blocks, info, supp=False):
     where = ", ".join(parts[:-1]) + " and " + parts[-1] if len(parts) > 1 else parts[0]
     lam = sorted({(b["meta"]["dataset_label"], b["meta"]["legs"]) for b in blocks})
     lam_txt = ", ".join(f"{l[len('legs_l'):]} ({d})" for d, l in lam)
-    sel = ("Each scene is the test scene with the lower-median per-scene mIoU of ours P2 in "
-           "Table~\\ref{tab:replica}, and each frame is the evaluation frame with the most "
-           "ground-truth classes that cover at least 0.5\\% of its labeled pixels; both rules "
-           "read only the published table and the labels and were fixed before rendering.")
+    # main figure (user, 2026-11-02: "choose our best case"): until then the lower-median scene
+    sel = ("Each scene is our best test scene of its dataset, a favorable case: the largest "
+           "per-scene mIoU margin of ours P2 over the best other row of "
+           "Table~\\ref{tab:replica}. Each frame is the evaluation frame with the most "
+           "ground-truth classes that cover at least 0.5\\% of its labeled pixels, a rule on "
+           "the labels fixed before rendering.")
     if supp:
         sel = ("Every test scene, at the evaluation frame with the most ground-truth classes "
                "that cover at least 0.5\\% of its labeled pixels (a rule on the labels only, "

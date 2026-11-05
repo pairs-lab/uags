@@ -87,9 +87,12 @@ case "${1:?step}" in
     for sf in scene0070_00:46 scene0097_00:2 scene0200_00:36 scene0347_00:0 scene0400_00:0 scene0590_00:104 scene0645_00:156; do
       render test scannet_test ${sf%%:*} ${sf##*:} $T "TEST render, supplementary"; done ;;
   figures)
+    # main figure: our best test scene per dataset, the largest per-scene mIoU margin of ours P2 over
+    # the best other Table I row (user, 2026-11-02): office_4 +0.50, scene0070_00 +2.70 (was room_1,
+    # scene0140_00: the lower-median scenes)
     t=$C/test
     python3 scripts/qual_compare.py --stage figure --vocab configs/vocab_replica.json \
-      --blocks $t/room_1_f66.pt,$t/scene0140_00_f57.pt --out papers/figs/qual_compare.pdf \
+      --blocks $t/office_4_f29.pt,$t/scene0070_00_f46.pt --out papers/figs/qual_compare.pdf \
       --meta $C/qual_compare_figure.json 2>&1 | tee $C/logs/figure_main.log
     all=$t/room_0_f18.pt,$t/room_1_f66.pt,$t/office_1_f25.pt,$t/office_2_f75.pt,$t/office_3_f15.pt,$t/office_4_f29.pt,$t/scene0070_00_f46.pt,$t/scene0097_00_f2.pt,$t/scene0140_00_f57.pt,$t/scene0200_00_f36.pt,$t/scene0347_00_f0.pt,$t/scene0400_00_f0.pt,$t/scene0590_00_f104.pt,$t/scene0645_00_f156.pt
     python3 scripts/qual_compare.py --stage figure --vocab configs/vocab_replica.json \

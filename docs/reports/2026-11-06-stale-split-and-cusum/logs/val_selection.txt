@@ -1,0 +1,10 @@
+$ python3 scripts/cusum_reset_select.py select --prereg configs/cusum_reset_prereg.json --dir results/cusum_reset/val --out results/cusum_reset/selection.json   (git 5f87c81, 2026-11-06 01:07)
+ours: stale-answer 0.2477 FA 0.0578
+ C90: stale-answer 0.2543 FA 0.0276 G AP 0.6578 eligible
+ C97: stale-answer 0.2542 FA 0.0237 G AP 0.5816 eligible
+ C99: stale-answer 0.2576 FA 0.0225 G AP 0.5129 eligible
+chosen: C90; accepted for the test: False (needs <= ours - 0.02); wrote /home/thanhnc/gauss_ws/src/uags/results/cusum_reset/selection.json
+
+$ python3 scripts/cusum_reset_select.py check-test --prereg configs/cusum_reset_prereg.json --selection results/cusum_reset/selection.json --dir results/cusum_reset/val   (2026-11-06 01:09)
+test refused: validation did not accept a variant: the attempt stops before the test
+(exit 1)

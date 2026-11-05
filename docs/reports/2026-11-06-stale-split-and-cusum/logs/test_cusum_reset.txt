@@ -1,0 +1,4 @@
+2026-11-06 00:13:21 CUDA_VISIBLE_DEVICES= python -m pytest tests/test_cusum_reset.py -x -q -p no:cacheprovider
+......                                                                   [100%]
+6 passed in 174.31s (0:02:54)
+2026-11-06 00:16:17

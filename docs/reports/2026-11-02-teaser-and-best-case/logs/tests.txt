@@ -1,0 +1,6 @@
+# 2026-11-05: pytest -q tests/test_qual_compare.py tests/test_video.py tests/test_plot_nor_qual.py (CUDA hidden)
+...................                                                      [100%]
+19 passed in 132.36s (0:02:12)
+
+[exited with code 0]
+# 2026-11-02: tests/test_plot_nor_qual.py test_video.py test_make_tables_tab2/tab3: 29 passed in 505 s

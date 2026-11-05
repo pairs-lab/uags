@@ -1,0 +1,25 @@
+{
+ "scene": "002",
+ "frame": 373,
+ "quarter_turns": 1,
+ "query": "chair",
+ "layout": "B",
+ "epi_max": 0.86,
+ "ale_max": 0.065,
+ "published": {
+  "rec": 0.5363576984739623,
+  "fa": 0.14003565178066246,
+  "n_update": 48
+ },
+ "outputs": [
+  "/tmp/claude-1000/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/teaser/teaser_b.pdf",
+  "/tmp/claude-1000/-home-thanhnc-gauss-ws-src/3b1845f5-8d47-44b8-8bac-e73827ef266b/scratchpad/teaser/teaser_b.png"
+ ],
+ "caption": "",
+ "pdf_check": {
+  "fonts": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCPYDRR+STIXGeneral-Regular           CID TrueType      Identity-H       yes yes yes     23  0\nBURTDQ+STIXGeneral-Italic            CID TrueType      Identity-H       yes yes yes     30  0\nTNCEGV+NimbusRoman-Bold              CID TrueType      Identity-H       yes yes yes     37  0\nCHKQYX+NimbusRoman-Regular           CID TrueType      Identity-H       yes yes yes     44  0\n",
+  "info": "Creator:        Matplotlib v3.11.2, https://matplotlib.org\nProducer:       Matplotlib pdf backend v3.11.2\nCreationDate:   Mon Nov  2 17:54:14 2026 JST\nTagged:         no\nUserProperties: no\nSuspects:       no\nForm:           none\nJavaScript:     no\nPages:          1\nEncrypted:      no\nPage size:      515.52 x 121.2 pts\nPage rot:       0\nFile size:      2066968 bytes\nOptimized:      no\nPDF version:    1.4\n",
+  "ok": true,
+  "problems": []
+ }
+}

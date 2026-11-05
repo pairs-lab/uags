@@ -1,0 +1,20 @@
+# per-scene mIoU (%) of the Table I test records; margin = ours_P2 - best other open-vocabulary map row
+# sources: docs/reports/2026-09-29-replica-tab1/logs/eval_test_224fe1e.json, results/scannet_tab1/eval_test.json
+== Replica
+room_0         ours  26.9 | 2D  27.7 avg  27.0 f3dgs  27.8 legs  24.7 | margin -0.88 (vs f3dgs)
+room_1         ours  26.8 | 2D  23.4 avg  26.7 f3dgs  26.4 legs  21.0 | margin +0.12 (vs avg)
+office_1       ours  25.0 | 2D  18.9 avg  25.3 f3dgs  25.4 legs  23.1 | margin -0.41 (vs f3dgs)
+office_2       ours  29.4 | 2D  30.5 avg  29.5 f3dgs  29.5 legs  25.8 | margin -1.13 (vs 2D)
+office_3       ours  24.4 | 2D  23.9 avg  24.3 f3dgs  24.6 legs  21.7 | margin -0.28 (vs f3dgs)
+office_4       ours  35.2 | 2D  33.6 avg  34.7 f3dgs  33.4 legs  27.6 | margin +0.50 (vs avg)
+best case: office_4 (+0.50)
+== ScanNet
+scene0070_00   ours  62.0 | 2D  54.4 avg  59.3 f3dgs  55.6 legs  53.6 | margin +2.70 (vs avg)
+scene0097_00   ours  68.6 | 2D  67.9 avg  68.6 f3dgs  68.0 legs  66.9 | margin +0.00 (vs avg)
+scene0140_00   ours  68.5 | 2D  69.3 avg  69.1 f3dgs  69.6 legs  67.3 | margin -1.03 (vs f3dgs)
+scene0200_00   ours  73.5 | 2D  58.2 avg  72.4 f3dgs  63.0 legs  58.2 | margin +1.11 (vs avg)
+scene0347_00   ours  76.3 | 2D  69.3 avg  76.1 f3dgs  72.5 legs  69.2 | margin +0.26 (vs avg)
+scene0400_00   ours  86.2 | 2D  80.6 avg  86.2 f3dgs  84.0 legs  79.5 | margin +0.00 (vs avg)
+scene0590_00   ours  58.3 | 2D  54.8 avg  58.8 f3dgs  58.0 legs  56.2 | margin -0.52 (vs avg)
+scene0645_00   ours  50.6 | 2D  45.3 avg  51.1 f3dgs  49.0 legs  47.2 | margin -0.55 (vs avg)
+best case: scene0070_00 (+2.70)

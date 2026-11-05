@@ -1,0 +1,82 @@
+{
+ "blocks": [
+  "office_4_f29.pt",
+  "scene0070_00_f46.pt"
+ ],
+ "block_sha256": [
+  "cbc4c01cfc051182839e195d9737cc452a909e19579d835775d099be175cd3c6",
+  "f5f6c3935e11c4d5eb2d29ecb75c6b1b72ca2d5ae5cff7662a828a7bbe34afa5"
+ ],
+ "info": [
+  {
+   "scene": "office_4",
+   "frame": 29,
+   "legend": [
+    "wall",
+    "ceiling",
+    "floor",
+    "table",
+    "chair",
+    "window",
+    "bench",
+    "tv-screen",
+    "door",
+    "lamp",
+    "bin",
+    "vent"
+   ],
+   "miou": {
+    "2d_features": 0.3362508989151575,
+    "f3dgs": 0.3336247997433715,
+    "normlift": 0.34730046274290416,
+    "legs": 0.27571358437769405,
+    "ours_P2": 0.3522780813276829
+   },
+   "ause": {
+    "normlift": 0.045681685045336616,
+    "legs": 0.1787634594144022,
+    "ours_P2": 0.049139454094589884
+   },
+   "legend_left_out": {
+    "camera": 29,
+    "panel": 92
+   }
+  },
+  {
+   "scene": "scene0070_00",
+   "frame": 46,
+   "legend": [
+    "curtain",
+    "bed",
+    "wall",
+    "table",
+    "floor",
+    "chair",
+    "cabinet",
+    "picture",
+    "window"
+   ],
+   "miou": {
+    "2d_features": 0.5438643407448162,
+    "f3dgs": 0.5564269102916829,
+    "normlift": 0.5930081171708734,
+    "legs": 0.5355693962031229,
+    "ours_P2": 0.6200094570290052
+   },
+   "ause": {
+    "normlift": 0.06046316337772284,
+    "legs": 0.1020382438604965,
+    "ours_P2": 0.05174513968849959
+   },
+   "legend_left_out": {}
+  }
+ ],
+ "caption": "Segmentation and own uncertainty of every method on Replica office\\_4 (frame 29) and ScanNet scene0070\\_00 (frame 46). Each scene is our best test scene of its dataset, a favorable case: the largest per-scene mIoU margin of ours P2 over the best other row of Table~\\ref{tab:replica}. Each frame is the evaluation frame with the most ground-truth classes that cover at least 0.5\\% of its labeled pixels, a rule on the labels fixed before rendering. Row 1: the 3DGS render and the labels (black: no decision); row 2: the ground truth and the errors (vermillion: wrong; black: not scored); row 3: each method's own uncertainty, NormLift's $1-C_{\\mathrm{inter}}$, the learned $u$ of LEGaussians and our $u^{\\mathrm{ale}}$, as its rank among the covered labeled pixels with a defined value in all evaluation frames of the scene (grey: undefined; black: not covered). The 2D features and Feature 3DGS have no own uncertainty (-- in Table~\\ref{tab:replica}); we show no P2 confidence. Numbers are per-scene values over all evaluation frames, read from Table~\\ref{tab:replica}: mIoU (row 1) and the AUSE of the own uncertainty (row 3), in \\%. LEGaussians $\\lambda_u$ = 4 (Replica), 1 (ScanNet), chosen on validation. On office\\_4, ours has the highest mIoU (35.2). On office\\_4, NormLift's $1-C_{\\mathrm{inter}}$ ranks the errors slightly better than $u^{\\mathrm{ale}}$ (AUSE 4.6 vs 4.9). On scene0070\\_00, ours has the highest mIoU (62.0). On scene0070\\_00, $u^{\\mathrm{ale}}$ has the lowest AUSE of the own uncertainties (5.2 vs 6.0, 10.2).",
+ "outputs": [
+  "qual_compare.pdf",
+  "qual_compare.png",
+  "qual_compare.txt"
+ ],
+ "script_sha256": "c826e78d0f6b004663252888438d5929ecd43517326ae3bd049587ef13e4b97a",
+ "git_head": "cf78194"
+}

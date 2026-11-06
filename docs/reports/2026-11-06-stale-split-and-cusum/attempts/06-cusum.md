@@ -50,3 +50,7 @@ Bad (registered rule: not 2.0 points below ours).
   Gaussian-views for C90), so some of them never pass it.
 - The decision rests on 2 of 4 validation scenes (001 saturated, 003 at 0). Registered as is; not changed after.
 - Untested next idea: fire when either test fires (ours OR CUSUM). Needs a new registration; not run.
+- Correction 2026-11-06 (after the run): the 2.0-point acceptance margin could not be met on these validation
+  scenes. Ours is at 96.3 / 2.0 / 0.0 / 0.8% (001 at its floor: every row answers 'wall' there), so no firing rule
+  can lower the mean by more than about 0.7 point. The margin was unreachable by design (a planning error). The
+  verdict stays NEGATIVE; the headroom is in the ranking (attempt 07, [report](../../2026-11-06-whole-update-score/README.md)).

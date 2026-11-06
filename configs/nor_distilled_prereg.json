@@ -10,18 +10,50 @@
  "training": {
   "script": "scripts/distill_features.py (3ccb672: a nor field trains on its mapping part only)",
   "main_fields": "results/fields/nor_<scene>_lseg_relmax.pt (Table III's mapping-only fields; same mapping keyframes, LSeg tokens and PCA basis)",
-  "settings": {"iters": 30000, "min_iters": 5000, "tol": 0.01, "lr": 0.001, "alpha_min": 0.5, "codes": 128, "seed": 0, "channel_chunk": 32},
+  "settings": {
+   "iters": 30000,
+   "min_iters": 5000,
+   "tol": 0.01,
+   "lr": 0.001,
+   "alpha_min": 0.5,
+   "codes": 128,
+   "seed": 0,
+   "channel_chunk": 32
+  },
   "settings_source": "scripts/distill_features.py defaults, as Table I (Adam 1e-3, at most 30k iterations)",
   "outputs": "results/fields/nor_<scene>_lseg_relmax_f3dgs.pt, ..._legs_l<lambda>.pt"
  },
  "evaluation": {
   "script": "scripts/eval_change_nor_distilled.py",
-  "arguments": "--field results/fields/nor_<scene>_lseg_relmax.pt --align none --update-stride 1 --tau-cov 0.5 (as the Table III records results/nor/tab2_relmax/<split>/<scene>.json; change_quantile 0.999, k = the field's, undef_frac 0.5, inflate 0.02, near 0.02, backend gsplat)",
+  "arguments": "--field results/fields/nor_<scene>_lseg_relmax.pt with the scene's Table III record's own options (results/nor/tab2_relmax/<split>/<scene>.json config: --align none, --update-stride 1, 2 or 3 per scene, --tau-cov 0.5; change_quantile 0.999, k = the field's, undef_frac 0.5, inflate 0.02, near 0.02, backend gsplat)",
   "outputs": "results/nor/distilled/<split>/<scene>.json"
  },
- "splits": {"val": ["001", "002", "003", "004"], "test": ["005", "006", "007", "008", "009", "010", "011", "013", "014", "015"]},
+ "splits": {
+  "val": [
+   "001",
+   "002",
+   "003",
+   "004"
+  ],
+  "test": [
+   "005",
+   "006",
+   "007",
+   "008",
+   "009",
+   "010",
+   "011",
+   "013",
+   "014",
+   "015"
+  ]
+ },
  "selection": {
-  "lambda_u_grid": [1.0, 2.0, 4.0],
+  "lambda_u_grid": [
+   1.0,
+   2.0,
+   4.0
+  ],
   "rule": "the lambda_u whose row legs_l<lambda>_feat has the highest mean Gaussian-level AP over the 4 validation scenes; ties -> the smaller lambda_u (scripts/nor_distilled_table.py select)",
   "f3dgs": "no free parameter",
   "note": "Table I chose LEGaussians' lambda_u on Replica / ScanNet validation by the AUSE of its own u; this table selects it on the object-removal validation scenes by its change ranking, since the row ranks change"
@@ -33,5 +65,12 @@
  },
  "aggregation": "scripts/nor_distilled_table.py merge: mean and population std over the scenes (usplat.seg_eval.scene_stats), cells in % as scripts/make_tables.py; labels 'Feature 3DGS, feature residual' and 'LEGaussians, feature residual'",
  "driver": "scripts/nor_distilled.sh",
- "budget": "about 10 GPU hours (36 trainings and 14 evaluations), through scripts/gpu_gate.sh"
+ "budget": "about 10 GPU hours (36 trainings and 14 evaluations), through scripts/gpu_gate.sh",
+ "corrections": [
+  {
+   "date": "2026-11-07 02:10 JST",
+   "before": "any evaluation of these rows (only the reproduction run of eval_change_nor.py on val 001 and 2 minutes of one training had run)",
+   "change": "the evaluation took --update-stride 1 for every scene; the Table III records use 1, 2 or 3 per scene (their mapping stride). The driver now reads --align, --update-stride and --tau-cov from each scene's record. Found by the registered reproduction check (001 rerun with stride 1: other update views, so other counts and metrics)."
+  }
+ ]
 }

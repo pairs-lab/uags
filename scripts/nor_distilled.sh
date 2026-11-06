@@ -14,6 +14,9 @@ mkdir -p $OUT/val $OUT/test $OUT/repro $OUT/logs "$LOGS"
 stamp() { echo "[$(date '+%F %T')] $*"; }
 field() { echo results/fields/nor_$1_lseg_relmax.pt; }
 done_rec() { python3 -c "import json,sys; r=json.load(open(sys.argv[1])); sys.exit(0 if r.get('status')=='ok' else 1)" "$1" 2>/dev/null; }
+# the scene's Table III record (results/nor/tab2_relmax/<split>/<scene>.json): its evaluation options
+ref() { echo results/nor/tab2_relmax/$1/$2.json; }
+refopts() { python3 -c "import json,sys; c=json.load(open(sys.argv[1]))['config']; print(f\"--align {c['align']} --update-stride {c['update_stride']} --tau-cov {c['tau_cov']}\")" "$(ref "$1" "$2")"; }
 
 train() {   # scene method lambda
   local f; f=$(field "$1")
@@ -30,8 +33,8 @@ evaluate() {   # split scene files
   local rec="$OUT/$1/$2.json"
   if done_rec "$rec"; then stamp "skip eval $1 $2 (finished)"; return; fi
   stamp "eval $1 $2"
-  scripts/gpu_gate.sh 6000 python scripts/eval_change_nor_distilled.py --field "$(field "$2")" --align none \
-      --update-stride 1 --tau-cov 0.5 --distilled "$3" --reference "results/nor/tab2_relmax/$1/$2.json" \
+  scripts/gpu_gate.sh 6000 python scripts/eval_change_nor_distilled.py --field "$(field "$2")" \
+      $(refopts "$1" "$2") --distilled "$3" --reference "$(ref "$1" "$2")" \
       --out "$rec" > "$OUT/logs/eval_$1_$2.log" 2>&1
   tail -n 6 "$OUT/logs/eval_$1_$2.log"
 }
@@ -40,8 +43,8 @@ repro() {
   local rec=$OUT/repro/001.json
   if ! done_rec "$rec"; then
     stamp "repro: eval_change_nor.py on val 001"
-    scripts/gpu_gate.sh 6000 python scripts/eval_change_nor.py --field "$(field 001)" --align none \
-        --update-stride 1 --tau-cov 0.5 --out "$rec" > "$OUT/logs/repro_001.log" 2>&1
+    scripts/gpu_gate.sh 6000 python scripts/eval_change_nor.py --field "$(field 001)" $(refopts val 001) \
+        --out "$rec" > "$OUT/logs/repro_001.log" 2>&1
   fi
   python3 - "$rec" results/nor/tab2_relmax/val/001.json "$OUT/repro/compare.json" <<'EOF'
 import json, sys

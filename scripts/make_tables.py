@@ -103,6 +103,9 @@ TAB1 = [
     None,                                                     # \midrule
     ("Ours", "ours_P2", "u_ale", "all"),                    # P2 (adaptive beta) is our method
 ]
+# averaging and NormLift share the feature, so every predictive cell is equal: Table I prints them as
+# one row, citing both (user, 2026-11-07); a difference is refused (_tab1_rows)
+TAB1_MERGE = ("averaging", "normlift", "NormLift~\\cite{joseph2025gradbp, zang2026normlift}\\reimpl, $1-\\mathcal{R}$")
 # reference rows: shown below the ranked rows, never marked (closed set: told the class list at
 # mapping time, which the open-vocabulary rows do not get; user decision 2026-10-17)
 TAB1_REF = [("CSS~\\cite{wilson2025css}\\reimpl, closed set", "@css", "css_var_top", "all")]
@@ -443,17 +446,18 @@ def tab1(path, variant="all", val=None, v2=False, prereg=None):
 def _tab1_rows(summ, picked, ranked_entries, variant, path, std=True):
     """Table I cells of one evaluation, marked: (out, table). out lists ("line", text) and
     ("row", label, pred) items in print order; table holds one list of cells per row (None
-    inside a \\multicolumn); the reference rows (CSS) are printed but never marked."""
-    out, table, ranked = [], [], []
+    inside a \\multicolumn); the reference rows (CSS) are printed but never marked. TAB1_MERGE:
+    averaging and NormLift print as one row when every predictive cell is equal (refused otherwise)."""
+    recs = []
     ref = [None] + TAB1_REF                   # None: \midrule before the reference block
     for entry in ranked_entries + ref:
         if entry is None:
-            out.append(("line", "\\midrule"))
+            recs.append(dict(kind="line", text="\\midrule"))
             continue
         label, row, sig, pred = entry
         row = picked.get(row, row)
         if row not in summ:
-            out.append(("line", f"% {label}: row {row!r} not in {path}"))
+            recs.append(dict(kind="line", text=f"% {label}: row {row!r} not in {path}"))
             continue
         m = summ[row][variant]
         cells = [cell(m.get(k), sc, max(2, TAB1_DIGITS) if k == "nll" else TAB1_DIGITS, std)
@@ -463,9 +467,20 @@ def _tab1_rows(summ, picked, ranked_entries, variant, path, std=True):
         elif pred in ("asP0", "asP1"):           # adaptive beta: argmax of its base
             cells[:2] = [None, None]
         cells.append(cell(m["ause"].get(sig), 100.0, TAB1_DIGITS, std) if sig else "--")
-        out.append(("row", label, pred))
-        table.append(cells)
-        ranked.append(entry in ranked_entries)   # missing rows cannot shift CSS into the ranking
+        recs.append(dict(kind="row", label=label, pred=pred, row=row, cells=cells,
+                         ranked=entry in ranked_entries))   # missing rows cannot shift CSS
+    a, b, lab = TAB1_MERGE
+    ra = next((r for r in recs if r.get("row") == a), None)
+    rb = next((r for r in recs if r.get("row") == b), None)
+    if ra and rb:
+        if any(summ[a][variant].get(k) != summ[b][variant].get(k) for k, _ in COLS):
+            raise SystemExit(f"Table I: {a} and {b} differ in a predictive cell; give {a} its own row")
+        rb["label"] = lab
+        ra.clear()
+        ra.update(kind="line", text=f"% {a}: every predictive cell equals {b}'s, so one row: {lab}")
+    out = [("line", r["text"]) if r["kind"] == "line" else ("row", r["label"], r["pred"]) for r in recs]
+    rows = [r for r in recs if r["kind"] == "row"]
+    table, ranked = [r["cells"] for r in rows], [r["ranked"] for r in rows]
     mark_columns(table, ranked, TAB1_HIGHER)
     return out, table
 
@@ -890,7 +905,7 @@ PERCLASS_REF = [("CSS~\\cite{wilson2025css}\\reimpl, closed set", "@css")]
 # a row whose every per-class IoU and mIoU equal another row's is named in that row's label, not
 # given its own row: NormLift keeps averaging's feature, so its labels are averaging's (checked
 # per scene and class on every file; a difference is refused)
-PERCLASS_SAME = {"averaging": ("normlift", "{} / NormLift~\\cite{zang2026normlift}\\reimpl")}
+PERCLASS_SAME = {"averaging": ("normlift", "NormLift~\\cite{joseph2025gradbp, zang2026normlift}\\reimpl")}
 # header colours (white text on each): a fixed categorical palette, one per column in order
 PERCLASS_COLORS = ["1F78B4", "B15928", "6A3D9A", "8C564B", "2F4F4F", "E31A1C", "33A02C",
                    "D95F02", "7570B3", "1B9E77", "B8860B", "666666", "A6761D", "E7298A"]
@@ -1022,8 +1037,8 @@ def _perclass_table(path, val, variant, min_scenes, min_best=0.0):
                              for s in scenes}
             if iou(same[0]) != iou(row) or summ[same[0]][variant].get("miou") != summ[row][variant].get("miou"):
                 raise SystemExit(f"perclass: row {same[0]!r} differs from {row!r}; give it its own row")
-            label += same[1]
-            lines.append(f"% {same[0]}: every per-class IoU and the mIoU equal {row}'s (named in its row)")
+            label = same[1]                       # one row, both cited (user, 2026-11-07)
+            lines.append(f"% {same[0]}: every per-class IoU and the mIoU equal {row}'s (one row: {label})")
         cells = []
         for c in classes:
             v = [((scenes[s]["rows"].get(row) or {}).get(variant) or {}).get("iou", {}).get(c)

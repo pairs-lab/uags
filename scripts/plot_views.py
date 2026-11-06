@@ -70,9 +70,9 @@ TARGETS = [("e_red", r"reducible error $e_{\mathrm{red}}$"),
 # band, so each curve also has its own marker; normal-vision floor 15.6 passes.
 OURS = ("ours", r"Ours: $u^{\mathrm{epi}}$ (top), $u^{\mathrm{ale}}$ (bottom)", None, None, "#0072B2", "o")
 REFS = [
-    # total uncertainty, 1 - max p (the text defines it; legend "Ours: total", user 2026-11-07)
+    # total uncertainty, 1 - max p (the text defines it; legend "Ours: total"; averaging's total
+    # curve removed, user 2026-11-07: NormLift has the same predictive)
     ("ours, 1 - max p", r"Ours: total", "ours_P2", "msp", "#0072B2", "o", (0, (3, 1.5))),
-    ("averaging, 1 - max p", r"Averaging: total", "averaging", "msp", "#D55E00", "s"),
     ("NormLift, 1/(1+N_eff)", r"NormLift, $1/(1+N_{\mathrm{eff}})$", "normlift", "normlift_epi",
      "#009E73", "^"),
     ("NormLift, 1 - R", r"NormLift, $1-\mathcal{R}$", "normlift", "normlift_1-R", "#E69F00", "v"),

@@ -223,3 +223,15 @@ def test_check_test_gates(tmp_path):
     (d / "replica_test.json").write_text(json.dumps(dict(status="done")))
     with pytest.raises(SystemExit, match="run once"):
         DS.main(args)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+def test_rules_on_gpu_tensors():
+    """decode_tab1.py passes GPU scores with GPU masks and CPU parameters (the 2026-11-06 crash)."""
+    s = torch.randn(500, 4, device="cuda", dtype=torch.float64)
+    p = torch.softmax(s, 1)
+    cov = torch.rand(500, device="cuda") > 0.1
+    for rule, par in (("base", None), ("centre", torch.randn(4)), ("prior", torch.randn(4)),
+                      ("eiou", torch.randn(4))):
+        lab, conf, _ = D.decide(rule, s, p, cov, torch.rand(500, device="cuda"), par)
+        assert lab.device.type == "cuda" and conf.device.type == "cuda" and int((lab >= 0).sum()) > 0

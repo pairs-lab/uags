@@ -132,6 +132,8 @@ def decide(rule, s, p, covered, a=None, param=None):
     """(labels (M,) long, -1 = no decision; stated confidence p(label) (M,); tied (M,) bool) of
     the M pixels. s, p (M, K); covered (M,) bool; a (M,) the alpha weights of 'centre'."""
     K = s.shape[1]
+    covered = covered.to(s.device)                      # every input on the scores' device
+    p = p.to(s.device)
     if rule == "base":
         score = s.double()
     elif rule == "centre":

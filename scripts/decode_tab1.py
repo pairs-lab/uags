@@ -165,7 +165,7 @@ def scene_run(sc, vocab, betas, settings, args, keys, published, tol):
                 o = out[r.name]
                 s, p, a, cov = row_scores(r, view.rasterizer, view.text, betas, raw, args.tau_cov,
                                           args.undef_frac, idx=o["pix"])
-                lab0, _, _ = D.decide("base", s, p, cov.cpu() if cov.device.type != "cpu" else cov)
+                lab0, _, _ = D.decide("base", s, p, cov)
                 n_base_mismatch += int((lab0.cpu() != o["pred"].long()).sum())
                 for k, rule, _ in keys:
                     if k == "base":

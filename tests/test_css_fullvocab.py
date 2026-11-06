@@ -175,9 +175,12 @@ def test_css_full_equals_css_when_vocab_is_present():
                         {n: 2.0 for n in rr}, tau_cov=0.1)
     for suffix in [""] + [f"_a{a:g}" for a in CSS_ALPHA0_GRID]:
         o1, o2 = out["css" + suffix], out["css_full" + suffix]
-        for k in ("pred", "conf", "nll", "brier", "correct", "covered"):
+        for k in ("pred", "correct", "covered"):                     # discrete: bit for bit
             assert torch.equal(o1[k], o2[k]), (suffix, k)
-        assert all(torch.equal(o1["u"][k], o2["u"][k]) for k in DIRICHLET_KEYS), suffix
+        for k in ("conf", "nll", "brier"):          # float32 roundoff: the classes are renormalised
+            assert torch.allclose(o1[k], o2[k], rtol=0, atol=1e-6), (suffix, k)   # in another order
+        assert all(torch.allclose(o1["u"][k], o2["u"][k], rtol=0, atol=1e-6, equal_nan=True)
+                   for k in DIRICHLET_KEYS), suffix                  # float32 roundoff, as above
     print(f"PASS css_full == css with the vocabulary equal to the present classes: counts, "
           f"{len(names)} rows through the checkpoint, evaluator outputs")
 

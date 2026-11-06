@@ -511,12 +511,12 @@ def tab1pair(paths, vals, variant="all"):
 # Table III (tab:ablation), Replica block: (label, ablation variant; None = the full method)
 TAB3 = [
     ("\\textbf{Full method}", None),
-    ("Pixels instead of views", "pixels"),
-    ("Uncorrected mean length $\\bar r$", "est_rbar"),
-    ("Prior-shrunk agreement", "est_joint"),
-    ("Shrunk mean length $\\tilde r$", "est_legacy"),
-    ("Centered features", "centre"),
-    ("Pixel-level variant", "legacy"),
+    ("w/o view counting (pixels)", "pixels"),
+    ("w/o $\\hat\\rho$ (uses $\\bar r$)", "est_rbar"),
+    ("w/o $\\hat\\rho$ (uses $\\lVert\\R\\rVert/(W_1+c_0)$)", "est_joint"),
+    ("w/o $\\hat\\rho$ (uses $\\tilde r$)", "est_legacy"),
+    ("w/o raw features (centred)", "centre"),
+    ("w/o all parts (pixel level)", "legacy"),
 ]
 # Table III columns: (name in comments, stat key, scale, decimals; None = --digits).
 # "ause:<signal>" = the AUSE of that signal. mIoU is better when higher, the rest when lower.

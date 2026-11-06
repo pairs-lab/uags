@@ -17,7 +17,7 @@ the summary. Each curve is the mean over the scenes with +- std error bars (popu
 as usplat.seg_eval.scene_stats; --band draws bands). Both rows hold the same references: our total uncertainty, one minus the
 maximum probability of our full predictive (P2, the row --total-row, signal "msp"), one minus
 the maximum probability of averaging, the scores built from NormLift's quantities
-1/(1 + N_eff), 1 - C_inter and 1 - R, and the view count 1/(1 + n_vis).
+1/(1 + N_eff) and 1 - R, and the view count 1/(1 + n_vis).
 READING: raw AUSE grows with the target's share of pixels (and that share varies between
 scenes, targets and M), so raw values are compared only WITHIN a column; the relative scale
 removes the share, as every curve is divided by the random level of its OWN errors (the
@@ -68,18 +68,17 @@ TARGETS = [("e_red", r"reducible error $e_{\mathrm{red}}$"),
 # signal are set per panel row (--ours-row, CHANNELS). Colours: Okabe-Ito; the dataviz
 # validator on white, all pairs: worst CVD dE 7.6 (deutan, #CC79A7 vs #009E73) is in the warn
 # band, so each curve also has its own marker; normal-vision floor 15.6 passes.
-OURS = ("ours", "Ours", None, None, "#0072B2", "o")
+OURS = ("ours", r"Ours: $u^{\mathrm{epi}}$ (top), $u^{\mathrm{ale}}$ (bottom)", None, None, "#0072B2", "o")
 REFS = [
-    ("ours, 1 - max p", r"Ours, $1-\max\,p$", "ours_P2", "msp", "#000000", "X"),
+    ("ours, 1 - max p", r"Ours: total, $1-\max\,p$", "ours_P2", "msp", "#0072B2", "o", (0, (3, 1.5))),
     ("averaging, 1 - max p", r"Averaging, $1-\max\,p$", "averaging", "msp", "#D55E00", "s"),
     ("NormLift, 1/(1+N_eff)", r"NormLift, $1/(1+N_{\mathrm{eff}})$", "normlift", "normlift_epi",
      "#009E73", "^"),
-    ("NormLift, 1 - C_inter", r"NormLift, $1-C_{\mathrm{inter}}$", "normlift", "normlift_1-Cinter",
-     "#CC79A7", "D"),
     ("NormLift, 1 - R", r"NormLift, $1-\mathcal{R}$", "normlift", "normlift_1-R", "#E69F00", "v"),
     ("view count, 1/(1+n_vis)", "View count", "viewcount", "viewcount", "#56B4E9", "P"),
 ]
 RANDOM = dict(label="Random ranking", color="#898781", ls=(0, (3, 2)), lw=0.7)
+SHOW_RANDOM = False             # the random level is 1 on the relative axis (user, 2026-11-06: no line)
 MIN_COUNT = 100                   # a scene with fewer target pixels makes the point hollow
 DODGE = 0.04                      # error bars: curve c sits at M * exp((c - 3) * DODGE)
 INK, INK2, AXIS, GRID = "#0b0b0b", "#52514e", "#898781", "#e1e0d9"
@@ -474,7 +473,8 @@ def draw(ax, pts, style, idx, n_curves, band, gid, flags=None, scale=100.0):
     ours = style is OURS
     x, y, e = _xy(pts, scale)
     kw = dict(color=colour, marker=marker, lw=1.3 if ours else 0.8, ms=3.6 if ours else 3.0,
-              mec="white", mew=0.4, zorder=3 if ours else 2, clip_on=False)
+              mec="white", mew=0.4, zorder=3 if ours else 2, clip_on=False,
+              ls=style[6] if len(style) > 6 else "-")
     if band:
         lo = [max(v - d, 0.0) for v, d in zip(y, e)]
         ax.fill_between(x, lo, [v + d for v, d in zip(y, e)], color=colour, alpha=0.12,
@@ -536,7 +536,7 @@ def plot(data, out, ours_row="ours_P0", band=False, sizes=None, n_scenes=None, k
         for i, (ch, ch_label) in enumerate(CHANNELS):
             for j, (t, t_label) in enumerate(TARGETS):
                 ax = axes[i, j]
-                if sizes:
+                if sizes and SHOW_RANDOM:
                     draw_random(ax, sizes[t].get(ours_row), f"random/{ours_row}",
                                 i == 0 and not relative, relative)
                 curves = [(OURS, (ours_row, ch))] + [(r, (r[2], r[3])) for r in REFS]
@@ -554,7 +554,8 @@ def plot(data, out, ours_row="ours_P0", band=False, sizes=None, n_scenes=None, k
                       r"AUSE $\times 100$ (lower is better)", fontsize=8)
         fig.supxlabel(r"mapping frames $M$", fontsize=8)
         handles = [Line2D([], [], color=s[4], marker=s[5], lw=1.3 if s is OURS else 0.8,
-                          ms=3.6 if s is OURS else 3.0, mec="white", mew=0.4)
+                          ms=3.6 if s is OURS else 3.0, mec="white", mew=0.4,
+                          ls=s[6] if len(s) > 6 else "-")
                    for s in [OURS] + REFS]
         fig.legend(handles, [s[1] for s in [OURS] + REFS], loc="outside upper center", ncols=3,
                    frameon=False, handlelength=1.6, handletextpad=0.4, columnspacing=0.9,

@@ -1,2 +1,0 @@
-tab:replica: same as before attempt 07 (81ae01f): True; make_tables.py tab1pair rows reproduced in the paper: 10/10; paper-only lines (headers): 2
-tab:perclass: same as before attempt 07 (81ae01f): True; make_tables.py perclasspair rows reproduced in the paper: 7/7; paper-only lines (headers): 1

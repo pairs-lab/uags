@@ -1,2 +1,0 @@
-# curl -s https://api.github.com/repos/MIT-SPARK/Bayesian-Fields/contents  (2026-09-28)
-LICENSE 1298

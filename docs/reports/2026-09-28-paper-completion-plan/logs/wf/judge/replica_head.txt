@@ -1,9 +1,0 @@
-HTTP/2 302 
-location: https://www.dropbox.com/scl/fo/puh6djua6ewgs0afsswmz/AGudMbll0n0v_iADmqrrRds?rlkey=ep5495umv628y2sk8hvnh8msc&dl=1
-HTTP/2 302 
-location: https://uc45ae76028413de4c17322c1210.dl.dropboxusercontent.com/zip_download_get/CsYQyTXiw-xXEoMcidiewPz754RiAv6aTnnVJNtdrqjxbgVF5u4s7OIR2UJIMdtROyJVKKuWIq-raObGupGYW4mVGFDUBjzfvIjEIJdLXkKXpA#
-content-length: 17
-HTTP/2 200 
-content-disposition: attachment; filename="Semantic_NeRF(ICCV2021).zip"; filename*=UTF-8''Semantic_NeRF%28ICCV2021%29.zip
-original-content-length: 6762780327
-content-length: 6762780327

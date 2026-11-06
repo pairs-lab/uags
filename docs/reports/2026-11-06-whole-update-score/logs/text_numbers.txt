@@ -1,7 +1,0 @@
-validation means (G AP): ours 60.35, dir 60.92, agr 67.36, kish 65.98, feat_mean 66.97
-test means: agr gauss_ap 64.63, ours gauss_ap 53.44, normlift gauss_ap 63.76, feat_mean gauss_ap 64.69, feat gauss_ap 56.58, ncc_mean gauss_ap 27.16, ncc gauss_ap 30.35, depth_mean gauss_ap 55.79, depth gauss_ap 57.40, agr pixel_ap 59.78, normlift pixel_ap 65.77, agr pixel_auroc 71.70, ours pixel_auroc 77.79, agr fused_gauss_ap 81.05, feat_mean fused_gauss_ap 84.89, feat fused_gauss_ap 81.08, normlift fused_gauss_ap 79.91
-test wins: agr>ours gauss_ap 10/10, agr>normlift gauss_ap 6/10, ours>agr pixel_auroc 8/10, agr>feat_mean fused_gauss_ap 2/10, agr>feat fused_gauss_ap 7/10, agr>normlift fused_gauss_ap 5/10, ours>feat fused_gauss_ap 0/10, ours>normlift fused_gauss_ap 1/10, ours>feat_mean fused_gauss_ap 1/10
-exact ties in agr vs ours pixel AUROC: []
-highest fused G AP row: ('feat_mean', 84.8892934208101)
-60.345996166566586 60.3
-81.0499094928197 81.0

@@ -1,8 +1,0 @@
-[run] 2026-10-21 10:52:09 git af70b11 qual_compare.py sha256 a7ee664be4df purpose=TEST render, main figure
-[gpu_gate] 2026-10-21 10:52:09 free 7161 MiB >= 5524; running: python3 scripts/qual_compare.py --stage render --vocab configs/vocab_scannet.json --scenes configs/scannet_test.json --extractor lseg --dataset scannet --stride 20 --downscale 2 --tau-cov 0.5 --scene scene0140_00 --frame 57 --select D/uags_results/qual/select/static.json --legs legs_l1 --betas D/uags_results/scannet_tab1/eval_val.json --table D/uags_results/scannet_tab1/eval_test.json --text-cache D/uags_results/qual/text_cache_lseg_scannet.pt --row-factory usplat.baselines:row_factory,usplat.distill:row_factory --dataset-label ScanNet --out-dir D/uags_results/qual/compare/test
-reserved 3836 MiB of GPU memory
-scene0140_00 frame 57: repro PASS (max |delta| 0.00000); pools {'ours_P2': 13452554, 'normlift': 13721572, 'legs_l1': 13721572}; wrote D/uags_results/qual/compare/test/scene0140_00_f57.pt
-
-real	1m1.785s
-user	4m3.937s
-sys	0m34.769s

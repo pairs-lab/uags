@@ -1,6 +1,0 @@
-official load_state_dict strict: <All keys matched successfully>
-logits shape (1, 11, 480, 640); max|diff| 0.0168, mean|diff| 0.00326, mean|logit| 10.371, argmax agreement 99.967%
-text cosine official(fp16) vs vendored(fp32): min 0.999999463558197
-official pixel acc frame0 (bare labels) 0.8699995279312134
-vendored pixel acc frame0 (bare labels) 0.8699031472206116
-device cpu

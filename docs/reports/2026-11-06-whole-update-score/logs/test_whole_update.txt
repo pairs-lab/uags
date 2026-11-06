@@ -1,9 +1,0 @@
-$ CUDA_VISIBLE_DEVICES= python -m pytest -p no:cacheprovider --basetemp=<scratchpad>/pt -q tests/test_whole_update.py
-(2026-11-06 11:01:04 -> 11:09:56 JST, CPU only, 24 cores shared with another project's jobs, load ~24)
-.......                                                                  [100%]
-7 passed in 529.23s (0:08:49)
-
-Earlier run of the two toy-scene tests (10:51:48 -> 11:00:41 JST): test_scene_run passed; test_one_variant_and_refusals
-failed only at the pixel level: ncc fused_pixel_ap 0.9897940884972706 vs 0.9897940290700572 (6e-8). The renders stack
-another number of score channels (15 rows vs 11), so float32 sums differ. The test now compares Gaussian-level values
-exactly and pixel-level values to 1e-6; no code changed.

@@ -1,6 +1,0 @@
-## DOI 10.1007/978-3-030-58452-8_24
-   ['NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis'] | Ben Mildenhall, Pratul P. Srinivasan, Matthew Tancik, Jonathan T. Barron, Ravi Ramamoorthi, Ren Ng | ['Lecture Notes in Computer Science', 'Computer Vision – ECCV 2020'] | vol None no None pp 405-421 | 10.1007/978-3-030-58452-8_24 | [[2020]] | type book-chapter
-## DOI 10.1002/9780470316979
-   ['Directional Statistics'] | Kanti V. Mardia, Peter E. Jupp | ['Wiley Series in Probability and Statistics'] | vol None no None pp None | 10.1002/9780470316979 | [[1999, 1, 3]] | type monograph
-## DOI 10.7551/mitpress/12441.001.0001
-   ['Active Inference'] | Thomas Parr, Giovanni Pezzulo, Karl J. Friston | [] | vol None no None pp None | 10.7551/mitpress/12441.001.0001 | [[2022, 3, 29]] | type edited-book

@@ -1,4 +1,0 @@
-latexmk exit 0
-warnings: 0
-Pages:          24
-249 abstract words (pdftotext page 1, Abstract..Index Terms; IEEE limit 250)

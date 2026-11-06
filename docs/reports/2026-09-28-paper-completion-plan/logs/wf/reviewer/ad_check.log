@@ -1,6 +1,0 @@
-d=64: kappa_hat for A_d=0.85 -> 193.5
-n=  1 views: kappa_post=   164.4  A_d(kappa_post)=0.8262  (effective softmax temperature factor)
-n=  2 views: kappa_post=   328.9  A_d(kappa_post)=0.9087  (effective softmax temperature factor)
-n=  5 views: kappa_post=   822.2  A_d(kappa_post)=0.9624  (effective softmax temperature factor)
-n= 10 views: kappa_post=  1644.5  A_d(kappa_post)=0.9810  (effective softmax temperature factor)
-n= 50 views: kappa_post=  8222.4  A_d(kappa_post)=0.9962  (effective softmax temperature factor)

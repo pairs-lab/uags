@@ -1,6 +1,0 @@
-# python scripts/make_video.py compose --only S2a,S3a,S4b,S4c,S4e --workers 5   (then: python scripts/make_video.py deliver)
-master /home/thanhnc/gauss_ws/data/uags_results/video/master.mp4: 4326 frames, 144.2 s, 33.6 MB; wall 698 s
-S4b end caption: End of update, this scene: 'chair' is still the top class of 44% of the removed object's Gaussians for averaging and 15% for ours; the top class of 20% (averaging) and 33% (ours) of the static Gaussians changed (dashed).
-S4b sources: end shares (stale_is_query, static_changed): averaging 0.443, 0.198; ours 0.152, 0.333
-S4c end caption: End of update, this scene: 'bike' is still the top class of 20% of the removed object's Gaussians for averaging and 1% for ours; the top class of 7% (averaging) and 7% (ours) of the static Gaussians changed (dashed).
-S4c sources: end shares (stale_is_query, static_changed): averaging 0.196, 0.067; ours 0.013, 0.074

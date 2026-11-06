@@ -1,4 +1,0 @@
-start 2026-10-27 23:34:43 JST
-master /home/thanhnc/gauss_ws/data/uags_results/video/master.mp4: 4326 frames, 144.2 s, 33.6 MB; wall 964 s
-exit 0
-end 2026-10-27 23:50:49 JST

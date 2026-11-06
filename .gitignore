@@ -5,3 +5,6 @@ __pycache__/
 # data and results (moved from gauss_ws/data on 2026-10-31; 105 GB, never commit)
 /data/
 /results/
+
+# reports and working notes stay local (user decision, 2026-11-06)
+/docs/

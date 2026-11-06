@@ -1,8 +1,0 @@
-W1 2026-09-29..2026-10-04 workdays=4 (JP holidays removed: 4) coded_pd=4.50 tasks=['K1', 'K2', 'K3', 'port', 'bib']
-W2 2026-10-05..2026-10-11 workdays=5 (JP holidays removed: 5) coded_pd=6.75 tasks=['K4', 'K5', 'K6', 'K7', 'K8']
-W3 2026-10-12..2026-10-18 workdays=5 (JP holidays removed: 4) coded_pd=7.00 tasks=['K9', 'K10', 'K11']
-W4 2026-10-19..2026-10-25 workdays=5 (JP holidays removed: 5) coded_pd=0.00 tasks=[]
-W5 2026-10-26..2026-11-01 workdays=5 (JP holidays removed: 5) coded_pd=3.25 tasks=['K12', 'K13']
-W6 2026-11-02..2026-11-08 workdays=5 (JP holidays removed: 4) coded_pd=2.00 tasks=['K14', 'K15']
-W7 2026-11-09..2026-11-15 workdays=5 (JP holidays removed: 5) coded_pd=0.00 tasks=[]
-code pd placed: 23.5 ; writing pd not placed in a week except port+bib (2.0 of 7.5)

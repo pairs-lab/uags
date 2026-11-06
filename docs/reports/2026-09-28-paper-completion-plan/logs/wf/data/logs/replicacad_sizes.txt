@@ -1,2 +1,0 @@
-ai-habitat/ReplicaCAD_baked_lighting files 613 total_GB 0.84
-ai-habitat/ReplicaCAD_dataset files 602 total_GB 0.16

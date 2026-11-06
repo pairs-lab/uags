@@ -1,7 +1,0 @@
-    room_2        ours_P2: mIoU 0.3297 acc 0.8286 ECE 0.0270 NLL 0.5928 coverage 0.998
-    room_2      ours_P2p1: mIoU 0.3295 acc 0.8266 ECE 0.0203 NLL 0.5997 coverage 0.998
-    room_2  ours_P1_c0.01: mIoU 0.3296 acc 0.8281 ECE 0.0534 NLL 0.6052 coverage 0.998
-    room_2 ours_P4_a0.01_s2: mIoU 0.3293 acc 0.8298 ECE 0.0268 NLL 0.7587 coverage 0.998
-    room_2      averaging: mIoU 0.3290 acc 0.8297 ECE 0.0578 NLL 0.6010 coverage 0.998
-    room_2      css_a0.01: mIoU 0.3334 acc 0.8482 ECE 0.0590 NLL 0.5528 coverage 0.998
-{"@p1": "ours_P1_c0.01", "@p4": "ours_P4_a0.01_s2", "@ours_v2": "ours_P2"}

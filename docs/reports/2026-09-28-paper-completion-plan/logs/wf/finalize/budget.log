@@ -1,6 +1,0 @@
-Replica zip 6.76 GB; extracted [A x1.3] 8.79 GB; unzip peak 15.55 GB
-Replica token cache 2.65 GB (1.23 MB/frame)
-RIO10 token per frame 2.09 MB; update 3442 + eval 1721 frames = 10.78 GB for all 10 scenes; per scene 1.08 GB (+ seq01 frames, not counted)
-3DGS map at cap 1000000: 0.236 GB; 18 maps 4.25 GB
-field one channel d=64 at cap: 0.26 GB; raw+centred+2 EWMA = 4 channels 1.04 GB (GPU persistent)
-MASt3R depth png 540x960x2B uncompressed 1.04 MB/frame; update frames all scenes 3.57 GB

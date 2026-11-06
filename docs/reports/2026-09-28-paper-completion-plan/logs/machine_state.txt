@@ -1,5 +1,0 @@
-name, memory.total [MiB], memory.used [MiB]
-NVIDIA GeForce RTX 5070 Ti, 16303 MiB, 12819 MiB
-/dev/nvme0n1p1  937G  842G   48G  95% /
-torch 2.11.0+cu128 gsplat 1.5.3 open_clip 3.3.0
-2026-09-28 22:16:25 +07

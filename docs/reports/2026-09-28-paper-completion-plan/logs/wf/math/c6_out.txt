@@ -1,6 +1,0 @@
-k=5: dlogC/dk=-0.077668  -A_d=-0.077668
-k=50: dlogC/dk=-0.549394  -A_d=-0.549394
-k=500: dlogC/dk=-0.938923  -A_d=-0.938923
-n=1.0 ||R||=1.0 (r_bar=1.00): brute-force kappa_MAP=23.9  A_d(kappa_MAP)=0.3330  formula ||R||/(n+c0)=0.3333
-n=10.0 ||R||=9.0 (r_bar=0.90): brute-force kappa_MAP=108.5  A_d(kappa_MAP)=0.7500  formula ||R||/(n+c0)=0.7500
-n=100.0 ||R||=90.0 (r_bar=0.90): brute-force kappa_MAP=251.5  A_d(kappa_MAP)=0.8823  formula ||R||/(n+c0)=0.8824

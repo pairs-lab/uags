@@ -1,7 +1,0 @@
-% Table III object-removal block: ours row of each run's change_test.json (test, N=10), in %: G AP, P AP, FA, Rec, Kept
-Full method & 53.4 & 57.2 & 6.2 & 56.8 & 4.8\\   % N=10
-No persistence ($k=1$) & 47.5 & 51.3 & 7.3 & 56.1 & 5.3\\   % N=10
-Pooled null & 53.6 & 56.9 & 4.6 & 46.8 & 6.5\\   % N=10
-Per-Gaussian max null & 53.2 & 56.5 & 2.6 & 32.6 & 8.6\\   % N=10
-Re-admission without depth & 53.4 & 57.2 & 6.2 & 56.8 & 9.5\\   % N=10
-Centered features & 48.2 & 51.1 & 4.4 & 43.5 & 4.6\\   % N=10

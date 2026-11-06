@@ -1,4 +1,0 @@
-d=64 n=5 r_bar=0.445: Banerjee kappa_hat = r(d-r^2)/(1-r^2) = 35.4
-d=512 n=5 r_bar=0.447: Banerjee kappa_hat = r(d-r^2)/(1-r^2) = 285.9
-uniform d=512 n=5: E r_bar approx 1/sqrt(n) = 0.447
-equal 2-way mixture r_bar = rho*sqrt((1+c)/2); reach 0.55 with rho=1 needs c <= -0.395 ; with rho=0.87 needs c <= -0.201

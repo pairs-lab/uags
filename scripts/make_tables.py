@@ -946,14 +946,19 @@ def class_head(c, hexes=None):
     return f"\\cellcolor[HTML]{{{h}}}{{\\scriptsize\\textcolor{{{ink}}}{{{c}}}}}"
 
 
-def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES, plain=False, palette=None):
+def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES, plain=False, palette=None,
+                 min_best=0.0, miou=True):
     """Per-class table with two datasets side by side (e.g. Replica | ScanNet): each group is
     perclass's columns and cells for its own test file (classes present in >= min_scenes of its
     scenes, row choices from its own --val file), marked per dataset. A class present in both
-    groups keeps one header colour; the first group's colours are perclass's."""
+    groups keeps one header colour; the first group's colours are perclass's. min_best: a class
+    whose best ranked row prints below it (IoU %) is listed in a comment, not as a column (user,
+    2026-11-07: no "panel" column); miou=False drops the two mIoU columns (they are Table I's)."""
     if len(paths) != 2 or len(vals) != 2:
         raise SystemExit("perclasspair needs two test files and two --val files (one per dataset)")
-    groups = [_perclass_table(p, v, variant, min_scenes) for p, v in zip(paths, vals)]
+    groups = [_perclass_table(p, v, variant, min_scenes, min_best) for p, v in zip(paths, vals)]
+    if not miou:                                   # the last cell of each group is its mIoU
+        groups = [(g[0], g[1], g[2], [r[:-1] for r in g[3]], g[4]) for g in groups]
     if groups[0][2] != groups[1][2] or groups[0][4] != groups[1][4]:
         raise SystemExit(f"perclasspair: the two files do not hold the same rows: "
                          f"{groups[0][2]} vs {groups[1][2]}")
@@ -967,14 +972,17 @@ def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES, pla
              f"{variant} " + " ".join(f"--val {v}" for v in vals if v)]
     lines += [ln for g in groups for ln in g[0]]
     n1, n2 = len(groups[0][1]), len(groups[1][1])
-    lines.append(f"% columns: {n1} classes + mIoU | {n2} classes + mIoU "
-                 f"(tabular: @{{}}l*{{{n1}}}{{c}}|c*{{{n2}}}{{c}}|c@{{}}); header row:")
+    m = " + mIoU" if miou else ""
+    lines.append(f"% columns: {n1} classes{m} | {n2} classes{m} "
+                 f"(tabular: @{{}}l*{{{n1 + miou + n2 + miou}}}{{c}}@{{}}); header row:")
     # "mIoU" without "(%)": the tallest rotated header sets the row height (caption gives the unit)
     if plain:          # plain class names, the ranked rows only (user, 2026-11-06); bold best, underline second
         hexes = class_palette_hex(palette) if palette else None     # --palette: the figures' colours
-        lines.append("Method & " + " & ".join(" & ".join([class_head(c, hexes) for c in g[1]] + ["mIoU"])
+        lines.append("Method & " + " & ".join(" & ".join([class_head(c, hexes) for c in g[1]] + (["mIoU"] if miou else []))
                                               for g in groups) + "\\\\")
     else:
+        if not miou:
+            raise SystemExit("perclasspair: --no-miou needs --plain")
         lines.append("Method & " + " & ".join(_perclass_head(g[1], [color[c] for c in g[1]], "mIoU")
                                               for g in groups) + "\\\\")
     for i, (label, rk) in enumerate(zip(groups[0][2], groups[0][4])):
@@ -987,7 +995,7 @@ def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES, pla
     return "\n".join(lines)
 
 
-def _perclass_table(path, val, variant, min_scenes):
+def _perclass_table(path, val, variant, min_scenes, min_best=0.0):
     """One dataset's per-class cells: (comment lines, classes, row labels, marked cells per
     row with the mIoU last, ranked flag per row)."""
     b = body(path)
@@ -1029,6 +1037,12 @@ def _perclass_table(path, val, variant, min_scenes):
     zero = [j for j in range(len(classes)) if all(r[j] in ("0.0", "--") for r in table)]
     if zero:
         lines.append("% zero for every row (no column): " + ", ".join(classes[j] for j in zero))
+    best = lambda j: max((float(r[j]) for r, rk in zip(table, ranked) if rk and r[j] != "--"), default=0.0)
+    weak = [j for j in range(len(classes)) if j not in zero and best(j) < min_best]
+    if weak:
+        lines.append(f"% best ranked row below {min_best:g} (no column): "
+                     + ", ".join(f"{classes[j]} ({best(j):.1f})" for j in weak))
+    zero = zero + weak
     classes = [c for j, c in enumerate(classes) if j not in zero]
     table = [[x for j, x in enumerate(r) if j not in zero] for r in table]
     mark_columns(table, ranked, [True] * (len(classes) + 1))
@@ -1047,6 +1061,9 @@ def main(argv=None):
     ap.add_argument("--val", default="", help="validation eval_seg JSON (row choices)")
     ap.add_argument("--variant", default="all", choices=["all", "covered"])
     ap.add_argument("--plain", action="store_true", help="perclasspair: plain headers, no CSS row")
+    ap.add_argument("--min-best", type=float, default=0.0, help="perclasspair: no column for a class "
+                    "whose best ranked row prints below this IoU (%%)")
+    ap.add_argument("--no-miou", action="store_true", help="perclasspair --plain: no mIoU columns")
     ap.add_argument("--palette", default="", help="perclasspair --plain: class-name backgrounds in the "
                     "figures' class colours (a class-palette JSON, papers/figure_tools/class_palette.py)")
     ap.add_argument("--v2", action="store_true", help="tab1: add the Table I v2 rows")
@@ -1084,7 +1101,7 @@ def main(argv=None):
         if not (a.val and a.pair):
             raise SystemExit("perclasspair needs --val and --pair TEST2 VAL2")
         print(perclasspair([a.path, a.pair[0]], [a.val, a.pair[1]], a.variant, plain=a.plain,
-                           palette=a.palette or None))
+                           palette=a.palette or None, min_best=a.min_best, miou=not a.no_miou))
     elif a.table == "tab1pair":
         if not (a.val and a.pair):
             raise SystemExit("tab1pair needs --val and --pair TEST2 VAL2")

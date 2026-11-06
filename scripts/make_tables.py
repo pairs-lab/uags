@@ -926,7 +926,27 @@ def _perclass_head(classes, colors, miou="mIoU (\\%)"):
                       for i, c in enumerate(classes)) + f" & \\rotatebox{{90}}{{\\textbf{{{miou}}}}}"
 
 
-def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES, plain=False):
+def class_palette_hex(path):
+    """{class name: RRGGBB} of a class-palette JSON (papers/figure_tools/class_palette.py)."""
+    import json
+    with open(path) as f:
+        return {e["name"]: e["hex"] for e in json.load(f)["classes"]}
+
+
+def class_head(c, hexes=None):
+    """A plain header cell for class c; with hexes, the class's figure colour as background and
+    black or white text, whichever contrasts more (WCAG relative luminance)."""
+    h = (hexes or {}).get(c)
+    if not h:
+        return f"{{\\scriptsize {c}}}"
+    lin = lambda v: v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = (lin(int(h[i:i + 2], 16) / 255) for i in (0, 2, 4))
+    lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    ink = "black" if (lum + 0.05) / 0.05 >= 1.05 / (lum + 0.05) else "white"
+    return f"\\cellcolor[HTML]{{{h}}}{{\\scriptsize\\textcolor{{{ink}}}{{{c}}}}}"
+
+
+def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES, plain=False, palette=None):
     """Per-class table with two datasets side by side (e.g. Replica | ScanNet): each group is
     perclass's columns and cells for its own test file (classes present in >= min_scenes of its
     scenes, row choices from its own --val file), marked per dataset. A class present in both
@@ -951,7 +971,8 @@ def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES, pla
                  f"(tabular: @{{}}l*{{{n1}}}{{c}}|c*{{{n2}}}{{c}}|c@{{}}); header row:")
     # "mIoU" without "(%)": the tallest rotated header sets the row height (caption gives the unit)
     if plain:          # plain class names, the ranked rows only (user, 2026-11-06); bold best, underline second
-        lines.append("Method & " + " & ".join(" & ".join([f"{{\\scriptsize {c}}}" for c in g[1]] + ["mIoU"])
+        hexes = class_palette_hex(palette) if palette else None     # --palette: the figures' colours
+        lines.append("Method & " + " & ".join(" & ".join([class_head(c, hexes) for c in g[1]] + ["mIoU"])
                                               for g in groups) + "\\\\")
     else:
         lines.append("Method & " + " & ".join(_perclass_head(g[1], [color[c] for c in g[1]], "mIoU")
@@ -1025,7 +1046,9 @@ def main(argv=None):
     ap.add_argument("path")
     ap.add_argument("--val", default="", help="validation eval_seg JSON (row choices)")
     ap.add_argument("--variant", default="all", choices=["all", "covered"])
-    ap.add_argument("--plain", action="store_true", help="perclasspair: plain headers, bold best only, no CSS row")
+    ap.add_argument("--plain", action="store_true", help="perclasspair: plain headers, no CSS row")
+    ap.add_argument("--palette", default="", help="perclasspair --plain: class-name backgrounds in the "
+                    "figures' class colours (a class-palette JSON, papers/figure_tools/class_palette.py)")
     ap.add_argument("--v2", action="store_true", help="tab1: add the Table I v2 rows")
     ap.add_argument("--pair", nargs=2, metavar=("TEST2", "VAL2"), default=None,
                     help="tab1pair, perclasspair: test and validation eval_seg JSON of the "
@@ -1060,7 +1083,8 @@ def main(argv=None):
     elif a.table == "perclasspair":
         if not (a.val and a.pair):
             raise SystemExit("perclasspair needs --val and --pair TEST2 VAL2")
-        print(perclasspair([a.path, a.pair[0]], [a.val, a.pair[1]], a.variant, plain=a.plain))
+        print(perclasspair([a.path, a.pair[0]], [a.val, a.pair[1]], a.variant, plain=a.plain,
+                           palette=a.palette or None))
     elif a.table == "tab1pair":
         if not (a.val and a.pair):
             raise SystemExit("tab1pair needs --val and --pair TEST2 VAL2")

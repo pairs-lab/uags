@@ -199,6 +199,34 @@ def scene_palette(S):
     return pal
 
 
+def fixed_palette(names, path):
+    """(K, 3) colours of the class names from a class-palette file (JSON: classes = [{name, rgb}],
+    one colour per class name across figures; papers/figure_tools/class_palette.py). A name that the
+    file lacks takes the next colour of class_palette, then of Dark2, that the file does not use."""
+    import json
+    import matplotlib
+    with open(path) as f:
+        cl = {e["name"]: [float(x) for x in e["rgb"]] for e in json.load(f)["classes"]}
+    key = lambda c: tuple(round(float(x), 4) for x in c)
+    used = {key(c) for c in cl.values()}
+    pool = [tuple(c) for c in class_palette(54)] + list(matplotlib.colormaps["Dark2"].colors)
+    spare = [c for c in pool if key(c) not in used and max(c) - min(c) > 0.05] or pool
+    out, k = [], 0
+    for n in names:
+        if n in cl:
+            out.append(cl[n])
+        else:
+            out.append(list(spare[k % len(spare)]))
+            k += 1
+    return np.array(out, dtype=float)
+
+
+def palette_for(S, args):
+    """--palette FILE: fixed_palette of the scene's classes; else scene_palette (one per scene)."""
+    path = getattr(args, "palette", "") or ""
+    return fixed_palette(list(S["class_names"]), path) if path else scene_palette(S)
+
+
 def label_image(lab, palette):
     """(h, w, 3) class colours; -1 (unlabelled, or no decision) black."""
     lab = np.asarray(lab)
@@ -419,7 +447,7 @@ def make_figure(sc, vocab, betas, args):
     S, row = load(sc, vocab, betas, args)
     i = check_frame(S, args.frame)
     full = frame_maps(S, i, row, betas, args, with_rgb=True)
-    palette, names, idx = scene_palette(S), list(S["class_names"]), int(S["frames"][i]["idx"])
+    palette, names, idx = palette_for(S, args), list(S["class_names"]), int(S["frames"][i]["idx"])
     del S, row                                      # one map on the device at a time
     k, n_k, kmode = None, None, None
     if args.kfield:
@@ -537,6 +565,8 @@ def build_parser():
                     help="colour bar top: this quantile of the covered values shown")
     ap.add_argument("--epi-max", type=float, default=None, help="fix the u_epi colour bar top")
     ap.add_argument("--ale-max", type=float, default=None, help="fix the u_ale colour bar top")
+    ap.add_argument("--palette", default="", help="class colours from a class-palette JSON (one "
+                    "colour per class name, papers/figure_tools/class_palette.py); default: per scene")
     ap.add_argument("--legend-max", type=int, default=15, help="classes in the legend")
     ap.add_argument("--legend-min-share", type=float, default=0.002,
                     help="legend: classes on at least this share of the frame's pixels")

@@ -362,6 +362,9 @@ def check_test(val_path, sel_path, test_path, prereg_path=None, look_path=None, 
     return sel["chosen"]
 
 
+TAB1_DIGITS = 1                     # decimals of Table I's cells (NLL at least 2); --digits for tab1pair
+
+
 def cell(stat, scale, digits=1, std=True):
     if stat is None or stat.get("n", 0) == 0 or not math.isfinite(stat.get("mean", float("nan"))):
         return "--"
@@ -453,12 +456,13 @@ def _tab1_rows(summ, picked, ranked_entries, variant, path, std=True):
             out.append(("line", f"% {label}: row {row!r} not in {path}"))
             continue
         m = summ[row][variant]
-        cells = [cell(m.get(k), sc, 2 if k == "nll" else 1, std) for k, sc in COLS]
+        cells = [cell(m.get(k), sc, max(2, TAB1_DIGITS) if k == "nll" else TAB1_DIGITS, std)
+                 for k, sc in COLS]
         if pred == "same":                     # NormLift: averaging's predictive, not repeated
             cells = [None] * len(COLS)
         elif pred in ("asP0", "asP1"):           # adaptive beta: argmax of its base
             cells[:2] = [None, None]
-        cells.append(cell(m["ause"].get(sig), 100.0, 1, std) if sig else "--")
+        cells.append(cell(m["ause"].get(sig), 100.0, TAB1_DIGITS, std) if sig else "--")
         out.append(("row", label, pred))
         table.append(cells)
         ranked.append(entry in ranked_entries)   # missing rows cannot shift CSS into the ranking
@@ -1028,7 +1032,8 @@ def main(argv=None):
     ap.add_argument("--marks", action="store_true", help="tab3: bold / underline the best and "
                     "second-best cells of each column too")
     ap.add_argument("--digits", type=int, default=1,
-                    help="tab3: decimals of the ECE and AUSE cells (mIoU keeps 1, NLL 2); "
+                    help="tab1pair: decimals of every cell (NLL at least 2); "
+                         "tab3: decimals of the ECE and AUSE cells (mIoU keeps 1, NLL 2); "
                          "tab2: of the FA and Rec. cells (AP and AUROC keep 1)")
     a = ap.parse_args(argv)
     if a.table == "choose":                      # the validation choice of one row family
@@ -1049,6 +1054,8 @@ def main(argv=None):
     elif a.table == "tab1pair":
         if not (a.val and a.pair):
             raise SystemExit("tab1pair needs --val and --pair TEST2 VAL2")
+        global TAB1_DIGITS
+        TAB1_DIGITS = a.digits
         print(tab1pair([a.path, a.pair[0]], [a.val, a.pair[1]], a.variant))
     elif a.table == "select":                    # the v2 selection, recorded
         sel = selection(a.path, a.prereg)

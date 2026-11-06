@@ -2,15 +2,15 @@
 ## Current state
 Working draft (2026-11-02, [report](2026-11-02-merge-and-overview-figure/README.md)): papers/main.tex is ONE merged paper (24 pages) with the supplement items as marked SUPP-CANDIDATE blocks; the user decides which go to a supplement. The 8-page submission version is commit bb8dc0c. RA-L allows no supplementary text or figures (video zip only, 41.6 MB).
 Claims: the two uncertainty channels separate reducible from irreducible error (Replica 6/6, ScanNet 8/8 test scenes); the reset lowers stale answers 34% -> 21% (N=10), 19.5% -> 4.8% on the 8 object-query test scenes (post hoc, disclosed; [report](2026-11-06-stale-split-and-cusum/README.md)).
-Table I is a parity check: ours ties averaging the same features (mIoU Replica 28.0 vs 27.9, ScanNet 68.0 vs 67.7); 6 registered attempts to improve did not hold (paper Secs. IV-C, IV-D, Appendix D; latest: CUSUM change test, 2026-11-06).
-Fused baselines rank stale Gaussians above ours + depth (Gaussian AP 81.1, 79.9 vs 75.0).
+Table I is a parity check: ours ties averaging the same features (mIoU Replica 28.0 vs 27.9, ScanNet 68.0 vs 67.7); 7 registered attempts: 6 did not hold, and attempt 07 (whole-update score) was adopted for the ranking (paper Secs. IV-C, IV-D, Appendix D).
+Ranking stale Gaussians (test G AP): our whole-update score 64.6 ties the update-mean feature residual 64.7 and NormLift 63.8 (our test 53.4); fused with depth 81.0 vs 84.9 ([report](2026-11-06-whole-update-score/README.md)).
 Data and results live inside the repo since 2026-10-31 ([report](2026-10-31-move-data-into-uags/README.md)): uags/data (datasets, weights), uags/results (records, fields, maps, video).
 Figure 2 = papers/figs/pipeline_v6.tex (v3 + equations; v2 kept for the video, v3 kept).
-Open: user picks the supplement items; the video's method segment still shows v2. Last updated 2026-11-06.
+Open: user picks the supplement items; the video's method segment still shows v2; the video and the 8-page version (bb8dc0c) lack the attempt-07 rows. Last updated 2026-11-06.
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|
-| 2026-11-06 | [Attempt 07: whole-update change scores](2026-11-06-whole-update-score/README.md) | IN PROGRESS | registered; validation waits for the GPU |
+| 2026-11-06 | [Attempt 07: whole-update change scores](2026-11-06-whole-update-score/README.md) | PARTIAL | test G AP: ours 53.4 -> agr 64.6 (10/10 scenes; adopted, rows in Tables III-IV); ties the update-mean feature residual (64.7); fused with depth 81.0 vs 84.9 |
 | 2026-11-06 | [Stale answers by query type; attempt 06](2026-11-06-stale-split-and-cusum/README.md) | NEGATIVE | object-query test scenes: averaging 19.5% -> ours 4.8% (8/8, post hoc split); attempt 06 CUSUM: stale 25.4 vs 24.8% on validation, stopped before the test |
 | 2026-11-02 | [Teaser and best-case comparison](2026-11-02-teaser-and-best-case/README.md) | DONE | Fig. 1 one row (2.91 -> 1.68 in), Figs. 1-2 on page 2; fig:qual-compare on our best scenes (disclosed); 17 unused figure files removed |
 | 2026-11-02 | [Figure 2 v6 and cleanup](2026-11-02-figure2-v6-and-cleanup/README.md) | DONE | Fig. 2 = v3 + 4 equations (page 2); deleted 2.5 GB CLIP cache, merged supplement, old figure versions; third_party checked only |

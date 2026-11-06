@@ -317,17 +317,18 @@ def _colorbar(fig, box, x, y, width, vmax, undefined):
                  "undef.", fontsize=FS_SMALL, va="center", ha="left")
 
 
-def compose(rows, col_titles, classes, errors, cbars):
+def compose(rows, col_titles, classes, errors, cbars, notes=None):
     """The figure, FIG_W inches wide. rows: [(row label or None, 6 RGB arrays or None)]; a
     last row starting with two empty slots holds the class legend there, else the legend goes
     in the strip under (a)-(c). classes / errors: [(name, colour)];
     cbars: {column: (vmax, has_undefined)}, drawn under the last row."""
     import matplotlib
     from matplotlib.figure import Figure
-    h, w = next(p for _, ps in rows for p in ps if p is not None).shape[:2]
+    h, w = next(p for _, ps in rows for p in ps[:6] if p is not None).shape[:2]
     R = len(rows)
     left = 0.14 if any(lab for lab, _ in rows) else 0.01
-    pw = (FIG_W - left - 0.01 - 5 * GAP) / 6
+    extra = any(len(ps) > 6 and ps[6] is not None for _, ps in rows)     # the 3D column
+    pw = (FIG_W - left - 0.01 - (6 if extra else 5) * GAP) / (6 + (VIEW3D_W if extra else 0))
     ph = pw * h / w
     in_slot = R > 1 and rows[-1][1][0] is None and rows[-1][1][1] is None
     strip = 0.27 if in_slot else 0.36          # colour bars and (f) legend (+ class legend)
@@ -341,12 +342,20 @@ def compose(rows, col_titles, classes, errors, cbars):
             for c, img in enumerate(panels):
                 if img is None:
                     continue
-                ax = box(col_x(c), row_y(r), pw, ph)
-                ax.imshow(img, interpolation="nearest")
+                cw = VIEW3D_W * pw if c == 6 else pw
+                ax = box(col_x(c), row_y(r), cw, ph)
+                if c == 6 or img.shape[:2] != (h, w):                    # a 3D view: crop to the cell
+                    img = crop_to(img, cw / ph)
+                ax.imshow(img, interpolation="nearest" if c < 6 and img.shape[:2] == (h, w) else "lanczos")
                 ax.set_xticks([])
                 ax.set_yticks([])
-                if r == 0:
+                if r == 0 and c < len(col_titles) and col_titles[c]:
                     ax.set_title(col_titles[c], fontsize=FS_TITLE, pad=2.0)
+                note = (notes or {}).get((r, c))
+                if note:
+                    ax.text(0.03, 0.97, note, transform=ax.transAxes, ha="left", va="top",
+                            fontsize=FS_SMALL, color="white",
+                            bbox=dict(facecolor="black", alpha=0.55, edgecolor="none", pad=1.0))
             if label:
                 fig.text(0.45 * left / FIG_W, (row_y(r) + ph / 2) / H, label, rotation=90,
                          ha="center", va="center", fontsize=FS_TITLE)
@@ -358,6 +367,21 @@ def compose(rows, col_titles, classes, errors, cbars):
             _colorbar(fig, box, col_x(c), strip - 0.03 - 0.045, pw, vmax, undefined)
         _legend(box(col_x(5), 0.0, pw, strip - 0.03), errors, ncol=2, loc="upper center")
     return fig
+
+
+VIEW3D_W = 1.5                           # width of the 3D column, in panel widths
+
+
+def crop_to(img, aspect_wh):
+    """Centre crop of an image to the width / height ratio aspect_wh."""
+    hh, ww = img.shape[:2]
+    if ww / hh > aspect_wh:
+        nw = int(round(hh * aspect_wh))
+        x0 = (ww - nw) // 2
+        return img[:, x0:x0 + nw]
+    nh = int(round(ww / aspect_wh))
+    y0 = (hh - nh) // 2
+    return img[y0:y0 + nh]
 
 
 def save(fig, out, dpi=600, png_dpi=300):
@@ -409,8 +433,20 @@ def make_figure(sc, vocab, betas, args):
         grid = [("Full map", panels(full, full, palette, vmax, True)),
                 (k_label, panels(full, k, palette, vmax, False))]
     classes = legend_classes(names, shown, palette, args.legend_max, args.legend_min_share)
-    fig = compose(grid, titles(args.row, kmode), classes, error_items(kmode),
-                  {3: (vmax["u_epi"], False), 4: (vmax["u_ale"], True)})
+    col_titles, notes = titles(args.row, kmode), {}
+    if args.view3d:                     # (g) labels, (h) u_epi in a 3D column; (i) u_ale under (b)
+        import matplotlib.pyplot as plt
+        v = [plt.imread(p_)[..., :3] for p_ in args.view3d.split(",")]
+        grid = [(lab, list(ps) + [None] * (7 - len(ps))) for lab, ps in grid]
+        grid[0][1][6] = v[0]
+        notes[(0, 6)] = "(g) ours, 3D view"
+        if len(grid) > 1:
+            grid[1][1][6], grid[1][1][1] = v[1], v[2]
+            notes[(1, 6)] = "(h) $u^{\\mathrm{epi}}$, 3D view"
+            notes[(1, 1)] = "(i) $u^{\\mathrm{ale}}$, 3D view"
+        col_titles = list(col_titles) + ["Full map, 3D view"]
+    fig = compose(grid, col_titles, classes, error_items(kmode),
+                  {3: (vmax["u_epi"], False), 4: (vmax["u_ale"], True)}, notes)
     paths = save(fig, args.out, args.dpi, args.png_dpi)
     meta = dict(scene=sc["name"], frame=i, frame_index=idx, row=args.row,
                 field=sc["field"], kfield=args.kfield or None, k_mapping_views=n_k,
@@ -482,6 +518,8 @@ def build_parser():
                     help="evaluation frame: position in the scene's frame list (every --stride)")
     ap.add_argument("--row", default="ours_P2", help="the row shown (needs u_epi and u_ale)")
     ap.add_argument("--kfield", default="", help="k-view field: panel (f) as e_red / e_irr")
+    ap.add_argument("--view3d", default="", help="three PNGs of papers/figure_tools/views3d.py scene "
+                    "(labels, u_epi, u_ale of the full map): (g), (h) in a 3D column, (i) under (b)")
     ap.add_argument("--one-row", action="store_true",
                     help="with --kfield: only the k-view row (default: full map and k-view map)")
     ap.add_argument("--list-frames", type=int, default=0,

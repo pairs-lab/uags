@@ -345,6 +345,7 @@ def numbers_latex(rep):
 OKABE = dict(blue="#0072B2", vermillion="#D55E00", green="#009E73", orange="#E69F00",
              pink="#CC79A7", sky="#56B4E9", yellow="#F0E442")
 RESET = "#E69F00"                  # reset / flagged by our test (as figs/pipeline_v2.pdf)
+VIEW3D_W = 1.6                     # width of the 3D column of Fig. qual-change, in panel widths
 TINT_ITEMS = (("flagged, stale", "#E69F00"), ("stale, not flagged", "#56B4E9"),
               ("flagged, static", "#D55E00"), ("not flagged, static (map dimmed)", "#7f7f7f"),
               ("no update view", "#404040"))
@@ -428,14 +429,17 @@ def scene_maps(z, k, prefix="full"):
 
 
 def grid_figure(rows, col_titles, fig_w=7.16, left=0.17, gap=0.03, row_gap=0.04,
-                title_h=0.24, strip=0.42, right=0.01):
-    """A figure of rows of equal-width panels; each row has its own aspect (h / w).
+                title_h=0.24, strip=0.42, right=0.01, col_w=None):
+    """A figure of rows of panels; each row has its own aspect (h / w) for a unit-width panel,
+    col_w gives each column's width in panel widths (default 1).
     rows: [dict(label, aspect, panels=[callable(ax) or None])]. Returns (fig, box, layout)."""
     import matplotlib
     from matplotlib.figure import Figure
     RQ = _rq()
     nc = len(col_titles)
-    pw = (fig_w - left - right - (nc - 1) * gap) / nc
+    col_w = list(col_w) if col_w else [1.0] * nc
+    pw = (fig_w - left - right - (nc - 1) * gap) / sum(col_w)
+    xs = [left + sum(col_w[:c]) * pw + c * gap for c in range(nc)]
     hs = [pw * r["aspect"] for r in rows]
     H = title_h + sum(hs) + (len(rows) - 1) * row_gap + strip
     with matplotlib.rc_context(RQ.RC):
@@ -450,7 +454,7 @@ def grid_figure(rows, col_titles, fig_w=7.16, left=0.17, gap=0.03, row_gap=0.04,
                 if draw is None:
                     row_axes.append(None)
                     continue
-                ax = box(left + c * (pw + gap), y, pw, ph)
+                ax = box(xs[c], y, col_w[c] * pw, ph)
                 draw(ax)
                 if ri == 0:
                     ax.set_title(col_titles[c], fontsize=6, pad=2.0, linespacing=0.95)
@@ -496,7 +500,7 @@ def selection_rule_n1(records):
     return [asc[-1], asc[len(asc) // 2 - 1], asc[0]], ap
 
 
-def change_figure(dumps, scenes, records, out, stage_label=None, fig_w=7.16):
+def change_figure(dumps, scenes, records, out, stage_label=None, fig_w=7.16, view3d=None):
     """Fig. qual-change (N1). Numbers printed: the published pixel-level AP of (c)-(g) and
     FA / Rec of ours, from the records."""
     RQ = _rq()
@@ -527,8 +531,20 @@ def change_figure(dumps, scenes, records, out, stage_label=None, fig_w=7.16):
             return draw
         h, w = M["covered"].shape
         lab = s if stage_label is None else f"{s} ({stage_label})"
-        rows.append(dict(label=lab, aspect=h / w, panels=[panel(c) for c, _ in N1_COLS]))
-    fig, box, L = grid_figure(rows, [t for _, t in N1_COLS], strip=0.40, fig_w=fig_w)
+        cells = [panel(c) for c, _ in N1_COLS]
+        if view3d:                                  # (i) our flags on the map from a free camera
+            import matplotlib.pyplot as plt
+            img3 = plt.imread(view3d[s])[..., :3]
+
+            def draw3(ax, img3=img3):
+                bb, (fw, fh) = ax.get_position(), ax.figure.get_size_inches()
+                ax.imshow(_rq().crop_to(img3, (bb.width * fw) / (bb.height * fh)), interpolation="lanczos")
+                _frame(ax)
+            cells.append(draw3)
+        rows.append(dict(label=lab, aspect=h / w, panels=cells))
+    titles = [t for _, t in N1_COLS] + (["(i) Our flags,\n3D view"] if view3d else [])
+    fig, box, L = grid_figure(rows, titles, strip=0.40, fig_w=fig_w,
+                              col_w=[1.0] * len(N1_COLS) + ([VIEW3D_W] if view3d else []))
     import matplotlib
     with matplotlib.rc_context(RQ.RC):
         x0 = L["left"] + 2 * (L["pw"] + L["gap"])
@@ -984,6 +1000,7 @@ def build_parser():
                        help="'rule' (N1: highest, lower-median, lowest test pixel AP of ours) "
                             "or a list")
         p.add_argument("--stage-label", default=None, help="e.g. 'validation' for dev runs")
+        p.add_argument("--view3d-dir", default="", help="change: folder of views3d.py nor_<scene>_flags.png (a 3D column)")
         p.add_argument("--out", required=True, help="figure path (.pdf; a .png is written too)")
         p.add_argument("--caption", default="", help="write the proposed caption here")
         p.add_argument("--meta", default="", help="write the figure's metadata here (JSON)")
@@ -1071,8 +1088,10 @@ def main(argv=None):
                                    stage_label=args.stage_label, fig_w=args.fig_w)
                 cap = query_caption(res["info"])
             else:
+                v3 = ({sc: os.path.join(args.view3d_dir, f"nor_{sc}_flags.png") for sc in scenes}
+                      if getattr(args, "view3d_dir", "") else None)
                 res = change_figure(args.dumps, scenes, recs, args.out, args.stage_label,
-                                    args.fig_w)
+                                    args.fig_w, view3d=v3)
                 cap = change_caption(res["info"], recs)
             if args.scenes == "rule":
                 res["selection_rule"] = dict(rule="highest, lower-median (5th of 10, "

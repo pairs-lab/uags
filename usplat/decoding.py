@@ -18,7 +18,8 @@ p(label), and so mIoU, accuracy, per-class IoU, ECE and AURC follow the rule.
             label-free prior balancing (logit adjustment with the scene's own predicted prior)
   eiou      argmax_c log p_pc + b_c, with b maximising the expected mean IoU of the scene under p
             (Nowozin, "Optimal decisions from probabilistic models: the intersection-over-union
-            case", CVPR 2014): coordinate ascent over a fixed grid on a fixed pixel subsample
+            case", CVPR 2014): coordinate ascent over a fixed grid on a fixed pixel subsample,
+            on the run's device (scripts/decode_tab1.py passes its GPU)
 
 A tie of the top two decision scores within TIE_TOL is no decision (-1), as in seg_eval.
 """
@@ -71,10 +72,10 @@ class SceneStats:
                     n_pixels=self.n, n_subsample=int(sub.shape[0]))
 
 
-def expected_miou(logp, b):
+def expected_miou(logp, b, p=None):
     """Expected mean IoU over the K classes of the decisions argmax(logp + b) under p = exp(logp)
-    (Nowozin 2014): E[TP_c] / (E[G_c] + |D_c| - E[TP_c])."""
-    p = logp.exp()
+    (Nowozin 2014): E[TP_c] / (E[G_c] + |D_c| - E[TP_c]). p: exp(logp), if already computed."""
+    p = logp.exp() if p is None else p
     lab = (logp + b).argmax(1)
     K = logp.shape[1]
     onehot = torch.zeros_like(p).scatter_(1, lab[:, None], 1.0)
@@ -86,16 +87,19 @@ def expected_miou(logp, b):
 
 
 @torch.no_grad()
-def eiou_offsets(sub_p, grid=EIOU_GRID, sweeps=EIOU_SWEEPS):
-    """b (K,) by coordinate ascent on the fixed grid (start 0; a value replaces the current one
-    only if it strictly raises the expected mIoU; classes in index order)."""
-    sub_p = sub_p.double()
+def eiou_offsets(sub_p, grid=EIOU_GRID, sweeps=EIOU_SWEEPS, device=None):
+    """b (K,) on the CPU by coordinate ascent on the fixed grid (start 0; a value replaces the
+    current one only if it strictly raises the expected mIoU; classes in index order). device: where
+    the search runs (default: that of sub_p); a GPU is about 100x faster for K = 101."""
+    dev = sub_p.device if device is None else torch.device(device)
+    sub_p = sub_p.to(dev, torch.float64)
     K = sub_p.shape[1]
-    b = torch.zeros(K, dtype=torch.float64)
+    b = torch.zeros(K, dtype=torch.float64, device=dev)
     if sub_p.shape[0] == 0:
-        return b, float("nan")
+        return b.cpu(), float("nan")
     logp = sub_p.clamp_min(1e-12).log()
-    best = expected_miou(logp, b)
+    p = logp.exp()
+    best = expected_miou(logp, b, p)
     for _ in range(int(sweeps)):
         moved = False
         for c in range(K):
@@ -104,17 +108,18 @@ def eiou_offsets(sub_p, grid=EIOU_GRID, sweeps=EIOU_SWEEPS):
                 if v == keep:
                     continue
                 b[c] = v
-                e = expected_miou(logp, b)
+                e = expected_miou(logp, b, p)
                 if e > best + 1e-12:
                     best, keep, moved = e, v, True
             b[c] = keep
         if not moved:
             break
-    return b, best
+    return b.cpu(), best
 
 
-def scene_parameters(stats: SceneStats, rule: str, value=None):
-    """The rule's per-scene parameter vector (K,) from the scene statistics."""
+def scene_parameters(stats: SceneStats, rule: str, value=None, device=None):
+    """The rule's per-scene parameter vector (K,) from the scene statistics (device: where the
+    expected-IoU search runs)."""
     st = stats if isinstance(stats, dict) else stats.finalize()
     if rule == "base":
         return None
@@ -123,7 +128,7 @@ def scene_parameters(stats: SceneStats, rule: str, value=None):
     if rule == "prior":
         return float(value) * st["pi"].clamp_min(1e-12).log()
     if rule == "eiou":
-        return eiou_offsets(st["sub"])[0]
+        return eiou_offsets(st["sub"], device=device)[0]
     raise ValueError(f"unknown rule {rule!r}")
 
 

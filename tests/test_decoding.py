@@ -235,3 +235,17 @@ def test_rules_on_gpu_tensors():
                       ("eiou", torch.randn(4))):
         lab, conf, _ = D.decide(rule, s, p, cov, torch.rand(500, device="cuda"), par)
         assert lab.device.type == "cuda" and conf.device.type == "cuda" and int((lab >= 0).sum()) > 0
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+@pytest.mark.parametrize("K", [19, 101])
+def test_eiou_offsets_gpu_equals_cpu(K):
+    """The expected-IoU search gives the same offsets on the GPU as on the CPU (Replica K = 101,
+    ScanNet K = 19), with peaked and flat pixels as in the LSeg rows."""
+    g = torch.Generator().manual_seed(K)
+    s = torch.randn(5_000, K, generator=g, dtype=torch.float64) * torch.rand(5_000, 1, generator=g) * 6
+    p = torch.softmax(s, 1).float()                          # SceneStats keeps the subsample in float32
+    b_cpu, e_cpu = D.eiou_offsets(p, sweeps=1)
+    b_gpu, e_gpu = D.eiou_offsets(p, sweeps=1, device="cuda")
+    assert b_gpu.device.type == "cpu" and torch.equal(b_cpu, b_gpu)
+    assert e_gpu == pytest.approx(e_cpu, abs=1e-9) and bool((b_cpu != 0).any())

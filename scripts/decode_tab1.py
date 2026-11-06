@@ -148,7 +148,8 @@ def scene_run(sc, vocab, betas, settings, args, keys, published, tol):
                                           args.undef_frac)
                 stats[r.name].add(s[cov], p[cov], a[cov])
     fin = {n: st.finalize() for n, st in stats.items()}
-    params = {n: {k: D.scene_parameters(fin[n], rule, val) for k, rule, val in keys} for n in fin}
+    params = {n: {k: D.scene_parameters(fin[n], rule, val, device=args.device) for k, rule, val in keys}
+              for n in fin}
     t1 = time.perf_counter()
     acc = SegAccumulator(class_names=S["class_names"])
     dec = {(n, k): dict(lab=[], conf=[]) for n in fin for k, _, _ in keys if k != "base"}

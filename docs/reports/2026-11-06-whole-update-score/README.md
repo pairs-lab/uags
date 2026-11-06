@@ -1,5 +1,5 @@
 # Attempt 07: whole-update change scores from our field rank the stale Gaussians
-2026-11-06 | root: /home/thanhnc/gauss_ws/src/uags | git: master@81ae01f (registration efb6b8d) +dirty (paper, tables) | [all reports](../INDEX.md)
+2026-11-06 | root: /home/thanhnc/gauss_ws/src/uags | git: runs at master@81ae01f (registration efb6b8d); tables and paper in 9947e84 | [all reports](../INDEX.md)
 Follows: [Stale answers by query type; attempt 06](../2026-11-06-stale-split-and-cusum/README.md)
 Verdict: PARTIAL -- adopted by its registered rule (beats our test in 10/10 test scenes), but it only ties the same-aggregation feature residual and trails it fused with depth
 Key result: test G AP (higher is better): ours 53.4 -> agr 64.6 (+11.2, 10/10 scenes); fair baseline feat_mean 64.7; fused 81.0 vs 84.9 ([test rows](logs/test_rows.md), [attempt 07](attempts/07-whole-update-score.md))
@@ -50,6 +50,7 @@ not done: agr is a single statistic (one part). dir and kish were alternatives, 
 | CPU tests of the paper tables (generator, Table III/IV layout and cells, video numbers, fused report) | `python -m pytest tests/test_whole_update_tables.py tests/test_make_tables_tab2.py tests/test_make_tables_tab3.py tests/test_make_tables_marks.py tests/test_video.py tests/test_plot_nor_qual.py` | 37 passed ([log](logs/test_paper_tables.txt)) | PASS |
 | The layout test catches a changed cell (one cell changed in a copy of each generated file) | scratch run on copies | 3/3 caught | PASS |
 | I1 registration committed before any real-data run | `git log configs/whole_update_prereg.json` | efb6b8d at 11:10; first scene at 11:11:15 ([selection log](logs/val_selection.txt)) | PASS |
+| I1 the row tables of this report reproduce | `python3 docs/reports/2026-11-06-whole-update-score/logs/wu_rows.py results/whole_update test 005,006,007,008,009,010,011,013,014,015` (and `val 001,002,003,004`) | byte-identical to [test_rows](logs/test_rows.md) and [val_rows](logs/val_rows.md) ([script](logs/wu_rows.py)) | PASS |
 | I1 Table III reproduces (stop rule) | `STAGE=val` / `STAGE=test scripts/whole_update.sh` | val 4/4, test 10/10; capture and residual identities hold ([test run](logs/test_run.txt)) | PASS |
 | I1 the test ran once, the adoption is the registered rule | `STAGE=table scripts/whole_update.sh` | check-test PASS before the test; Verdict: ADOPT (above ours by 11.2 points, higher in 10/10) ([table](logs/test_table.md)) | PASS |
 | I1 paper cells come from the records | `python3 scripts/whole_update_tables.py --prereg configs/whole_update_prereg.json --test-dir results/whole_update/test --table results/whole_update/table/whole_update_test.json --tab3-record results/nor/tab2_relmax/change_test.json --out-dir docs/reports/2026-11-06-whole-update-score/logs/tables` | [tables/](logs/tables/). The 8 earlier Table IV tests reproduce exactly (x/10, median, sign p); only Holm changes (family 8 -> 24) | PASS |

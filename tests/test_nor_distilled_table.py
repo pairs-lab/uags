@@ -52,7 +52,7 @@ def test_update_stride_is_per_scene_and_must_match_its_record(tmp_path):
         (tmp_path / f"{s}.json").write_text(json.dumps(dict(status="ok", metrics=dict(
             scene=s, settings=dict(SET, update_stride=stride), summary=rows,
             control_check=dict(reference=dict(path=str(ref)), all_exact=True, max_abs_diff=0.0,
-                               **{k: dict(abs_diff=0.0) for k in ("g_ap", "p_ap", "fa", "rec", "threshold", "n_observed")}))))))
+                               **{k: dict(abs_diff=0.0) for k in ("g_ap", "p_ap", "fa", "rec", "threshold", "n_observed")})))))
     T.main(["merge", "--dir", str(tmp_path), "--scenes", "001,003", "--rows", "f3dgs_feat",
             "--out", str(tmp_path / "m.json")])
     (tmp_path / "ref_003.json").write_text(json.dumps(dict(config=dict(update_stride=2))))

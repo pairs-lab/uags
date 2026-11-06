@@ -354,9 +354,8 @@ N1_COLS = (("map", "(a) Map"),                    # one-line titles (user, 2026-
            ("feat", "(c) Feat. residual"),
            ("normlift", "(d) NormLift drop"),
            ("depth", "(e) Depth residual"),
-           ("ours", "(f) Ours"),
-           ("fused", "(g) Ours + depth"),
-           ("tint", "(h) Our flags"))
+           ("fused", "(f) Ours"),                   # our score fused with depth (user, 2026-11-06)
+           ("tint", "(g) Our flags"))
 N2_COLS = (("photo", "(a) Update frame\n(object removed)"),
            ("before", "(b) Before the update\n(mapping $\\boldsymbol{\\mu}^{\\star}$)"),
            ("nochange", "(c) After the update,\nchange test off"),
@@ -542,14 +541,14 @@ def change_figure(dumps, scenes, records, out, stage_label=None, fig_w=7.16, vie
                 _frame(ax)
             cells.append(draw3)
         rows.append(dict(label=lab, aspect=h / w, panels=cells))
-    titles = [t for _, t in N1_COLS] + (["(i) Our flags, 3D view"] if view3d else [])
+    titles = [t for _, t in N1_COLS] + (["(h) Our flags, 3D view"] if view3d else [])
     fig, box, L = grid_figure(rows, titles, strip=0.40, fig_w=fig_w, title_h=0.14,
                               col_w=[1.0] * len(N1_COLS) + ([VIEW3D_W] if view3d else []))
     import matplotlib
     with matplotlib.rc_context(RQ.RC):
         x0 = L["left"] + 2 * (L["pw"] + L["gap"])
         _cbar(fig, box, x0, L["strip"] - 0.17, 2 * L["pw"], 0.0, 1.0,
-              "(c)-(g): rank among the scene's update pixels", [0, 0.5, 1])
+              "(c)-(f): rank among the scene's update pixels", [0, 0.5, 1])
         _legend_patches(box(x0 + 2 * L["pw"] + 0.12, L["strip"] - 0.30, 1.0, 0.25),
                         [("no score", RQ.UNDEF), ("not covered", RQ.BLACK)], ncol=1)
         _legend_patches(box(L["left"] + 5 * (L["pw"] + L["gap"]), 0.0, 3 * L["pw"],

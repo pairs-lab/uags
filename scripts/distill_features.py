@@ -60,6 +60,17 @@ def select_frames(ds, cfg):
     return keep
 
 
+def mapping_dataset(cfg):
+    """(name, root, options) of the main field's mapping frames, as run_mapping.py read them: a
+    NeRF-Object-Removal field (dataset nor) reads its part (map) only, and every path recorded
+    before the 2026-10-31 move is mapped to its current place (usplat.paths.moved)."""
+    from usplat.paths import moved
+    opts = dict(part=cfg["part"]) if cfg["dataset"] == "nor" else {}
+    if cfg["dataset"] == "nor" and cfg.get("part") != "map":
+        raise SystemExit(f"nor field of part {cfg.get('part')!r}: distil on the mapping part only")
+    return cfg["dataset"], moved(cfg["data"]), opts
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--field", required=True, help="the scene's main field (run_mapping --out)")
@@ -95,10 +106,15 @@ def main(argv=None):
     out = args.out or D.out_path(args.field, name)
     pca = StreamingPCA.from_state(ck["pca"], device=device)
     d = int(cfg["feat_dim"])
-    splats = load_gaussians(cfg["ply"], device=device)
+    from usplat.paths import moved
+    splats = load_gaussians(moved(cfg["ply"]), device=device)
     N = splats["means"].shape[0]
-    ds = make_dataset(cfg["dataset"], cfg["data"], stride=cfg["stride"])
+    name_, root, opts = mapping_dataset(cfg)
+    ds = make_dataset(name_, root, stride=cfg["stride"], **opts)
     idx = select_frames(ds, cfg)
+    saved_kf = (ck.get("timing") or {}).get("keyframes")
+    if saved_kf is not None and int(saved_kf) != len(idx):
+        raise SystemExit(f"{len(idx)} mapping frames here, the main field used {saved_kf}")
     print(f"{name}: {N} Gaussians, {len(idx)} mapping frames of {len(ds)} (main field {args.field})")
 
     ext = get_extractor(cfg["extractor"], device=device)

@@ -50,6 +50,19 @@ def test_rules_on_hand_cases():
         D.decide("argmax2", s, p, cov)
 
 
+def test_base_ties_on_p_like_evaluate_view():
+    """ScanNet scene0062_00, ours_P1 (2026-11-06): the class scores of a pixel lie near 0 and its
+    top two differ by 7.5e-13 (a tie on s), while p = softmax(beta s) differs by 5.2e-12 (no tie on
+    p): evaluate_view labels it class 0, and so must the base rule."""
+    from usplat.seg_eval import TIE_TOL
+    s = torch.tensor([[8.052207338404838e-12, 7.298302587277483e-12, 0.0, 0.0, 0.0, 0.0]],
+                     dtype=torch.float64)
+    p = torch.softmax(41.3 * s, 1)
+    assert float(s[0, 0] - s[0, 1]) < TIE_TOL < float(p[0, 0] - p[0, 1])
+    lab, conf, tied = D.decide("base", s, p, torch.tensor([True]))
+    assert lab.tolist() == [0] and not bool(tied[0]) and float(conf[0]) == pytest.approx(float(p[0, 0]))
+
+
 def test_expected_miou_and_offsets():
     # class 1 has 45% probability on half the pixels but never wins the argmax
     p = torch.tensor([[0.55, 0.45]] * 50 + [[0.99, 0.01]] * 50, dtype=torch.float64)

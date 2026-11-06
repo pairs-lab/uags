@@ -9,7 +9,7 @@ evaluation frames (a first pass over the frames; scripts/decode_tab1.py). The pr
 not changed: NLL and Brier are those of the paper's rule; the label, its stated confidence
 p(label), and so mIoU, accuracy, per-class IoU, ECE and AURC follow the rule.
 
-  base      argmax_c s_pc                                        the paper's rule
+  base      argmax_c p_pc, ties on p                             the paper's rule (evaluate_view)
   centre    argmax_c s_pc - lam a_p m_c,  m_c = sum_p s_pc / sum_p a_p
             class-mean centring: a class's scene-wide score offset (the 'wall' hub of LSeg
             features) is removed; a_p = alpha_p for feature rows (F_p is not divided by alpha),
@@ -21,7 +21,9 @@ p(label), and so mIoU, accuracy, per-class IoU, ECE and AURC follow the rule.
             case", CVPR 2014): coordinate ascent over a fixed grid on a fixed pixel subsample,
             on the run's device (scripts/decode_tab1.py passes its GPU)
 
-A tie of the top two decision scores within TIE_TOL is no decision (-1), as in seg_eval.
+A tie of the top two decision scores within TIE_TOL is no decision (-1), as in seg_eval; for 'base'
+the scores are p itself, so the labels equal evaluate_view's bit for bit (with s, a pixel whose
+scores all lie near 0 can tie on s but not on p: 3 pixels of ScanNet scene0062_00, ours_P1).
 """
 from __future__ import annotations
 
@@ -140,7 +142,7 @@ def decide(rule, s, p, covered, a=None, param=None):
     covered = covered.to(s.device)                      # every input on the scores' device
     p = p.to(s.device)
     if rule == "base":
-        score = s.double()
+        score = p.double()                              # evaluate_view: the argmax of p, ties on p
     elif rule == "centre":
         aw = torch.ones(s.shape[0], dtype=torch.float64) if a is None else a.double().cpu()
         score = s.double() - aw.to(s.device)[:, None] * param.to(s.device, torch.float64)[None]

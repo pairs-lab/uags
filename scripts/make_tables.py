@@ -918,7 +918,7 @@ def _perclass_head(classes, colors, miou="mIoU (\\%)"):
                       for i, c in enumerate(classes)) + f" & \\rotatebox{{90}}{{\\textbf{{{miou}}}}}"
 
 
-def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES):
+def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES, plain=False):
     """Per-class table with two datasets side by side (e.g. Replica | ScanNet): each group is
     perclass's columns and cells for its own test file (classes present in >= min_scenes of its
     scenes, row choices from its own --val file), marked per dataset. A class present in both
@@ -942,12 +942,21 @@ def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES):
     lines.append(f"% columns: {n1} classes + mIoU | {n2} classes + mIoU "
                  f"(tabular: @{{}}l*{{{n1}}}{{c}}|c*{{{n2}}}{{c}}|c@{{}}); header row:")
     # "mIoU" without "(%)": the tallest rotated header sets the row height (caption gives the unit)
-    lines.append("Method & " + " & ".join(_perclass_head(g[1], [color[c] for c in g[1]], "mIoU")
-                                          for g in groups) + "\\\\")
+    if plain:          # plain class names, bold for the best only, the ranked rows only (user, 2026-11-06)
+        lines.append("Method & " + " & ".join(" & ".join([f"{{\\scriptsize {c}}}" for c in g[1]] + ["mIoU"])
+                                              for g in groups) + "\\\\")
+    else:
+        lines.append("Method & " + " & ".join(_perclass_head(g[1], [color[c] for c in g[1]], "mIoU")
+                                              for g in groups) + "\\\\")
     for i, (label, rk) in enumerate(zip(groups[0][2], groups[0][4])):
+        if plain and not rk:
+            continue
         if not rk:
             lines.append("\\midrule")
-        lines.append(f"{label} & " + " & ".join(groups[0][3][i] + groups[1][3][i]) + "\\\\")
+        cells = groups[0][3][i] + groups[1][3][i]
+        if plain:
+            cells = [re.sub(r"\\underline\{([^}]*)\}", r"\1", c_) for c_ in cells]
+        lines.append(f"{label} & " + " & ".join(cells) + "\\\\")
     return "\n".join(lines)
 
 
@@ -1002,6 +1011,7 @@ def main(argv=None):
     ap.add_argument("path")
     ap.add_argument("--val", default="", help="validation eval_seg JSON (row choices)")
     ap.add_argument("--variant", default="all", choices=["all", "covered"])
+    ap.add_argument("--plain", action="store_true", help="perclasspair: plain headers, bold best only, no CSS row")
     ap.add_argument("--v2", action="store_true", help="tab1: add the Table I v2 rows")
     ap.add_argument("--pair", nargs=2, metavar=("TEST2", "VAL2"), default=None,
                     help="tab1pair, perclasspair: test and validation eval_seg JSON of the "
@@ -1035,7 +1045,7 @@ def main(argv=None):
     elif a.table == "perclasspair":
         if not (a.val and a.pair):
             raise SystemExit("perclasspair needs --val and --pair TEST2 VAL2")
-        print(perclasspair([a.path, a.pair[0]], [a.val, a.pair[1]], a.variant))
+        print(perclasspair([a.path, a.pair[0]], [a.val, a.pair[1]], a.variant, plain=a.plain))
     elif a.table == "tab1pair":
         if not (a.val and a.pair):
             raise SystemExit("tab1pair needs --val and --pair TEST2 VAL2")

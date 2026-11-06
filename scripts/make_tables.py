@@ -887,6 +887,10 @@ PERCLASS_ROWS = [("2D features~\\cite{li2022lseg}, per frame", "2d_features"),
                  ("LEGaussians~\\cite{shi2024legaussians}\\reimpl", "@legs"),
                  ("Ours", "ours_P2")]   # P1 (negative) is in Table I
 PERCLASS_REF = [("CSS~\\cite{wilson2025css}\\reimpl, closed set", "@css")]
+# a row whose every per-class IoU and mIoU equal another row's is named in that row's label, not
+# given its own row: NormLift keeps averaging's feature, so its labels are averaging's (checked
+# per scene and class on every file; a difference is refused)
+PERCLASS_SAME = {"averaging": ("normlift", "{} / NormLift~\\cite{zang2026normlift}\\reimpl")}
 # header colours (white text on each): a fixed categorical palette, one per column in order
 PERCLASS_COLORS = ["1F78B4", "B15928", "6A3D9A", "8C564B", "2F4F4F", "E31A1C", "33A02C",
                    "D95F02", "7570B3", "1B9E77", "B8860B", "666666", "A6761D", "E7298A"]
@@ -946,7 +950,7 @@ def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES, pla
     lines.append(f"% columns: {n1} classes + mIoU | {n2} classes + mIoU "
                  f"(tabular: @{{}}l*{{{n1}}}{{c}}|c*{{{n2}}}{{c}}|c@{{}}); header row:")
     # "mIoU" without "(%)": the tallest rotated header sets the row height (caption gives the unit)
-    if plain:          # plain class names, bold for the best only, the ranked rows only (user, 2026-11-06)
+    if plain:          # plain class names, the ranked rows only (user, 2026-11-06); bold best, underline second
         lines.append("Method & " + " & ".join(" & ".join([f"{{\\scriptsize {c}}}" for c in g[1]] + ["mIoU"])
                                               for g in groups) + "\\\\")
     else:
@@ -958,8 +962,6 @@ def perclasspair(paths, vals, variant="all", min_scenes=PERCLASS_MIN_SCENES, pla
         if not rk:
             lines.append("\\midrule")
         cells = groups[0][3][i] + groups[1][3][i]
-        if plain:
-            cells = [re.sub(r"\\underline\{([^}]*)\}", r"\1", c_) for c_ in cells]
         lines.append(f"{label} & " + " & ".join(cells) + "\\\\")
     return "\n".join(lines)
 
@@ -985,6 +987,14 @@ def _perclass_table(path, val, variant, min_scenes):
         if row not in summ:
             lines.append(f"% {label}: row {row!r} not in {path}")
             continue
+        same = PERCLASS_SAME.get(row)
+        if same and same[0] in summ:
+            iou = lambda r: {s: ((scenes[s]["rows"].get(r) or {}).get(variant) or {}).get("iou")
+                             for s in scenes}
+            if iou(same[0]) != iou(row) or summ[same[0]][variant].get("miou") != summ[row][variant].get("miou"):
+                raise SystemExit(f"perclass: row {same[0]!r} differs from {row!r}; give it its own row")
+            label += same[1]
+            lines.append(f"% {same[0]}: every per-class IoU and the mIoU equal {row}'s (named in its row)")
         cells = []
         for c in classes:
             v = [((scenes[s]["rows"].get(row) or {}).get(variant) or {}).get("iou", {}).get(c)

@@ -10,6 +10,7 @@ Open: user picks the supplement items; the video's method segment still shows v2
 ## Runs (newest first)
 | Date | Report | Verdict | Main result |
 |---|---|---|---|
+| 2026-11-06 | [Attempt 07: whole-update change scores](2026-11-06-whole-update-score/README.md) | IN PROGRESS | registered; validation waits for the GPU |
 | 2026-11-06 | [Stale answers by query type; attempt 06](2026-11-06-stale-split-and-cusum/README.md) | NEGATIVE | object-query test scenes: averaging 19.5% -> ours 4.8% (8/8, post hoc split); attempt 06 CUSUM: stale 25.4 vs 24.8% on validation, stopped before the test |
 | 2026-11-02 | [Teaser and best-case comparison](2026-11-02-teaser-and-best-case/README.md) | DONE | Fig. 1 one row (2.91 -> 1.68 in), Figs. 1-2 on page 2; fig:qual-compare on our best scenes (disclosed); 17 unused figure files removed |
 | 2026-11-02 | [Figure 2 v6 and cleanup](2026-11-02-figure2-v6-and-cleanup/README.md) | DONE | Fig. 2 = v3 + 4 equations (page 2); deleted 2.5 GB CLIP cache, merged supplement, old figure versions; third_party checked only |

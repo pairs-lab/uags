@@ -1,0 +1,40 @@
+{
+ "name": "Attempt 07: whole-update change scores from our field's evidence rank the stale Gaussians (NeRF-Object-Removal, Table III ranking)",
+ "status": "REGISTERED 2026-11-06, written and committed before any real-data run of this attempt; only CPU toy tests (tests/test_whole_update.py) have run. scripts/whole_update.sh refuses every stage while this file or the attempt's code is untracked or has uncommitted changes, and refuses STAGE=test before a finished, accepted validation selection.",
+ "after": "A later attempt, after Table III (tab:change), Table IV (tab:fused) and attempts 01-06 (Appendix D) were final. Known before this file (Table III records, results/nor/tab2_relmax): test Gaussian AP ours 53.4 (pixel AP 57.2), NormLift's drop 63.8, feature residual 56.6, depth residual 57.4, dispersion 18.4; fused with depth: ours 75.0, feature 81.1, NormLift 79.9. Validation means (001-004): ours 60.3, NormLift 61.1, feature 62.8, depth 80.1, ours + depth 84.0. Attempt 06's CUSUM statistic, used as a firing score, ranked better on validation (Gaussian AP 65.8 vs 60.3 for its selected level). The dispersion row is NaN on 90% of the observed validation Gaussians (84% of the stale ones), because the aleatoric read-out needs tau_min = 3 views of support. The test scenes were seen by all of these; this is a further look.",
+ "idea": "Our ranking score c_max is the maximum over the update views of the per-view persistent score c_p = min of the last k = 2 values of 1 - cos(R_old, R_new). A maximum over many noisy per-view tests inflates the scores of static Gaussians, and the per-view reference (all earlier evidence) absorbs the new content as the update goes on. NormLift's drop instead compares the state after the whole update with the state after mapping. Our field already holds the sums for such a comparison with its own statistics: the raw channel of the saved field after mapping (M) and of Table III's copy with the change test off after the update (E = M + the update's views U, no reset).",
+ "variants": {
+  "dir": "1 - cos(R_M, R_U), R_U = R_E - R_M: our test's cosine with the update's views pooled and the reference frozen at the end of mapping",
+  "agr": "|R_M| / W1_M - |R_E| / W1_E: the drop of the mean resultant length (uncorrected)",
+  "kish": "rho_M - rho_E with rho = vmf_field._Channel.agreement('kish'): the drop of the Kish agreement, i.e. the rise of 1 - rho_hat over the update, wherever rho_hat is defined (two weighted views; no tau_min gate)"
+ },
+ "dropped_before_any_run": "the rise of the aleatoric read-out u_ale itself (with its tau_min gate): undefined on most observed Gaussians (see 'after'), so it cannot rank them.",
+ "sums": "float64 from the float32 channel sums: R (N, d) = sum_v w_v u_v, W1 = sum_v w_v, W2 = sum_v w_v^2, Q = sum_v w_v^2 |u_v|^2 (vmf_field._Channel; w_v = min(1, m_v / (a0 H W)) the view weight, u_v the per-view mean feature). M from the saved field (Table III's field file), E from the captured no-reset field at the end of Table III's update.",
+ "undefined": "NaN (ranked last, as every Table III row): outside the observed Gaussians; dir where W1_M = 0, |R_M| = 0 or |R_U| = 0; agr where W1_M = 0; kish where either rho is undefined.",
+ "baselines": {
+  "rows": ["ncc_mean", "feat_mean", "depth_mean"],
+  "rule": "the per-view residual of each residual row (NCC, feature, depth vs the frozen map; the values eval_change_nor.residuals_view returns) averaged over the covered update views where it is finite: the same whole-update aggregation for the per-view baselines, so that a gain is not only the aggregation. NormLift's drop already uses the whole update; the Table III rows are reported unchanged."
+ },
+ "code": {
+  "core": "usplat/whole_update.py (variant scores, residual means)",
+  "scene": "scripts/whole_update_nor.py (imports scripts/eval_change_nor.py and scripts/dump_nor_qual.py; never edits them)",
+  "selection": "scripts/whole_update_select.py (select, check-test, table)",
+  "pipeline": "scripts/whole_update.sh STAGE=val|test|table",
+  "frozen": "every file of the Table III evaluation is used as is; their hashes differ from the records only by the path lines of the 2026-10-31 move (usplat/paths.py), so hash equality is recorded, not required; the reproduction stop rule below is the equivalence check (as attempts 03 and 06)."
+ },
+ "inputs": "the Table III records (results/nor/tab2_relmax/{val,test}/<scene>.json), the fields, maps and alignments they name (sha256 checked), results/qual/nor/noise/tolerance.json; no re-mapping, no new features.",
+ "scenes": {"validation": ["001", "002", "003", "004"], "test": ["005", "006", "007", "008", "009", "010", "011", "013", "014", "015"]},
+ "pass": "Table III's two passes as eval_change_nor.py runs them (mapping replay, update), with the fields captured (dump_nor_qual.capture_fields: ours and the no-reset copy, identity asserts dump_nor_qual.check_capture) and every update view's per-view residuals read by a wrapper of eval_change_nor.residuals_view that returns them unchanged (identity: its finite counts and maxima equal the residual series' count and max filter).",
+ "reproduction": "stop rule (exit 2) per scene, as attempts 03 and 06: dump_nor_qual.reproduction (keyframes, per-frame counts, every Table III AP / AUROC within the tolerance, ours' FA / Rec within 0.5 points).",
+ "metrics": "per row (ours replayed, every variant run, the three baseline mean rows; each variant and ncc_mean, feat_mean also fused with Table III's depth residual by fuse_rank on the observed Gaussians, Table III's fused rule): Gaussian AP / AUROC over the observed Gaussians with NaN last (the selection metric is the Gaussian AP), pixel AP / AUROC (eval_change_nor.pixel_level), the NaN counts.",
+ "selection": {
+  "data": "the 4 validation scenes, all of them",
+  "choose": "the variant with the highest mean validation Gaussian AP (unfused); a tie within 0.5 point goes to the higher mean fused Gaussian AP, then to the order dir, agr, kish",
+  "accept": "the chosen variant runs on the test scenes only if its mean validation Gaussian AP is at least 3.0 points above ours' (same replays); otherwise the attempt stops here (negative, no test run)"
+ },
+ "test_once": "the accepted variant only (with ours, replayed, and the baseline mean rows) runs once on the 10 test scenes; a finished test scene is never redone.",
+ "adopt": "the variant is adopted only if on the test scenes its mean Gaussian AP is at least 3.0 points above ours' and it is higher than ours in at least 7 of the 10 scenes.",
+ "adopt_effect": "if adopted: Table III gains the row 'ours, whole-update score' after ours' row (Gaussian and pixel level; no operating point, it ranks and does not fire), its fused row in the bottom block, and the three baseline mean rows; ours' online test, its operating point, the reset, the stale-answer results and Table I are unchanged; Table IV repeats its sign tests for the new fused row (exact two-sided sign test over the 10 test scenes, Holm over all the table's tests). If not adopted: Appendix D only.",
+ "report_all": "every variant's validation rows, the baseline mean rows and the test rows are reported, whatever the outcome, in Appendix D (registered later attempts) and in docs/reports/2026-11-06-whole-update-score.",
+ "gpu": "scripts/gpu_gate.sh 6500 MiB, headroom 1 GiB, poll 5 s, as attempts 03 and 06; it waits while a USGLoc job holds the card."
+}

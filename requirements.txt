@@ -1,13 +1,17 @@
-# Core (tested in this package, CPU-only):
+# UAGS dependencies (minimum versions). requirements-eval.txt pins the exact versions of the paper.
+# Install PyTorch with CUDA first (https://pytorch.org), then: pip install -r requirements.txt
 torch>=2.0
-numpy
-
-# Real backend (gsplat pipeline; needs CUDA GPU):
-gsplat>=1.5           # differentiable 3DGS feature rasterizer (JIT-builds CUDA;
-                      # needs nvcc — see README "CUDA toolchain" note)
-open-clip-torch>=3.0  # CLIP backbone (MaskCLIP-style dense features built in
-                      # usplat/clip_dense.py — no extra dense head needed)
-plyfile               # INRIA .ply checkpoint loading
-opencv-python         # dataset I/O
+numpy<2
+scipy
+gsplat>=1.5            # 3D-GS feature rasterizer; JIT-builds its CUDA extension (needs nvcc, see README)
+open_clip_torch>=3.0   # CLIP text and image towers
+timm                   # LSeg's ViT-L/16 backbone (usplat/extractors/lseg.py)
+plyfile                # INRIA .ply checkpoints
+opencv-python          # dataset I/O
+pillow
+PyYAML
+matplotlib>=3.7        # figures
 tqdm
-matplotlib>=3.7       # figures (scripts/plot_views.py: constrained layout, outside legend)
+requests               # scripts/fetch_lseg_weights.py
+nvidia-ml-py           # GPU memory checks while fitting maps (usplat/gs_fit.py)
+pytest                 # tests/

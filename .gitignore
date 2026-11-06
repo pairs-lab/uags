@@ -6,5 +6,8 @@ __pycache__/
 /data/
 /results/
 
-# reports and working notes stay local (user decision, 2026-11-06)
+# the paper (sources, figure / table / video tools and their tests) and the reports stay local
+# (user decision, 2026-11-06)
 /docs/
+/papers/
+

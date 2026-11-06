@@ -1,0 +1,39 @@
+{
+ "name": "attempt 08: label-free decision rules for every row of Table I (and Table II)",
+ "status": "REGISTERED 2026-11-06, written and committed before any real-data run of this attempt; only CPU toy tests (tests/test_decoding.py) have run. scripts/decode_tab1.sh refuses every stage while this file or the attempt's code is untracked or has uncommitted changes, and refuses STAGE=test before a finished, accepted validation selection.",
+ "after": {
+  "known_test_means": "Table I (published): Replica / ScanNet mIoU 2D 26.3 / 62.5, averaging 27.9 / 67.7, F3DGS 27.9 / 65.0, LEGaussians 24.0 / 62.3, ours P0=P2 28.0 / 68.0, CSS 28.5 / 67.3 (copied from papers/main.tex).",
+  "phase1": "docs/reports/2026-11-06-tables-1-2-attempt-08/logs/phase1/: ours and averaging give the same label on 97.4-99.7% of the mapping pixel mass, so mIoU, accuracy and Table II move only with a new decision rule; 11/24 and 9/21 present classes of the Replica validation scenes are the argmax of no Gaussian (IoU 0 for every row, 2D included).",
+  "what_was_seen": "Phase 1 computed label-free statistics of the candidate rules on the VALIDATION fields (how much pixel mass each relabels, how many present classes it decodes) and compared decoded mass with the validation ground-truth class shares. No candidate's validation mIoU, and nothing on a test scene, was computed before this registration."
+ },
+ "idea": "A row's decision rule maps its class scores and its calibrated predictive to labels. The paper's rule is the argmax. Three label-free rules use statistics of the same scene, computed without labels on the covered pixels of its evaluation frames: class-mean centring (removes each class's scene-wide score offset, e.g. the 'wall' hub of LSeg features), prior balancing (logit adjustment with the scene's own predicted prior), and expected-IoU decisions (Nowozin, CVPR 2014: per-class offsets that maximise the expected mean IoU under the row's predictive). Every row gets the same rule; the predictive (NLL, Brier) is unchanged; the label and its stated confidence p(label) change, so mIoU, accuracy, per-class IoU, ECE and AURC follow the rule.",
+ "rules": [
+  {"rule": "centre", "values": [0.5, 1.0], "description": "argmax_c s_pc - lam a_p m_c, m_c = sum_p s_pc / sum_p a_p over the covered pixels; a_p = alpha_p for feature rows (F_p is not divided by alpha), 1 for probs rows and the 2D row"},
+  {"rule": "prior", "values": [0.5, 1.0], "description": "argmax_c log p_pc - tau log pi_c, pi_c = mean over the covered pixels of p_pc"},
+  {"rule": "eiou", "values": null, "description": "argmax_c log p_pc + b_c; b maximises the expected mean IoU over the K queried classes, E[TP_c] / (E[G_c] + |D_c| - E[TP_c]), by coordinate ascent from 0 on the grid {-4, -3.5, ..., 4}, 3 sweeps, a value replacing the current one only if it strictly raises the objective, on a fixed random subsample of 100000 covered pixels per scene (seeded per row)"}
+ ],
+ "statistics": "per scene and row, from the covered pixels (alpha >= tau_cov) of all its evaluation frames (labelled or not), with the row's validation-fitted temperature; no label is used",
+ "datasets": {
+  "replica": {"record_val": "results/tab1/eval_val.json", "record_test": "results/tab1/eval_test.json",
+              "scenes_val": "configs/replica_val.json", "scenes_test": "configs/replica_test.json",
+              "rows": ["2d_features", "averaging", "normlift", "f3dgs", "legs_l4", "ours_P0", "ours_P1", "ours_P2", "css_a0.01"],
+              "selection_rows": ["2d_features", "averaging", "f3dgs", "legs_l4", "ours_P2"]},
+  "scannet": {"record_val": "results/scannet_tab1/eval_val.json", "record_test": "results/scannet_tab1/eval_test.json",
+              "scenes_val": "configs/scannet_val.json", "scenes_test": "configs/scannet_test.json",
+              "rows": ["2d_features", "averaging", "normlift", "f3dgs", "legs_l1", "ours_P0", "ours_P1", "ours_P2", "css_a0.1"],
+              "selection_rows": ["2d_features", "averaging", "f3dgs", "legs_l1", "ours_P2"]}
+ },
+ "rows_note": "The Table I rows with the published validation choices (LEGaussians lambda_u: Replica 4, ScanNet 1; CSS alpha0: Replica 0.01, ScanNet 0.1); the temperatures are the published validation fits (the record_val betas). CSS is evaluated but is not a selection row (closed-set reference); ours enters the selection once, as ours_P2 (the paper's method row).",
+ "reproduction": {"tolerance": 1e-5, "rule": "for every scene, the base rule must give evaluate_view's labels exactly and every published per-scene cell (mIoU, acc, macc, ECE, NLL, Brier, AURC, per-class IoU; all and covered) within the tolerance, or the run stops (exit 2)"},
+ "selection": {
+  "score": "S(rule) = mean over the two datasets of the mean over the selection rows of the mean validation mIoU (variant 'all')",
+  "choose": "the highest S among the registered rules; a rule within 0.25 point of the highest is tied, and the first tied rule in the registered order (centre_0.5, centre_1, prior_0.5, prior_1, eiou) is chosen",
+  "accept": "S(chosen) - S(base) >= 1.0 point, and on each dataset the mean over the selection rows is not below base's"
+ },
+ "test_once": "the base rule and every registered rule run once on the test scenes of both datasets (the base rule reproduces the published Table I); a finished test record is never redone",
+ "adopt": "the chosen rule is adopted only if on the test scenes S_test(chosen) - S_test(base) >= 0.5 point, ours_P2's mean test mIoU is above base's on both datasets, and ours_P2 is higher than under base in at least 4 of the 6 Replica and 5 of the 8 ScanNet test scenes",
+ "adopt_effect": "if adopted: Tables I and II are regenerated with scripts/make_tables.py tab1pair / perclasspair from the chosen rule's records for every row (NLL and Brier unchanged); Sec. IV-C states the rule and its transductive per-scene statistics; the base rule's numbers stay in Appendix D. If not adopted: Appendix D only.",
+ "report_all": "every rule's validation and test numbers are reported in docs/reports/2026-11-06-tables-1-2-attempt-08 and in Appendix D, whatever the outcome",
+ "code": ["scripts/decode_tab1.py", "scripts/decode_select.py", "scripts/decode_tab1.sh", "usplat/decoding.py"],
+ "gpu": "every GPU step through scripts/gpu_gate.sh 7000 (LSeg for the 2D row and the rows' buffers)"
+}

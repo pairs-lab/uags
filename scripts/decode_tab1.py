@@ -13,7 +13,9 @@ its label-free statistics (decoding.SceneStats: class-score means, predicted pri
 subsample); the rules' parameters follow. Pass 2 runs eval_seg.evaluate_view (the paper's rule;
 every published metric through a SegAccumulator) and each rule's decisions on the labelled pixels.
 The base decisions must equal evaluate_view's labels, and the base metrics must equal the
-published record cell by cell (prereg tolerance), or the run stops with exit 2.
+published record cell by cell (prereg tolerances), or the run stops with exit 2. The metrics run on
+the GPU (decoding.summarize_on and decision_metrics: seg_eval.summarize's formulas), after the
+scene's buffers are freed; on a GPU out-of-memory error, on the CPU (recorded per scene).
 
 Output: one record per rule (<out stem>_<rule>.json; eval_seg's layout, so scripts/make_tables.py
 tab1pair / perclasspair read it; NLL and Brier are the base predictive's) and the run record
@@ -132,7 +134,9 @@ def views_of(S, args, rows2d):
         yield v, w
 
 
-def scene_run(sc, vocab, betas, settings, args, keys, published, tol):
+def scene_passes(sc, vocab, betas, settings, args, keys):
+    """Passes 1 and 2 of one scene. Returns the accumulator, the rules' decisions, the statistics,
+    the scene's meta and the base-label check; the scene's GPU memory is freed on return."""
     S = ES.load_scene(sc, vocab, args, args.device)
     ES.check_field_identity(S["field_identity"], S["aux_identities"], settings, sc["name"], args)
     raw = ES._raw_probs(args)
@@ -174,35 +178,7 @@ def scene_run(sc, vocab, betas, settings, args, keys, published, tol):
                     lab, conf, _ = D.decide(rule, s, p, cov, a, params[r.name][k])
                     dec[(r.name, k)]["lab"].append(lab.cpu().short())
                     dec[(r.name, k)]["conf"].append(conf.cpu())
-    base = acc.metrics(args.ece_bins, args.ause_bins)
     t2 = time.perf_counter()
-    by_rule = {"base": base}
-    for k, _, _ in keys:
-        if k == "base":
-            continue
-        by_rule[k] = {}
-        for n in fin:
-            arr = acc.arrays(n)
-            m = D.decision_metrics(arr["gt"].long(), torch.cat(dec[(n, k)]["lab"]).long(),
-                                   torch.cat(dec[(n, k)]["conf"]), arr["covered"].bool(), u=arr["u"],
-                                   num_bins=args.ece_bins, ause_bins=args.ause_bins,
-                                   class_names=S["class_names"])
-            for var in m:                                   # the predictive's NLL and Brier
-                if m[var].get("n_pixels"):
-                    m[var]["nll"], m[var]["brier"] = base[n][var]["nll"], base[n][var]["brier"]
-            by_rule[k][n] = m
-    # the base rule against the published record, cell by cell
-    pub = published["scenes"][sc["name"]]["rows"]
-    deltas = {}
-    for n, m in base.items():
-        for var in ("all", "covered"):
-            for key in REPRO_KEYS:
-                deltas[f"{n}/{var}/{key}"] = abs(float(m[var][key]) - float(pub[n][var][key]))
-            for c, val in m[var]["iou"].items():
-                deltas[f"{n}/{var}/iou/{c}"] = abs(float(val) - float(pub[n][var]["iou"][c]))
-    worst = max(deltas.items(), key=lambda kv: kv[1])
-    repro = dict(ok=worst[1] <= tol and n_base_mismatch == 0, tolerance=tol, max_delta=worst[1],
-                 worst=worst[0], n_cells=len(deltas), base_label_mismatches=n_base_mismatch)
     meta = dict(n_views=acc.n_views, classes=S["class_names"], class_ids=S["class_ids"],
                 field_identity=S["field_identity"], field_code=S["field_code"],
                 aux_identities=S["aux_identities"], betas_used=used,
@@ -212,7 +188,62 @@ def scene_run(sc, vocab, betas, settings, args, keys, published, tol):
                         m=fin[n]["m"].tolist(), pi=fin[n]["pi"].tolist(),
                         params={k: (None if params[n][k] is None else params[n][k].tolist()) for k in params[n]})
                 for n in fin}
-    timing = dict(pass1_s=t1 - t0, pass2_s=t2 - t1, metrics_s=time.perf_counter() - t2)
+    return acc, dec, list(fin), meta, stat_rec, n_base_mismatch, dict(pass1_s=t1 - t0, pass2_s=t2 - t1)
+
+
+def on_device(fn, device, *a, **kw):
+    """fn(*a, device=device, **kw) and the device used: on a GPU out-of-memory error, the CPU."""
+    try:
+        return fn(*a, device=device, **kw), str(device)
+    except torch.OutOfMemoryError:
+        return fn(*a, device="cpu", **kw), "cpu"
+
+
+def scene_run(sc, vocab, betas, settings, args, keys, published, repro_cfg):
+    acc, dec, names, meta, stat_rec, n_base_mismatch, timing = scene_passes(sc, vocab, betas, settings,
+                                                                            args, keys)
+    t2 = time.perf_counter()
+    devices = set()
+    base, by_rule = {}, {k: {} for k, _, _ in keys if k != "base"}
+    for n in names:                                         # the metrics, on the GPU
+        arr = acc.arrays(n)
+        base[n], dv = on_device(D.summarize_on, args.device, arr, meta["classes"], args.ece_bins,
+                                args.ause_bins)
+        devices.add(dv)
+        for k in by_rule:
+            m, dv = on_device(D.decision_metrics, args.device, arr["gt"].long(),
+                              torch.cat(dec[(n, k)]["lab"]).long(), torch.cat(dec[(n, k)]["conf"]),
+                              arr["covered"].bool(), u=arr["u"], num_bins=args.ece_bins,
+                              ause_bins=args.ause_bins, class_names=meta["classes"])
+            devices.add(dv)
+            for var in m:                                   # the predictive's NLL and Brier
+                if m[var].get("n_pixels"):
+                    m[var]["nll"], m[var]["brier"] = base[n][var]["nll"], base[n][var]["brier"]
+            by_rule[k][n] = m
+        del arr
+    by_rule = {"base": base, **by_rule}
+    # the base rule against the published record, cell by cell
+    pub = published["scenes"][sc["name"]]["rows"]
+    deltas = {}
+    for n, m in base.items():
+        for var in ("all", "covered"):
+            for key in REPRO_KEYS:
+                deltas[f"{n}/{var}/{key}"] = abs(float(m[var][key]) - float(pub[n][var][key]))
+            for c, val in m[var]["iou"].items():
+                deltas[f"{n}/{var}/iou/{c}"] = abs(float(val) - float(pub[n][var]["iou"][c]))
+    tol = float(repro_cfg["tolerance"])
+    tol_cls = float(repro_cfg.get("tolerance_class_iou", tol))
+    agg = {k: v for k, v in deltas.items() if "/iou/" not in k}
+    cls = {k: v for k, v in deltas.items() if "/iou/" in k} or {"-": 0.0}
+    w_agg, w_cls = max(agg.items(), key=lambda kv: kv[1]), max(cls.items(), key=lambda kv: kv[1])
+    worst = max((w_agg, w_cls), key=lambda kv: kv[1])
+    per_row = {n: max(v for k, v in deltas.items() if k.startswith(f"{n}/")) for n in base}
+    repro = dict(ok=w_agg[1] <= tol and w_cls[1] <= tol_cls and n_base_mismatch == 0,
+                 tolerance=tol, tolerance_class_iou=tol_cls, max_delta=worst[1], worst=worst[0],
+                 max_delta_aggregate=w_agg[1], worst_aggregate=w_agg[0],
+                 max_delta_class_iou=w_cls[1], worst_class_iou=w_cls[0], max_delta_per_row=per_row,
+                 n_cells=len(deltas), base_label_mismatches=n_base_mismatch)
+    timing.update(metrics_s=time.perf_counter() - t2, metrics_device=sorted(devices))
     return by_rule, meta, stat_rec, repro, timing
 
 
@@ -252,9 +283,10 @@ def run(a):
     scene_meta, scene_stats, scene_repro, scene_time = {}, {}, {}, {}
     for sc in ES._load_structured(scenes_path):
         by_rule, meta, st, repro, timing = scene_run(sc, vocab, betas, settings, args, keys,
-                                                     published, float(prereg["reproduction"]["tolerance"]))
-        print(f"{sc['name']}: reproduction {'ok' if repro['ok'] else 'FAILED'} (max {repro['max_delta']:.2e} "
-              f"at {repro['worst']}, base label mismatches {repro['base_label_mismatches']}); "
+                                                     published, prereg["reproduction"])
+        print(f"{sc['name']}: reproduction {'ok' if repro['ok'] else 'FAILED'} (max {repro['max_delta_aggregate']:.2e} "
+              f"at {repro['worst_aggregate']}, per-class IoU max {repro['max_delta_class_iou']:.2e} at "
+              f"{repro['worst_class_iou']}, base label mismatches {repro['base_label_mismatches']}); "
               f"{timing}")
         for k in by_rule:
             res[k][sc["name"]] = dict(meta, rows=by_rule[k])

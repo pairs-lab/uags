@@ -2,7 +2,8 @@
 scripts/decode_select.py, configs/decoding_prereg.json), on the CPU:
  * the rules on hand cases: base = argmax with ties and uncovered pixels as no decision; centring
    removes a class's offset; prior balancing; the expected mean IoU and its coordinate ascent;
- * decision_metrics of the base rule equals usplat.seg_eval.summarize on the same pixels;
+ * decision_metrics of the base rule equals usplat.seg_eval.summarize on the same pixels, and
+   summarize_on equals summarize bit for bit on the CPU (and within 1e-9 on the GPU);
  * decode_tab1.py on the toy scene of tests/test_seg_eval.py (mock backend): the base rule
    reproduces eval_seg's own record exactly, and every rule writes an eval_seg-format record;
  * the selection rule (score, tie order, margins), the adoption rule, and the test gates.
@@ -97,12 +98,69 @@ def test_decision_metrics_equal_summarize():
             assert got[var]["ranking"][ch]["ause"] == pytest.approx(ref[var]["ranking"][ch]["ause"], abs=1e-12)
 
 
+def _close(a, b, tol, path=""):
+    """a == b for nested dicts and lists; floats within tol (NaN equals NaN)."""
+    if isinstance(a, dict):
+        assert set(a) == set(b), path
+        for k in a:
+            _close(a[k], b[k], tol, f"{path}/{k}")
+    elif isinstance(a, (list, tuple)):
+        assert len(a) == len(b), path
+        for i, (x, y) in enumerate(zip(a, b)):
+            _close(x, y, tol, f"{path}[{i}]")
+    elif isinstance(a, float) or isinstance(b, float):
+        if math.isnan(a) or math.isnan(b):
+            assert math.isnan(a) and math.isnan(b), path
+        else:
+            assert abs(a - b) <= tol, (path, a, b)
+    else:
+        assert a == b, (path, a, b)
+
+
+def _summary_input(M=4000, K=6, seed=0):
+    """SegAccumulator.arrays-like pixels: tied scores and confidences, uncovered pixels, NaN and
+    tied channel values."""
+    g = torch.Generator().manual_seed(seed)
+    s = torch.randn(M, K, generator=g, dtype=torch.float64)
+    s[: M // 20] = s[: M // 20].round()                        # exact ties of the top two
+    p = torch.softmax(2.0 * s, 1)
+    gt = torch.randint(0, K, (M,), generator=g)
+    cov = torch.rand(M, generator=g) > 0.05
+    p = torch.where(cov[:, None], p, torch.full_like(p, 1.0 / K))
+    lab, conf, tied = D.decide("base", s, p, cov)
+    conf = (conf * 40).round() / 40                            # many equal confidences
+    py = p.gather(1, gt[:, None]).squeeze(1)
+    nan = torch.full((M,), float("nan"))
+    u = dict(u_epi=(torch.rand(M, generator=g) * 10).round() / 10,
+             u_ale=torch.where(torch.rand(M, generator=g) > 0.1, torch.rand(M, generator=g), nan))
+    d = dict(gt=gt.int(), pred=lab.int(), conf=conf.float(),
+             entropy=(-torch.special.xlogy(p, p).sum(1)).float(),
+             nll=(-py.clamp_min(1e-12).log()).float(), brier=((p * p).sum(1) - 2 * py + 1).float(),
+             correct=(lab == gt), covered=cov, tied=tied, alpha=torch.ones(M), u=u)
+    return d, [str(i) for i in range(K)]
+
+
+def test_summarize_on_equals_summarize_on_cpu():
+    from usplat.seg_eval import summarize
+    d, names = _summary_input()
+    _close(D.summarize_on(d, names), summarize(d, names), 0.0)
+    old = D.decision_metrics(d["gt"].long(), d["pred"].long(), d["conf"], d["covered"], u=d["u"],
+                             class_names=names)
+    ref = summarize(d, names)
+    for var in ("all", "covered"):
+        for k in ("miou", "acc", "macc", "ece", "aurc", "iou", "reliability", "n_tied"):
+            _close(old[var][k], ref[var][k], 0.0, f"{var}/{k}")
+        for ch in ("msp", "u_epi", "u_ale"):
+            _close(old[var]["ranking"][ch], ref[var]["ranking"][ch], 0.0, f"{var}/{ch}")
+
+
 def _toy_prereg(tmp_path, rec, scenes):
     p = json.load(open(REPO / "configs" / "decoding_prereg.json"))
     p["datasets"] = dict(toy=dict(record_val=str(rec), record_test=str(rec), scenes_val=str(scenes),
                                   scenes_test=str(scenes), rows=["ours_P0", "ours_P2"],
                                   selection_rows=["ours_P2"]))
     p["reproduction"]["tolerance"] = 1e-12
+    p["reproduction"]["tolerance_class_iou"] = 1e-12
     path = tmp_path / "prereg.json"
     path.write_text(json.dumps(p))
     return path
@@ -249,3 +307,20 @@ def test_eiou_offsets_gpu_equals_cpu(K):
     b_gpu, e_gpu = D.eiou_offsets(p, sweeps=1, device="cuda")
     assert b_gpu.device.type == "cpu" and torch.equal(b_cpu, b_gpu)
     assert e_gpu == pytest.approx(e_cpu, abs=1e-9) and bool((b_cpu != 0).any())
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+def test_metrics_on_gpu_equal_cpu():
+    """The metrics on the GPU (attempt 08 computes them there) equal seg_eval.summarize on the CPU
+    within 1e-9; the counts and per-class IoU exactly, mIoU (a mean in another order) to 1e-15."""
+    from usplat.seg_eval import summarize
+    d, names = _summary_input(M=300_000, K=19, seed=1)
+    ref = summarize(d, names)
+    got = D.summarize_on(d, names, device="cuda")
+    _close(got, ref, 1e-9)
+    for var in ("all", "covered"):
+        assert got[var]["iou"] == ref[var]["iou"]
+        assert abs(got[var]["miou"] - ref[var]["miou"]) <= 1e-15
+    args = (d["gt"].long(), d["pred"].long(), d["conf"], d["covered"])
+    _close(D.decision_metrics(*args, u=d["u"], class_names=names, device="cuda"),
+           D.decision_metrics(*args, u=d["u"], class_names=names), 1e-9)

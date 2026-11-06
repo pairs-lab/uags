@@ -40,3 +40,22 @@ def test_mixed_settings_are_refused(tmp_path):
     with pytest.raises(SystemExit):
         T.main(["merge", "--dir", str(tmp_path), "--scenes", "001,002", "--rows", "f3dgs_feat",
                 "--out", str(tmp_path / "m.json")])
+
+
+def test_update_stride_is_per_scene_and_must_match_its_record(tmp_path):
+    """Scenes may differ in update stride (the Table III records use 1-3), but each must equal its
+    own Table III record's (2026-11-07)."""
+    for s, stride in (("001", 2), ("003", 1)):
+        ref = tmp_path / f"ref_{s}.json"
+        ref.write_text(json.dumps(dict(config=dict(update_stride=stride))))
+        rows = {"f3dgs_feat": dict(zip(T.METRICS, (0.5,) * 6))}
+        (tmp_path / f"{s}.json").write_text(json.dumps(dict(status="ok", metrics=dict(
+            scene=s, settings=dict(SET, update_stride=stride), summary=rows,
+            control_check=dict(reference=dict(path=str(ref)), all_exact=True, max_abs_diff=0.0,
+                               **{k: dict(abs_diff=0.0) for k in ("g_ap", "p_ap", "fa", "rec", "threshold", "n_observed")}))))))
+    T.main(["merge", "--dir", str(tmp_path), "--scenes", "001,003", "--rows", "f3dgs_feat",
+            "--out", str(tmp_path / "m.json")])
+    (tmp_path / "ref_003.json").write_text(json.dumps(dict(config=dict(update_stride=2))))
+    with pytest.raises(SystemExit):
+        T.main(["merge", "--dir", str(tmp_path), "--scenes", "001,003", "--rows", "f3dgs_feat",
+                "--out", str(tmp_path / "m.json")])

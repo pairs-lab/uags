@@ -10,8 +10,9 @@ usplat.seg_eval.scene_stats, as scripts/nor_tab2.py merge; cells as scripts/make
       --scenes 005,...,015 --rows f3dgs_feat,legs_l2_feat \
       --labels "Feature 3DGS, feature residual;LEGaussians, feature residual" --out <m.json> --tex <rows.tex>
 
-Refuses a scene record that is missing, unfinished, of another scene, or with other settings than the
-first scene's (change_quantile, k, tau_cov, undef_frac, inflate_m, near_m, update_stride, backend).
+Refuses a scene record that is missing, unfinished, of another scene, with other settings than the
+first scene's (change_quantile, k, tau_cov, undef_frac, inflate_m, near_m, backend; as scripts/nor_tab2.py
+SAME), or with another update stride than its own Table III record (the stride is the scene's own: 1-3).
 """
 from __future__ import annotations
 import argparse
@@ -27,8 +28,7 @@ sys.path.insert(0, HERE)
 from usplat.seg_eval import scene_stats                                    # noqa: E402
 
 METRICS = ("g_ap", "g_auroc", "p_ap", "p_auroc", "fa", "rec")
-SAME = ("change_quantile", "k", "tau_cov", "undef_frac", "inflate_m", "near_m", "update_stride",
-        "backend")
+SAME = ("change_quantile", "k", "tau_cov", "undef_frac", "inflate_m", "near_m", "backend")
 
 
 def load(dirpath, scenes):
@@ -45,6 +45,12 @@ def load(dirpath, scenes):
         if m["scene"] != s:
             raise SystemExit(f"{p}: scene {m['scene']}, expected {s}")
         st = {k: m["settings"][k] for k in SAME}
+        cc = m.get("control_check") or {}
+        refpath = (cc.get("reference") or {}).get("path")
+        if refpath:                                     # the scene's own stride, as its Table III record
+            want = json.load(open(refpath))["config"]["update_stride"]
+            if int(m["settings"]["update_stride"]) != int(want):
+                raise SystemExit(f"{p}: update stride {m['settings']['update_stride']}, its Table III record {want}")
         if ref is None:
             ref = st
         elif st != ref:

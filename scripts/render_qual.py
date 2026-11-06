@@ -331,8 +331,10 @@ def compose(rows, col_titles, classes, errors, cbars, notes=None, legend_row=Fal
     pw = (FIG_W - left - 0.01 - (6 if extra else 5) * GAP) / (6 + (VIEW3D_W if extra else 0))
     ph = pw * h / w
     in_slot = R > 1 and rows[-1][1][0] is None and rows[-1][1][1] is None
-    strip = 0.27 if (in_slot or legend_row) else 0.36   # colour bars and (f) legend (+ class legend)
-    low = 0.13 if legend_row else 0.0          # the class legend in one row at the bottom
+    # the strip under the panels: colour bars and the (f) legend (+ class legend); with
+    # legend_row, the colour bars only, and the class and error legends in one row at the bottom
+    strip = 0.20 if legend_row else (0.27 if in_slot else 0.36)
+    low = 0.13 if legend_row else 0.0
     strip += low
     H = TITLE_H + R * ph + (R - 1) * ROW_GAP + strip
     with matplotlib.rc_context(RC):
@@ -361,15 +363,17 @@ def compose(rows, col_titles, classes, errors, cbars, notes=None, legend_row=Fal
             if label:
                 fig.text(0.45 * left / FIG_W, (row_y(r) + ph / 2) / H, label, rotation=90,
                          ha="center", va="center", fontsize=FS_TITLE)
-        if legend_row:
-            _legend(box(col_x(0), 0.0, FIG_W - col_x(0) - 0.01, low - 0.02), classes, ncol=len(classes))
+        if legend_row:                           # classes, then the error items, as Fig. 4
+            row = list(classes) + list(errors)
+            _legend(box(col_x(0), 0.0, FIG_W - col_x(0) - 0.01, low - 0.02), row, ncol=len(row))
         elif in_slot:
             _legend(box(col_x(0), row_y(R - 1), 2 * pw + GAP, ph), classes, ncol=3)
         else:
             _legend(box(col_x(0), 0.0, 3 * pw + 2 * GAP, strip - 0.03), classes, ncol=5)
         for c, (vmax, undefined) in cbars.items():
             _colorbar(fig, box, col_x(c), strip - 0.03 - 0.045, pw, vmax, undefined)
-        _legend(box(col_x(5), low, pw, strip - 0.03 - low), errors, ncol=2, loc="upper center")
+        if not legend_row:
+            _legend(box(col_x(5), low, pw, strip - 0.03 - low), errors, ncol=2, loc="upper center")
     return fig
 
 

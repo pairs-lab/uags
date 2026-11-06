@@ -491,6 +491,28 @@ def _cbar(fig, box, x, y, w, vmin, vmax, label, ticks=None, fmt="{:g}", cmap="vi
     return cax
 
 
+def _inline_cbar(fig, box, x, y, w, label, fs=5.5, cmap="viridis"):
+    """A 0..1 colour bar in one text line centred at height y (in): 'label 0 [bar] 1'.
+    Returns the right end of the '1' (in)."""
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.cm import ScalarMappable
+    from matplotlib.colors import Normalize
+    W, H = fig.get_size_inches()
+    r = FigureCanvasAgg(fig).get_renderer()
+
+    def text(xi, s):
+        t = fig.text(xi / W, y / H, s, fontsize=fs, ha="left", va="center")
+        return t.get_window_extent(r).width / fig.dpi
+    x += text(x, label) + 0.05
+    x += text(x, "0") + 0.03
+    cax = box(x, y - 0.025, w, 0.05)
+    cb = fig.colorbar(ScalarMappable(Normalize(0.0, 1.0), cmap), cax=cax, orientation="horizontal")
+    cb.set_ticks([])
+    cb.outline.set_linewidth(0.3)
+    x += w + 0.03
+    return x + text(x, "1")
+
+
 def selection_rule_n1(records):
     """N1 scenes: the test scenes with the highest, the lower-median (5th of 10, ascending)
     and the lowest pixel-level AP of ours (published records)."""
@@ -542,17 +564,17 @@ def change_figure(dumps, scenes, records, out, stage_label=None, fig_w=7.16, vie
             cells.append(draw3)
         rows.append(dict(label=lab, aspect=h / w, panels=cells))
     titles = [t for _, t in N1_COLS] + (["(h) Our flags, 3D view"] if view3d else [])
-    fig, box, L = grid_figure(rows, titles, strip=0.40, fig_w=fig_w, title_h=0.14,
+    fig, box, L = grid_figure(rows, titles, strip=0.17, fig_w=fig_w, title_h=0.14,
                               col_w=[1.0] * len(N1_COLS) + ([VIEW3D_W] if view3d else []))
     import matplotlib
     with matplotlib.rc_context(RQ.RC):
-        x0 = L["left"] + 2 * (L["pw"] + L["gap"])
-        _cbar(fig, box, x0, L["strip"] - 0.17, 2 * L["pw"], 0.0, 1.0,
-              "(c)-(f): rank among the scene's update pixels", [0, 0.5, 1])
-        _legend_patches(box(x0 + 2 * L["pw"] + 0.12, L["strip"] - 0.30, 1.0, 0.25),
-                        [("no score", RQ.UNDEF), ("not covered", RQ.BLACK)], ncol=1)
-        _legend_patches(box(L["left"] + 5 * (L["pw"] + L["gap"]), 0.0, 3 * L["pw"],
-                            L["strip"] - 0.06), [(n, c) for n, c in TINT_ITEMS], ncol=2)
+        # one line under the panels: the colour bar of (c)-(f) (each row's score ranked over the
+        # scene's update pixels), then the classes of (c)-(f) and of our flags (g)-(h)
+        y = 0.075
+        x = _inline_cbar(fig, box, L["left"], y, 0.9, "(c)\u2013(f): rank")
+        items = [("no score", RQ.UNDEF), ("not covered", RQ.BLACK)] + list(TINT_ITEMS)
+        _legend_patches(box(x + 0.14, y - 0.06, fig_w - x - 0.15, 0.12), items, ncol=len(items),
+                        loc="center left")
     paths = RQ.save(fig, out)
     return dict(scenes=list(scenes), info=info, outputs=paths)
 

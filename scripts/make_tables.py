@@ -95,16 +95,13 @@ import sys
 # (label, row name or a choice key, own-uncertainty signal or None, predictive cells)
 # predictive cells: "all" | "same" (NormLift: same predictive as averaging) | "asP0" (P2)
 TAB1 = [
-    ("2D features, per frame", "2d_features", None, "all"),
+    ("2D features~\\cite{li2022lseg}, per frame", "2d_features", None, "all"),
     ("Averaging~\\cite{joseph2025gradbp}\\reimpl", "averaging", None, "all"),
-    ("NormLift~\\cite{zang2026normlift}\\reimpl, $1-\\mathcal{R}$", "normlift", "normlift_1-R", "same"),
-    ("NormLift\\reimpl, $1-C_{\\mathrm{inter}}$", "normlift", "normlift_1-Cinter", "same"),
+    ("NormLift~\\cite{zang2026normlift}\\reimpl, $1-\\mathcal{R}$", "normlift", "normlift_1-R", "all"),
     ("Feature 3DGS~\\cite{zhou2024feature}\\reimpl", "f3dgs", None, "all"),
     ("LEGaussians~\\cite{shi2024legaussians}\\reimpl", "@legs", "legs_u", "all"),
     None,                                                     # \midrule
-    ("Ours P0 (plug-in)", "ours_P0", "u_ale", "all"),
-    ("Ours P1 (posterior mean)", "ours_P1", "u_ale", "all"),
-    ("Ours P2 (adaptive $\\beta$)", "ours_P2", "u_ale", "asP0"),
+    ("Ours", "ours_P2", "u_ale", "all"),                    # P2 (adaptive beta) is our method
 ]
 # reference rows: shown below the ranked rows, never marked (closed set: told the class list at
 # mapping time, which the open-vocabulary rows do not get; user decision 2026-10-17)
@@ -880,18 +877,18 @@ def tab2(path, digits=1):
 # comparison: it is listed in a comment (and the caption) instead of a column. Ranked rows get bold / underline per column; CSS is shown last
 # and not ranked. Columns: by the number of scenes with the class, then by name.
 PERCLASS_MIN_SCENES = 5
-PERCLASS_ROWS = [("2D features, per frame", "2d_features"),
+PERCLASS_ROWS = [("2D features~\\cite{li2022lseg}, per frame", "2d_features"),
                  ("Averaging~\\cite{joseph2025gradbp}\\reimpl", "averaging"),
                  ("Feature 3DGS~\\cite{zhou2024feature}\\reimpl", "f3dgs"),
                  ("LEGaussians~\\cite{shi2024legaussians}\\reimpl", "@legs"),
-                 ("Ours (P0 and P2 share labels)", "ours_P0")]   # P1 (negative) is in Table I
+                 ("Ours", "ours_P2")]   # P1 (negative) is in Table I
 PERCLASS_REF = [("CSS~\\cite{wilson2025css}\\reimpl, closed set", "@css")]
 # header colours (white text on each): a fixed categorical palette, one per column in order
 PERCLASS_COLORS = ["1F78B4", "B15928", "6A3D9A", "8C564B", "2F4F4F", "E31A1C", "33A02C",
                    "D95F02", "7570B3", "1B9E77", "B8860B", "666666", "A6761D", "E7298A"]
 
 
-def perclass_classes(scenes, row="ours_P0", variant="all", min_scenes=PERCLASS_MIN_SCENES):
+def perclass_classes(scenes, row="ours_P2", variant="all", min_scenes=PERCLASS_MIN_SCENES):
     """The table's classes: present (an IoU entry) in at least min_scenes scenes of `row`."""
     from collections import Counter
     n = Counter()

@@ -271,7 +271,7 @@ def legend_classes(names, maps, palette, max_n=15, min_share=0.002):
 
 # ------------------------------------------------------------------------------ figure
 def titles(row, kmode):
-    who = row.replace("ours_", "Ours ")
+    who = "Ours" if row == "ours_P2" else row.replace("ours_", "Ours ")       # P2 is our method
     err = "(f) $e_{\\mathrm{red}}$, $e_{\\mathrm{irr}}$" if kmode == "k" else "(f) Errors"
     return ["(a) 3DGS render", "(b) Ground truth", f"(c) {who}", "(d) $u^{\\mathrm{epi}}$",
             "(e) $u^{\\mathrm{ale}}$", err]

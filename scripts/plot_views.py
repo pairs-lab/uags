@@ -70,7 +70,7 @@ TARGETS = [("e_red", r"reducible error $e_{\mathrm{red}}$"),
 # band, so each curve also has its own marker; normal-vision floor 15.6 passes.
 OURS = ("ours", "Ours", None, None, "#0072B2", "o")
 REFS = [
-    ("ours P2, 1 - max p", r"Ours P2, $1-\max\,p$", "ours_P2", "msp", "#000000", "X"),
+    ("ours, 1 - max p", r"Ours, $1-\max\,p$", "ours_P2", "msp", "#000000", "X"),
     ("averaging, 1 - max p", r"Averaging, $1-\max\,p$", "averaging", "msp", "#D55E00", "s"),
     ("NormLift, 1/(1+N_eff)", r"NormLift, $1/(1+N_{\mathrm{eff}})$", "normlift", "normlift_epi",
      "#009E73", "^"),

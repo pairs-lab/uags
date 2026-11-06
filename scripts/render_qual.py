@@ -317,7 +317,7 @@ def _colorbar(fig, box, x, y, width, vmax, undefined):
                  "undef.", fontsize=FS_SMALL, va="center", ha="left")
 
 
-def compose(rows, col_titles, classes, errors, cbars, notes=None):
+def compose(rows, col_titles, classes, errors, cbars, notes=None, legend_row=False):
     """The figure, FIG_W inches wide. rows: [(row label or None, 6 RGB arrays or None)]; a
     last row starting with two empty slots holds the class legend there, else the legend goes
     in the strip under (a)-(c). classes / errors: [(name, colour)];
@@ -331,7 +331,9 @@ def compose(rows, col_titles, classes, errors, cbars, notes=None):
     pw = (FIG_W - left - 0.01 - (6 if extra else 5) * GAP) / (6 + (VIEW3D_W if extra else 0))
     ph = pw * h / w
     in_slot = R > 1 and rows[-1][1][0] is None and rows[-1][1][1] is None
-    strip = 0.27 if in_slot else 0.36          # colour bars and (f) legend (+ class legend)
+    strip = 0.27 if (in_slot or legend_row) else 0.36   # colour bars and (f) legend (+ class legend)
+    low = 0.13 if legend_row else 0.0          # the class legend in one row at the bottom
+    strip += low
     H = TITLE_H + R * ph + (R - 1) * ROW_GAP + strip
     with matplotlib.rc_context(RC):
         fig = Figure(figsize=(FIG_W, H))
@@ -359,13 +361,15 @@ def compose(rows, col_titles, classes, errors, cbars, notes=None):
             if label:
                 fig.text(0.45 * left / FIG_W, (row_y(r) + ph / 2) / H, label, rotation=90,
                          ha="center", va="center", fontsize=FS_TITLE)
-        if in_slot:
+        if legend_row:
+            _legend(box(col_x(0), 0.0, FIG_W - col_x(0) - 0.01, low - 0.02), classes, ncol=len(classes))
+        elif in_slot:
             _legend(box(col_x(0), row_y(R - 1), 2 * pw + GAP, ph), classes, ncol=3)
         else:
             _legend(box(col_x(0), 0.0, 3 * pw + 2 * GAP, strip - 0.03), classes, ncol=5)
         for c, (vmax, undefined) in cbars.items():
             _colorbar(fig, box, col_x(c), strip - 0.03 - 0.045, pw, vmax, undefined)
-        _legend(box(col_x(5), 0.0, pw, strip - 0.03), errors, ncol=2, loc="upper center")
+        _legend(box(col_x(5), low, pw, strip - 0.03 - low), errors, ncol=2, loc="upper center")
     return fig
 
 
@@ -446,7 +450,7 @@ def make_figure(sc, vocab, betas, args):
             notes[(1, 1)] = "(i) $u^{\\mathrm{ale}}$, 3D view"
         col_titles = list(col_titles) + ["Full map, 3D view"]
     fig = compose(grid, col_titles, classes, error_items(kmode),
-                  {3: (vmax["u_epi"], False), 4: (vmax["u_ale"], True)}, notes)
+                  {3: (vmax["u_epi"], False), 4: (vmax["u_ale"], True)}, notes, legend_row=bool(args.view3d))
     paths = save(fig, args.out, args.dpi, args.png_dpi)
     meta = dict(scene=sc["name"], frame=i, frame_index=idx, row=args.row,
                 field=sc["field"], kfield=args.kfield or None, k_mapping_views=n_k,

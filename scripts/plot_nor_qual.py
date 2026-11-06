@@ -349,14 +349,14 @@ VIEW3D_W = 1.6                     # width of the 3D column of Fig. qual-change,
 TINT_ITEMS = (("flagged, stale", "#E69F00"), ("stale, not flagged", "#56B4E9"),
               ("flagged, static", "#D55E00"), ("not flagged, static (map dimmed)", "#7f7f7f"),
               ("no update view", "#404040"))
-N1_COLS = (("map", "(a) 3D-GS map\nat the update pose"),
-           ("photo", "(b) Update frame\n(object removed)"),
-           ("feat", "(c) Feature\nresidual, $k=2$"),
-           ("normlift", "(d) NormLift\nreliability drop"),
-           ("depth", "(e) Depth\nresidual"),
-           ("ours", "(f) Ours: test,\nreset, re-admission"),
-           ("fused", "(g) Ours fused with\ndepth residual"),
-           ("tint", "(h) Our flags at the\nlabel-free threshold"))
+N1_COLS = (("map", "(a) Map"),                    # one-line titles (user, 2026-11-06)
+           ("photo", "(b) Update frame"),
+           ("feat", "(c) Feat. residual"),
+           ("normlift", "(d) NormLift drop"),
+           ("depth", "(e) Depth residual"),
+           ("ours", "(f) Ours"),
+           ("fused", "(g) Ours + depth"),
+           ("tint", "(h) Our flags"))
 N2_COLS = (("photo", "(a) Update frame\n(object removed)"),
            ("before", "(b) Before the update\n(mapping $\\boldsymbol{\\mu}^{\\star}$)"),
            ("nochange", "(c) After the update,\nchange test off"),
@@ -542,8 +542,8 @@ def change_figure(dumps, scenes, records, out, stage_label=None, fig_w=7.16, vie
                 _frame(ax)
             cells.append(draw3)
         rows.append(dict(label=lab, aspect=h / w, panels=cells))
-    titles = [t for _, t in N1_COLS] + (["(i) Our flags,\n3D view"] if view3d else [])
-    fig, box, L = grid_figure(rows, titles, strip=0.40, fig_w=fig_w,
+    titles = [t for _, t in N1_COLS] + (["(i) Our flags, 3D view"] if view3d else [])
+    fig, box, L = grid_figure(rows, titles, strip=0.40, fig_w=fig_w, title_h=0.14,
                               col_w=[1.0] * len(N1_COLS) + ([VIEW3D_W] if view3d else []))
     import matplotlib
     with matplotlib.rc_context(RQ.RC):
@@ -554,8 +554,6 @@ def change_figure(dumps, scenes, records, out, stage_label=None, fig_w=7.16, vie
                         [("no score", RQ.UNDEF), ("not covered", RQ.BLACK)], ncol=1)
         _legend_patches(box(L["left"] + 5 * (L["pw"] + L["gap"]), 0.0, 3 * L["pw"],
                             L["strip"] - 0.06), [(n, c) for n, c in TINT_ITEMS], ncol=2)
-        fig.text(L["left"] / L["fig_w"], (L["strip"] - 0.12) / L["H"],
-                 "outline: masks_real\n(dilated silhouette)", fontsize=5.5, va="center")
     paths = RQ.save(fig, out)
     return dict(scenes=list(scenes), info=info, outputs=paths)
 

@@ -49,13 +49,13 @@ Stages (the two GPU stages are separate processes, each behind scripts/gpu_gate.
 
     cd uags && E="--vocab configs/vocab_replica.json --scenes configs/replica_test.json"
     UAGS_GPU_HEADROOM_MIB=1024 UAGS_GPU_POLL_S=5 scripts/gpu_gate.sh 4500 python3 \
-        scripts/qual_compare.py --stage tokens $E --target room_1:66 --out-dir <cmp>
+        papers/figure_tools/qual_compare.py --stage tokens $E --target room_1:66 --out-dir <cmp>
     UAGS_GPU_HEADROOM_MIB=1024 UAGS_GPU_POLL_S=5 scripts/gpu_gate.sh 4500 python3 \
-        scripts/qual_compare.py --stage render $E --scene room_1 --frame 66 --legs legs_l4 \
+        papers/figure_tools/qual_compare.py --stage render $E --scene room_1 --frame 66 --legs legs_l4 \
         --betas <results>/tab1/eval_val.json --table <results>/tab1/eval_test.json \
         --text-cache <results>/qual/text_cache_lseg_replica.pt \
         --row-factory usplat.baselines:row_factory,usplat.distill:row_factory --out-dir <cmp>
-    python3 scripts/qual_compare.py --stage figure --vocab configs/vocab_replica.json \
+    python3 papers/figure_tools/qual_compare.py --stage figure --vocab configs/vocab_replica.json \
         --blocks <cmp>/room_1_f66.pt,<cmp>/scene0140_00_f57.pt --out papers/figs/qual_compare.pdf
 """
 from __future__ import annotations
@@ -69,8 +69,11 @@ import time
 import numpy as np
 import torch
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))
+HERE = os.path.dirname(os.path.abspath(__file__))              # papers/figure_tools
+REPO = os.path.dirname(os.path.dirname(HERE))
+SCRIPTS = os.path.join(REPO, "scripts")                      # shared modules (render_qual, ...)
+sys.path.insert(0, REPO)
+sys.path.insert(0, SCRIPTS)
 sys.path.insert(0, HERE)
 import eval_seg as ES                                                      # noqa: E402
 import render_qual as RQ                                                   # noqa: E402
@@ -111,7 +114,7 @@ def sha256(path):
 def git_head():
     import subprocess
     try:
-        r = subprocess.run(["git", "-C", os.path.dirname(HERE), "rev-parse", "--short", "HEAD"],
+        r = subprocess.run(["git", "-C", REPO, "rev-parse", "--short", "HEAD"],
                            capture_output=True, text=True, timeout=10)
         return r.stdout.strip() or None
     except Exception:                                    # noqa: BLE001

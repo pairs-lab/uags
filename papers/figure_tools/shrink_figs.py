@@ -9,7 +9,7 @@ rewritten if it gets smaller.
 
 Needs PyMuPDF and Pillow, which are not in the project venv:
     uv venv /tmp/pdfenv && uv pip install --python /tmp/pdfenv/bin/python pymupdf pillow
-    /tmp/pdfenv/bin/python scripts/shrink_figs.py papers/figs/teaser.pdf ...
+    /tmp/pdfenv/bin/python papers/figure_tools/shrink_figs.py papers/figs/teaser.pdf ...
 """
 import argparse
 import io

@@ -1,4 +1,4 @@
-"""scripts/pick_frames.py static (CPU): the frame rule counts the classes with at least 0.5% of
+"""papers/figure_tools/pick_frames.py static (CPU): the frame rule counts the classes with at least 0.5% of
 a frame's labelled pixels (ignored pixels left out) and breaks ties by the earliest frame; the
 scene rule takes the lower median of the published per-scene mIoU of ours_P2; --check exits 2
 when an outcome differs from the review's, and passes when it matches."""
@@ -20,7 +20,7 @@ def _load(name, path):
     return mod
 
 
-PF = _load("pick_frames", REPO / "scripts" / "pick_frames.py")
+PF = _load("pick_frames", REPO / "papers" / "figure_tools" / "pick_frames.py")
 
 
 def _scene(tmp, labels):

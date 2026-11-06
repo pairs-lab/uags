@@ -17,7 +17,7 @@ the bins summed over scenes; pooled NLL = pixel-weighted (n_pixels). Before plot
 scene's ECE recomputed from its bins must equal the stored ECE (scripts/quant_stats.py
 ece_check), else nothing is written.
 
-    python3 scripts/plot_calibration.py --replica <tab1>/eval_test.json \\
+    python3 papers/figure_tools/plot_calibration.py --replica <tab1>/eval_test.json \\
         --scannet <scannet_tab1>/eval_test.json \\
         --rows ours_P2,ours_P0,averaging,f3dgs,@legs,2d_features \\
         --out papers/figs/calibration.pdf --json <logs>/quant/calibration.json
@@ -42,9 +42,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt                                            # noqa: E402
 from matplotlib.lines import Line2D                                        # noqa: E402
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+HERE = os.path.dirname(os.path.abspath(__file__))              # papers/figure_tools
+ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, ROOT)
+sys.path.insert(0, os.path.join(ROOT, "scripts"))           # plot_views
 sys.path.insert(0, HERE)
 import quant_stats as QS                                                   # noqa: E402
 
@@ -237,7 +238,7 @@ def main(argv=None):
     ok3 = no_type3(base + ".pdf")
     if not ok3:
         raise SystemExit(f"{base}.pdf holds Type 3 fonts")
-    out = dict(_command="python3 scripts/plot_calibration.py " + " ".join(
+    out = dict(_command="python3 papers/figure_tools/plot_calibration.py " + " ".join(
                    QS.short(a) if os.path.sep in a and os.path.exists(a) else a
                    for a in (sys.argv[1:] if argv is None else argv)),
                figure=dict(pdf=QS.short(base + ".pdf"), png=QS.short(base + ".png"),

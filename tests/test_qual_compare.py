@@ -1,4 +1,4 @@
-"""scripts/qual_compare.py (fig:qual-compare) on a CPU toy (mock backend): the 7-Scenes-style scene
+"""papers/figure_tools/qual_compare.py (fig:qual-compare) on a CPU toy (mock backend): the 7-Scenes-style scene
 of tests/test_seg_eval.py with the saved baselines (averaging, NormLift, view count, CSS), a
 Feature 3DGS and a LEGaussians file next to the field, a fake 2D extractor, a hole in the map
 (not covered), a block seen in two views only (u_ale undefined) and noisy views:
@@ -40,7 +40,7 @@ def _load(name, path):
 
 
 TS = _load("test_seg_eval_for_compare", REPO / "tests" / "test_seg_eval.py")   # _fake_7scenes
-QC = _load("qual_compare", REPO / "scripts" / "qual_compare.py")
+QC = _load("qual_compare", REPO / "papers" / "figure_tools" / "qual_compare.py")
 ES, RQ = QC.ES, QC.RQ
 
 

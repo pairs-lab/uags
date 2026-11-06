@@ -19,7 +19,7 @@ qual_review.md section 2):
 --check compares the outcomes with EXPECTED (the review's main and supplementary frames) and
 exits 2 if any differ, so a figure is never drawn from a changed rule outcome.
 
-    cd uags && python3 scripts/pick_frames.py static --check \
+    cd uags && python3 papers/figure_tools/pick_frames.py static --check \
         --set replica=configs/replica_test.json,configs/vocab_replica.json,<results>/tab1/eval_test.json \
         --set scannet=configs/scannet_test.json,configs/vocab_scannet.json,<results>/scannet_tab1/eval_test.json \
         --out <results>/qual/select/static.json
@@ -36,8 +36,11 @@ import time
 
 import torch
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))
+HERE = os.path.dirname(os.path.abspath(__file__))              # papers/figure_tools
+REPO = os.path.dirname(os.path.dirname(HERE))
+SCRIPTS = os.path.join(REPO, "scripts")                      # shared modules (render_qual, ...)
+sys.path.insert(0, REPO)
+sys.path.insert(0, SCRIPTS)
 sys.path.insert(0, HERE)
 import eval_seg as ES                                                      # noqa: E402
 

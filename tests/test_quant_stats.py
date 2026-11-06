@@ -1,4 +1,4 @@
-"""scripts/quant_stats.py and scripts/plot_calibration.py (CPU statistics of the paper's
+"""scripts/quant_stats.py and papers/figure_tools/plot_calibration.py (CPU statistics of the paper's
 quantitative claims, configs/quant_prereg.json):
  * the exact sign test equals scipy.stats.binomtest (two-sided, p = 1/2) for every k <= n <= 25,
    and drops ties; Holm on a toy family (hand values, monotone, capped at 1);
@@ -27,6 +27,7 @@ from scipy import stats
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
+sys.path.insert(0, str(REPO / "papers" / "figure_tools"))     # plot_calibration
 sys.path.insert(0, str(REPO))
 import quant_stats as QS                                                   # noqa: E402
 

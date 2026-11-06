@@ -236,6 +236,8 @@ def _row_lines(text):
 def test_rows_match_the_paper(tmp_path):
     if not (REPO / "papers" / "main.tex").exists():
         pytest.skip("papers/main.tex not found")
+    if not (FUSED_ROWS.exists() and WU_TABLES.exists()):
+        pytest.skip("docs/reports is not in this checkout (git-ignored since 2026-11-06)")
     paper, pmids = _paper_rows()
     rows, mids = _rows(_mt().tab2(_write(tmp_path)))
     tab2_rows = [(label, inp) for label, inp, _ in rows]
@@ -282,6 +284,8 @@ def test_rows_match_the_paper(tmp_path):
 def test_fused_table_matches_the_generated_rows():
     if not (REPO / "papers" / "main.tex").exists():
         pytest.skip("papers/main.tex not found")
+    if not WU_TABLES.exists():
+        pytest.skip("docs/reports is not in this checkout (git-ignored since 2026-11-06)")
     tex = (REPO / "papers" / "main.tex").read_text()
     i = tex.index("\\label{tab:fused}")
     block = tex[i:tex.index("\\end{table*}", i)]

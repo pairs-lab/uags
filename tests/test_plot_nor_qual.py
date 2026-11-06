@@ -30,6 +30,7 @@ def _load(name, path):
 
 
 PQ = _load("plot_nor_qual", REPO / "scripts" / "plot_nor_qual.py")
+F1 = _load("make_fig1_teaser", REPO / "papers" / "figure_tools" / "make_fig1_teaser.py")
 
 
 def test_sign_test_holm_and_std():
@@ -186,3 +187,38 @@ def test_teaser(toy):
     r2["measured"].update(mean_p_avg_after=0.8, mean_u_epi_after=2.0)
     c3 = PQ.teaser_caption(r2)
     assert "still answers" in c3 and "ours does not" in c3 and "rises" in c3
+
+
+def _fake_view3d(path, scene, frame, h=60, w=120):
+    """A papers/figure_tools/teaser_3d.py output with the keys teaser_figure_c reads."""
+    rng = np.random.default_rng(0)
+    u = rng.uniform(0, 0.8, (h, w)).astype(np.float16)
+    u[:5] = np.nan                                         # nothing rendered at the top
+    flag = np.zeros((h, w), np.float16)
+    flag[20:40, 50:70] = 1.0
+    info = dict(scene=scene, frame=frame, rule=dict(dist=2.6), eye=[0, 0, 0], target=[0, 0, 1])
+    np.savez(path, rgb=rng.uniform(0, 1, (h, w, 3)).astype(np.float16),
+             alpha=np.ones((h, w), np.float16), **{"map/u_epi0": u, "map/flag": flag},
+             frustum_uv=np.array([[10, 10], [20, 5], [30, 5], [30, 15], [20, 15]], float),
+             frustum_z=np.ones(5), traj_map_uv=np.array([[40, 30], [500, 30]], float),
+             traj_map_z=np.array([1.0, 1.0]), traj_update_uv=np.array([[60, 30], [70, 31]], float),
+             traj_update_z=np.array([1.0, -1.0]), target_uv=np.array([60.0, 30.0]),
+             info=json.dumps(info))
+
+
+def test_teaser_layout_c(toy):
+    d = toy["dumps"] / "005"
+    meta = json.loads((d / "meta.json").read_text())
+    fi = int(next(iter(meta["frames"])))
+    v3 = toy["tmp"] / "v3.npz"
+    _fake_view3d(v3, meta["scene"], fi)
+    res = F1.teaser_figure_c(d, toy["recs"]["002"], str(v3), str(toy["tmp"] / "tc.pdf"))
+    assert _fonts_ok(res["outputs"][0]) and PQ.pdf_check(res["outputs"][0])["ok"]
+    assert res["layout"] == "C" and set(res["shares"]) == {"before", "ours", "avg_after"}
+    assert all(0 <= v <= 100 for v in res["shares"].values())
+    rec = toy["rec"]["operating_point"]["ours"]
+    assert res["published"]["rec"] == rec["rec"] and res["published"]["fa"] == rec["fa"]
+    # a 3D view of another frame (or scene) is refused
+    _fake_view3d(v3, meta["scene"], fi + 1)
+    with pytest.raises(SystemExit, match="frame"):
+        F1.teaser_figure_c(d, toy["recs"]["002"], str(v3), str(toy["tmp"] / "tc2.pdf"))

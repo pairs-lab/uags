@@ -130,10 +130,12 @@ Robots in homes and offices increasingly query their maps with language~\cite{le
 
 %% Teaser (2026-10-21): scripts/nor_qual.sh (dump_nor_qual.py + plot_nor_qual.py teaser), NOR validation
 %% scene 002; caption rule C1 (averaging keeps the chair) failed (mean p 0.06), so the caption is neutral.
+%% Layout C (2026-11-06): papers/figure_tools/teaser_3d.py (free-camera view from the dump's gauss.pt) +
+%% papers/figure_tools/make_fig1_teaser.py; docs/reports/2026-11-06-teaser-3d-uncertainty.
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figs/teaser.pdf}
-  \caption{A semantic 3D-GS map with two uncertainty channels and a test for changed content, on NeRF-Object-Removal validation scene 002 and update keyframe 373 (both picked by rule). All panels show the same pose; the geometry is fixed, so the removed chair's Gaussians are still rendered. After mapping: (a)~the map, pink where the top class (101 classes) is the query 'chair' (fixed by rule); (b)~$u^{\mathrm{epi}}$, how much evidence there is; (c)~$u^{\mathrm{ale}}$, whether the views agree (grey: fewer than 3 views). After the 48 update keyframes: (d)~the camera image and the outline of the removed chair; (e)~averaging still answers 'chair' on 34.2\% of the removed chair's pixels in this view (75.5\% after mapping); (f)~ours on 5.1\%, after our test reset (orange) the Gaussians it flags (53.6\% of the stale, 14.0\% of the static ones). (g)~Over the update: share of the removed chair's Gaussians whose top class is 'chair' (solid) and of static Gaussians whose top class changed (dashed).}
+  \caption{A semantic 3D-GS map with two uncertainty channels and a test for changed content, on NeRF-Object-Removal validation scene 002 and update keyframe 373 (both picked by rule). (a)--(d) show the pose of keyframe 373; the geometry is fixed, so the removed chair's Gaussians are still rendered. After mapping: (a)~the map, pink where the top class (101 classes) is the query 'chair' (fixed by rule), on 75.5\% of the chair's pixels in this view; (b)~$u^{\mathrm{ale}}$, whether the views agree (grey: fewer than 3 views). After the 48 update keyframes: (c)~averaging still answers 'chair' on 34.2\% of the removed chair's pixels; (d)~ours on 5.1\%, after our test reset (orange) the Gaussians it flags (53.6\% of the stale, 14.0\% of the static ones). (e)~The same map from a free camera behind and above keyframe 373, coloured by $u^{\mathrm{epi}}$ after mapping, how much evidence there is, with the Gaussians reset after the removal (orange), keyframe 373 and the mapping and update camera paths; the viewpoint was picked by eye among five and changes no number.}
   \label{fig:teaser}
 \end{figure*}
 
@@ -402,7 +404,7 @@ CSS~\cite{wilson2025css}\reimpl, closed set & 80.5 & 54.9 & 50.3 & 27.0 & 78.3 &
 \end{tabular}
 \end{table*}
 
-%% Static comparison (2026-10-21): scripts/qual_compare.sh figures; rules and test looks in
+%% Static comparison (2026-10-21): papers/figure_tools/qual_compare.sh figures; rules and test looks in
 %% docs/reports/2026-10-20-figures-video/logs/static_summary.md; numbers read from the Table I JSONs.
 \begin{figure*}[t]
   \centering

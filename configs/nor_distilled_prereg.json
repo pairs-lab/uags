@@ -1,0 +1,37 @@
+{
+ "name": "nor_distilled",
+ "registered": "2026-11-07, before any training or validation evaluation of these rows (user: 'we can train 3DFS and LEgaussian to get the results [for Table III], right?'; choice 'Run both')",
+ "question": "Table I's optimization-based baselines, Feature 3DGS and LEGaussians, as stale-content rows of Table III (tab:change): the feature residual computed on each method's own trained features.",
+ "rows": {
+  "f3dgs_feat": "Feature 3DGS (usplat/distill.py 'f3dgs'): its per-Gaussian features rendered with the splat weights",
+  "legs_feat": "LEGaussians (usplat/distill.py 'legs', lambda_u selected below): its 8-d codes rendered, then decoded by its MLP (its query rule)"
+ },
+ "definition": "Each row is the 'feat' row of scripts/eval_change_nor.py with the method's rendered features in place of the saved field's mu*: per-view 1 - cos(rendered, observed LSeg PCA-64 feature) on the pixels, lifted to the Gaussians with the splat weights (usplat.change_baselines.ChangeBaselines, the same call as eval_change_nor.residuals_view), only in the views that cover the Gaussian (eval_change_nor.covered), persistent over the field's k = 2 views (the min of the last k residuals), score = the largest persistent value over the update, NaN = never scored (ranked last). Threshold: the 0.999 quantile of the row's own persistent residual on the mapping replay (pooled); flagged = above it at least once; FA / Rec on the observed static / stale Gaussians. Ground truth, population and metrics: eval_change_nor.py's (D1 pixel, D2 Gaussian). The trained features are frozen during the update: these methods cannot ingest a view without retraining.",
+ "training": {
+  "script": "scripts/distill_features.py (3ccb672: a nor field trains on its mapping part only)",
+  "main_fields": "results/fields/nor_<scene>_lseg_relmax.pt (Table III's mapping-only fields; same mapping keyframes, LSeg tokens and PCA basis)",
+  "settings": {"iters": 30000, "min_iters": 5000, "tol": 0.01, "lr": 0.001, "alpha_min": 0.5, "codes": 128, "seed": 0, "channel_chunk": 32},
+  "settings_source": "scripts/distill_features.py defaults, as Table I (Adam 1e-3, at most 30k iterations)",
+  "outputs": "results/fields/nor_<scene>_lseg_relmax_f3dgs.pt, ..._legs_l<lambda>.pt"
+ },
+ "evaluation": {
+  "script": "scripts/eval_change_nor_distilled.py",
+  "arguments": "--field results/fields/nor_<scene>_lseg_relmax.pt --align none --update-stride 1 --tau-cov 0.5 (as the Table III records results/nor/tab2_relmax/<split>/<scene>.json; change_quantile 0.999, k = the field's, undef_frac 0.5, inflate 0.02, near 0.02, backend gsplat)",
+  "outputs": "results/nor/distilled/<split>/<scene>.json"
+ },
+ "splits": {"val": ["001", "002", "003", "004"], "test": ["005", "006", "007", "008", "009", "010", "011", "013", "014", "015"]},
+ "selection": {
+  "lambda_u_grid": [1.0, 2.0, 4.0],
+  "rule": "the lambda_u whose row legs_l<lambda>_feat has the highest mean Gaussian-level AP over the 4 validation scenes; ties -> the smaller lambda_u (scripts/nor_distilled_table.py select)",
+  "f3dgs": "no free parameter",
+  "note": "Table I chose LEGaussians' lambda_u on Replica / ScanNet validation by the AUSE of its own u; this table selects it on the object-removal validation scenes by its change ranking, since the row ranks change"
+ },
+ "test_policy": "After the selection, each row runs once on the 10 test scenes. All rows are reported, including where a baseline or another row beats ours. Nothing changes after the test run.",
+ "controls": {
+  "control_row": "feat_control: eval_change_nor.py's 'feat' row recomputed in the same passes; per scene compared with the scene's Table III record (reported, never used to select)",
+  "reproduction": "scripts/eval_change_nor.py (unchanged) rerun on validation scene 001, every row compared with results/nor/tab2_relmax/val/001.json"
+ },
+ "aggregation": "scripts/nor_distilled_table.py merge: mean and population std over the scenes (usplat.seg_eval.scene_stats), cells in % as scripts/make_tables.py; labels 'Feature 3DGS, feature residual' and 'LEGaussians, feature residual'",
+ "driver": "scripts/nor_distilled.sh",
+ "budget": "about 10 GPU hours (36 trainings and 14 evaluations), through scripts/gpu_gate.sh"
+}

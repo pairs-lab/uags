@@ -4,7 +4,19 @@
  "question": "Tables I and II compared ours with NormLift without its Sec. 3.4 refinement (the paper's 'w/o refinement' row). Evaluate NormLift as published, with its reliability-guided KNN mode voting.",
  "row": "normlift_vote (usplat.baselines.NormLiftVote; factory usplat.baselines:normlift_vote_factory)",
  "source": "arXiv 2609.18898 Sec. 3.4, Eqs. 9-10; official code github.com/kaust-violab/NormLift_release @ e0982e2, pipeline/knn_vote.py (MIT), ported line by line (tests/test_normlift_vote.py: equal to a direct port of its chunk loop)",
- "hyperparameters": {"K": 36, "sigma_d_m": 0.3, "tau": 0.55, "gamma": 0.1, "delta": 0.05, "passes": 1, "update": "simultaneous (every read from the original features)", "targets": "every Gaussian, R = 0 included", "copied": "the unnormalized lifted feature of the chosen neighbour", "R": "NormLift's Eq. 8 reliability, unchanged by the voting", "tuning": "none: the official defaults"},
+ "hyperparameters": {
+  "K": 36,
+  "sigma_d_m": 0.3,
+  "tau": 0.55,
+  "gamma": 0.1,
+  "delta": 0.05,
+  "passes": 1,
+  "update": "simultaneous (every read from the original features)",
+  "targets": "every Gaussian, R = 0 included",
+  "copied": "the unnormalized lifted feature of the chosen neighbour",
+  "R": "NormLift's Eq. 8 reliability, unchanged by the voting",
+  "tuning": "none: the official defaults"
+ },
  "deviations": [
   "our 64-D field features (PCA of LSeg, as every row) instead of NormLift's full feature dimension",
   "exact KNN by scipy cKDTree with ties ordered by (distance, index) and self removed explicitly (the official faiss IndexFlatL2 drops its first column)",
@@ -21,5 +33,17 @@
  },
  "reproduction": "the averaging and normlift rows recomputed in each run must equal their v1 records (results/tab1, results/scannet_tab1: every summary metric; results/views/views_test.json: AUSE and error counts); a mismatch is reported, never hidden",
  "test_policy": "one test run per dataset after the validation run; every result reported, including a NormLift that beats ours; no change to the row, the hyperparameters or the protocol after a test run",
- "outputs": ["results/tab1/eval_{val,test}_normlift_vote.json", "results/scannet_tab1/eval_{val,test}_normlift_vote.json", "results/views_normlift_vote/views_test.json"]
+ "outputs": [
+  "results/tab1/eval_{val,test}_normlift_vote.json",
+  "results/scannet_tab1/eval_{val,test}_normlift_vote.json",
+  "results/views_normlift_vote/views_test.json"
+ ],
+ "amendments": [
+  {
+   "date": "2026-11-07 10:10 JST, before any test evaluation",
+   "change": "validation runs also fit the 2D row (--with-2d, rows + 2d_features)",
+   "reason": "the temperature fit draws a random pixel subset per view; the v1 validation runs drew one for the 2D views too, so without them the later scenes got other subsets and the v1 rows' temperatures did not reproduce (normlift 35.963 vs 35.9996 on Replica, 38.670 vs 38.660 on ScanNet; metrics within 7.6e-5). With the same draws every row is fitted on the v1 pixels.",
+   "first_run": "kept in results/normlift_vote/first_val (not used)"
+  }
+ ]
 }

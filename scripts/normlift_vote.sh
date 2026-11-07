@@ -15,18 +15,22 @@ mkdir -p "$WORK/logs"
 [ -f "$WORK/text_cache_replica.pt" ] || cp "$R/fields/text_cache_lseg.pt" "$WORK/text_cache_replica.pt"
 [ -f "$WORK/text_cache_scannet.pt" ] || cp "$R/fields/scannet/text_cache_lseg.pt" "$WORK/text_cache_scannet.pt"
 ROWS=averaging,normlift,normlift_vote
+# validation also fits the 2D row (--with-2d): the temperature fit draws a random pixel subset per
+# view, and the v1 validation runs drew one for the 2D views too; with the same draws the v1 rows'
+# temperatures reproduce and the new row is fitted on the pixels every v1 row was fitted on
+ROWS_VAL=$ROWS,2d_features
 FACT=usplat.baselines:row_factory,usplat.baselines:normlift_vote_factory
 NEED=${NEED:-7000}
 
 replica() {   # replica <val|test>
   local split=$1 extra
-  if [ "$split" = val ]; then extra="--val-scenes configs/replica_val.json --scenes configs/replica_val.json"
+  if [ "$split" = val ]; then extra="--with-2d --val-scenes configs/replica_val.json --scenes configs/replica_val.json"
   else extra="--betas $R/tab1/eval_val_normlift_vote.json --scenes configs/replica_test.json"; fi
   [ -f "$R/tab1/eval_${split}_normlift_vote.json" ] && { echo "exists: tab1 $split"; return; }
   echo "[$(date '+%F %T')] replica $split"
   scripts/gpu_gate.sh "$NEED" python3 scripts/eval_seg.py --vocab configs/vocab_replica.json \
     --row-factory "$FACT" --extractor lseg --dataset replica_semnerf --stride 10 --downscale 2 \
-    --tau-cov 0.5 --text-cache "$WORK/text_cache_replica.pt" --rows "$ROWS" $extra \
+    --tau-cov 0.5 --text-cache "$WORK/text_cache_replica.pt" --rows "$([ "$split" = val ] && echo "$ROWS_VAL" || echo "$ROWS")" $extra \
     --out "$R/tab1/eval_${split}_normlift_vote.json" > "$WORK/logs/replica_${split}.log" 2>&1 \
     || { tail -30 "$WORK/logs/replica_${split}.log"; exit 1; }
   grep -E "normlift_vote: replaced" "$WORK/logs/replica_${split}.log" || true
@@ -34,13 +38,13 @@ replica() {   # replica <val|test>
 
 scannet() {   # scannet <val|test>
   local split=$1 extra
-  if [ "$split" = val ]; then extra="--val-scenes configs/scannet_val.json --scenes configs/scannet_val.json"
+  if [ "$split" = val ]; then extra="--with-2d --val-scenes configs/scannet_val.json --scenes configs/scannet_val.json"
   else extra="--betas $R/scannet_tab1/eval_val_normlift_vote.json --scenes configs/scannet_test.json"; fi
   [ -f "$R/scannet_tab1/eval_${split}_normlift_vote.json" ] && { echo "exists: scannet $split"; return; }
   echo "[$(date '+%F %T')] scannet $split"
   scripts/gpu_gate.sh "$NEED" python3 scripts/eval_seg.py --vocab configs/vocab_scannet.json \
     --row-factory "$FACT" --extractor lseg --dataset scannet --stride 20 --downscale 2 \
-    --tau-cov 0.5 --text-cache "$WORK/text_cache_scannet.pt" --rows "$ROWS" $extra \
+    --tau-cov 0.5 --text-cache "$WORK/text_cache_scannet.pt" --rows "$([ "$split" = val ] && echo "$ROWS_VAL" || echo "$ROWS")" $extra \
     --out "$R/scannet_tab1/eval_${split}_normlift_vote.json" > "$WORK/logs/scannet_${split}.log" 2>&1 \
     || { tail -30 "$WORK/logs/scannet_${split}.log"; exit 1; }
   grep -E "normlift_vote: replaced" "$WORK/logs/scannet_${split}.log" || true

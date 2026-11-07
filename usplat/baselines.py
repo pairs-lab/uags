@@ -276,6 +276,111 @@ class NormLift(Averaging):
         return rows + [_row("normlift", "feature", self.feature, self.uncertainties)]
 
 
+# ------------------------------------------------------- (b') NormLift + KNN mode voting
+# NormLift as published (arXiv 2609.18898, Sec. 3.4, Eqs. 9-10): a one-pass, reliability-guided
+# KNN mode voting on the lifted features, ported from the official code (kaust-violab/
+# NormLift_release @ e0982e2, pipeline/knn_vote.py, MIT): every Gaussian i is a target; with the
+# extended neighbourhood E(i) = {i} + its K nearest Gaussians (self excluded from the K),
+#     S_ij = R(j) * sum_{k in E(i)} R(k) d_ik g_jk,  d_ik = exp(-||mu_i - mu_k||^2 / (2 sigma_d^2)),
+#     g_jk = sigmoid((cos(f_j, f_k) - tau) / gamma),  d_ii = 1,
+# j* = argmax over the K neighbours, and f_i <- f_{j*} (the unnormalized source feature) iff
+# S_ij* > S_ii + delta. All reads come from the original features (simultaneous update), and
+# R, the reliability of Eq. 8, is not changed. Hyperparameters of the official code; no tuning.
+# Deviations: our 64-D field features (as every row); an exact scipy cKDTree KNN with ties
+# ordered by (distance, index) and self removed explicitly (faiss IndexFlatL2 drops its first
+# column instead); the Table I 2D-render evaluation instead of NormLift's 3D point labels.
+NORMLIFT_VOTE = dict(k=36, sigma_d=0.3, tau=0.55, gamma=0.1, delta=0.05, chunk=4096)
+
+
+def knn_indices(means, k, workers=8):
+    """Exact k nearest neighbours of every point among the others: (idx (N, k) int64, squared
+    distances (N, k) float32), each row sorted by (distance, index). Self is removed
+    explicitly; a point with k or more exact duplicates loses its farthest candidate instead."""
+    import numpy as np
+    from scipy.spatial import cKDTree
+    pts = means.detach().cpu().double().numpy()
+    n = pts.shape[0]
+    if n <= k:
+        raise ValueError(f"knn_indices: {n} points for k = {k}")
+    d, idx = cKDTree(pts).query(pts, k=k + 1, workers=workers)
+    self_hit = idx == np.arange(n)[:, None]
+    keep = ~self_hit
+    keep[~self_hit.any(1), -1] = False                 # self not returned: drop the farthest
+    idx, d = idx[keep].reshape(n, k), d[keep].reshape(n, k)
+    order = np.lexsort((idx, d), axis=-1)              # by distance, then by index
+    idx, d = np.take_along_axis(idx, order, -1), np.take_along_axis(d, order, -1)
+    return torch.from_numpy(idx.astype(np.int64)), torch.from_numpy((d * d).astype(np.float32))
+
+
+@torch.no_grad()
+def knn_mode_vote(feats, rel, knn_idx, knn_dsq, sigma_d=0.3, tau=0.55, gamma=0.1, delta=0.05,
+                  chunk=4096):
+    """The chunk loop of the official knn_vote.py (Eqs. 9-10). feats (N, D) unnormalized lifted
+    features (0 for unseen), rel (N,) reliability R, knn_idx / knn_dsq (N, K) from knn_indices.
+    Returns (new_feats (N, D), replaced (N,) bool, source (N,) int64: the copied index or -1)."""
+    N = feats.shape[0]
+    feats = feats.float()
+    feats_n = Fn.normalize(feats, dim=1, p=2)
+    rel = rel.float()
+    dw = torch.exp(-knn_dsq.float() / (2 * sigma_d ** 2))
+    new = feats.clone()
+    replaced = torch.zeros(N, dtype=torch.bool)
+    source = torch.full((N,), -1, dtype=torch.long)
+    for start in range(0, N, chunk):
+        tgt = torch.arange(start, min(start + chunk, N))
+        ext = torch.cat([tgt[:, None], knn_idx[tgt]], 1)                  # (M, K+1): self first
+        f = feats_n[ext]                                                  # (M, K+1, D)
+        r = rel[ext]                                                      # (M, K+1)
+        w_d = torch.cat([torch.ones(len(tgt), 1, dtype=dw.dtype), dw[tgt]], 1)
+        g = torch.sigmoid((torch.bmm(f, f.transpose(1, 2)) - tau) / gamma)  # g_jk (M, K+1, K+1)
+        S = r * (g * (r * w_d)[:, None, :]).sum(-1)                        # S_ij (M, K+1)
+        mx, am = S[:, 1:].max(1)
+        src = ext.gather(1, (am + 1)[:, None]).squeeze(1)
+        ok = mx > S[:, 0] + delta
+        if bool(ok.any()):
+            new[tgt[ok]] = feats[src[ok]]
+            replaced[tgt[ok]] = True
+            source[tgt[ok]] = src[ok]
+    return new, replaced, source
+
+
+class NormLiftVote:
+    """The NormLift row with KNN mode voting: the voted lifted features (normalized for the row
+    buffer, as averaging's and NormLift's) and NormLift's own uncertainties (R unchanged)."""
+
+    def __init__(self, normlift, means, params=None):
+        if means.shape[0] != normlift.N:
+            raise ValueError(f"normlift_vote: {means.shape[0]} means for {normlift.N} Gaussians")
+        self.nl, self.means = normlift, means
+        self.params = dict(NORMLIFT_VOTE, **(params or {}))
+        self._f, self.stats = None, None
+
+    @torch.no_grad()
+    def lifted(self):
+        """f_j = F / S1 (0 where S1 = 0): NormLift's lifted feature (its Eq. 3), unnormalized."""
+        return self.nl._div(self.nl.F, self.nl.S1[:, None].expand_as(self.nl.F))
+
+    @torch.no_grad()
+    def feature(self):
+        if self._f is None:
+            p = self.params
+            idx, dsq = knn_indices(self.means, p["k"])
+            new, rep, _ = knn_mode_vote(self.lifted().cpu(), self.nl.reliability().cpu(), idx, dsq,
+                                        p["sigma_d"], p["tau"], p["gamma"], p["delta"], p["chunk"])
+            f = new / new.norm(dim=-1, keepdim=True)
+            f = torch.where(torch.isnan(f), torch.zeros_like(f), f)
+            self._f = f.to(device=self.nl.F.device, dtype=self.nl.F.dtype)
+            self.stats = dict(n=int(rep.numel()), replaced=int(rep.sum()),
+                              share=float(rep.float().mean()), **{k: p[k] for k in p})
+            print(f"normlift_vote: replaced {self.stats['replaced']} of {self.stats['n']} Gaussians "
+                  f"({100 * self.stats['share']:.2f}%), K={p['k']} sigma_d={p['sigma_d']} "
+                  f"tau={p['tau']} gamma={p['gamma']} delta={p['delta']}", flush=True)
+        return self._f
+
+    def rows(self):
+        return [_row("normlift_vote", "feature", self.feature, self.nl.uncertainties)]
+
+
 # ------------------------------------------------------------------- (c) view count
 class ViewCount(_Accumulator):
     """Visible-view count n_vis (m > 0) and full-view count n_full (m >= a0*H*W)."""
@@ -728,6 +833,23 @@ def choose_css_full(val_summary, rule=CSS_FULL_RULE):
         if math.isfinite(v):
             cand[r] = v
     return min(cand, key=cand.get) if cand else None
+
+
+def normlift_vote_factory(ckpt, field=None, device="cpu", class_ids=None, means=None):
+    """scripts/eval_seg.py --row-factory usplat.baselines:normlift_vote_factory: the row
+    "normlift_vote", NormLift with its Sec. 3.4 KNN mode voting (NORMLIFT_VOTE). It needs the
+    map's Gaussian centres, which eval_seg passes as `means`; registered in
+    configs/normlift_vote_prereg.json."""
+    if means is None:
+        raise ValueError("normlift_vote_factory needs the Gaussian means (eval_seg passes them)")
+    if "baselines" not in ckpt:
+        raise KeyError("checkpoint has no 'baselines'")
+    nls = [b for b in load_baselines(ckpt["baselines"], device=device) if isinstance(b, NormLift)]
+    if len(nls) != 1:
+        raise ValueError(f"expected one NormLift accumulator in ckpt['baselines'], found {len(nls)}")
+    if field is not None and nls[0].N != field.N:
+        raise ValueError(f"saved NormLift covers {nls[0].N} Gaussians, the field {field.N}")
+    return NormLiftVote(nls[0], means).rows()
 
 
 def row_factory(ckpt, field=None, device="cpu", class_ids=None):

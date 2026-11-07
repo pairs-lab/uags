@@ -291,7 +291,7 @@ def load_scene(sc, vocab, args, device):
         f["gt"] = torch.where(lab >= 0, local[lab.clamp_min(0)], lab)
     text = pca.project_text(text_embeddings(vocab, q, args).to(device))    # (K, d), F7
     rows = candidate_rows(field, ckpt, "cpu", args, class_ids=[vocab["ids"][i] for i in q],
-                          text=text)
+                          text=text, means=splats["means"].detach().cpu())
     rows = frozen_on(rows, device)
     rows2d = []
     if want2d:
@@ -375,10 +375,12 @@ def frozen_on(rows, device):
     return out
 
 
-def candidate_rows(field, ckpt, device, args, class_ids=None, text=None):
+def candidate_rows(field, ckpt, device, args, class_ids=None, text=None, means=None):
     """The rows of one scene. --v2-rows adds the Table I v2 candidates (usplat.rows.v2_rows:
     ours_P2p1, ours_P1_c<c0>, and with the scene's text ours_P4_a<alpha0>_s<lam>,
-    ours_P4_inf, ours_P4_rbar), read-outs of the same saved field; default off: the v1 rows only."""
+    ours_P4_inf, ours_P4_rbar), read-outs of the same saved field; default off: the v1 rows only.
+    means: the map's Gaussian centres, passed to row factories that take a `means` argument
+    (usplat.baselines:normlift_vote_factory, NormLift's KNN mode voting)."""
     rows = field_rows(field, "ours")
     rows.append(FieldRow("ours_scalar", "feature", field=field, mode="P0", channels=("spread",)))
     if text is not None and not getattr(args, "no_p3", False):
@@ -390,10 +392,13 @@ def candidate_rows(field, ckpt, device, args, class_ids=None, text=None):
     for spec in [s.strip() for s in (args.row_factory or "").split(",") if s.strip()]:
         mod, fn = spec.split(":")
         factory = getattr(importlib.import_module(mod), fn)
-        if "class_ids" in inspect.signature(factory).parameters:   # CSS columns = queries
-            rows += list(factory(ckpt, field, device, class_ids=class_ids))
-        else:
-            rows += list(factory(ckpt, field, device))
+        params = inspect.signature(factory).parameters
+        kw = {}
+        if "class_ids" in params:                    # CSS columns = queries
+            kw["class_ids"] = class_ids
+        if "means" in params:                        # NormLift's KNN mode voting
+            kw["means"] = means
+        rows += list(factory(ckpt, field, device, **kw))
     names = [r.name for r in rows]
     if len(set(names)) != len(names):
         raise ValueError(f"duplicate row names {names}")

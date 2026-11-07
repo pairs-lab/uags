@@ -754,9 +754,9 @@ def test_cli_2d_row(tmp_path):
         tex = mt.tab1(str(tmp_path / "e2d.json"))
         line2d = [l for l in tex.splitlines() if l.startswith("2D features")][0]
         assert f"{100 * r2['miou']:.1f}" in line2d and line2d.endswith("& --\\\\"), line2d
-        # Table I has one ours row (P2) since 244abf6; the toy evaluates P0 only, so tab1 lists the
-        # ours row as missing instead of printing it
-        assert "% Ours: row 'ours_P2' not in" in tex, tex
+        # Table I has one ours row since 244abf6: "Ours" = P2, with P2's cells
+        ours = [l for l in tex.splitlines() if l.startswith("Ours &")][0]
+        assert f"{100 * sc['rows']['ours_P2']['all']['miou']:.1f}" in ours, ours
         assert "not in" in tex                                   # no baselines in the toy
     finally:
         cli._EXTRACTOR.clear()

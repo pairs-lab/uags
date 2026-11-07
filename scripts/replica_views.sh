@@ -36,6 +36,10 @@ TAU_COV=${TAU_COV:-0.5}
 MAP_NEED=${MAP_NEED:-9000}
 EVAL_NEED=${EVAL_NEED:-7000}
 KEEP=${KEEP:-0}
+# rows, row factories and temperature file of eval_views.py (defaults: the v1 figure's)
+ROWS=${ROWS:-ours_P0,ours_P2,averaging,normlift,viewcount}
+ROW_FACTORY=${ROW_FACTORY:-usplat.baselines:row_factory}
+BETAS=${BETAS:-$TAB1/eval_val.json}
 if [ "$(realpath -m "$OUT")" = "$(realpath -m "$V1_OUT")" ]; then
   echo "refused: OUT is the v1 views directory $V1_OUT (v1 outputs are never touched)"; exit 1
 fi
@@ -44,7 +48,7 @@ for d in "$FIELDS" "$V1_FIELDS"; do
     echo "refused: KFIELDS is the fields directory $d (k-view fields never go next to the v1 fields)"; exit 1
   fi
 done
-[ -f "$TAB1/eval_val.json" ] || { echo "no $TAB1/eval_val.json: run replica_tab1.sh STAGE=val first"; exit 1; }
+[ -f "$BETAS" ] || { echo "no $BETAS: run replica_tab1.sh STAGE=val first"; exit 1; }
 mkdir -p "$OUT" "$KFIELDS"
 TEXT_CACHE="$OUT/text_cache_lseg.pt"            # a copy: the v1 cache is never written
 [ -f "$TEXT_CACHE" ] || [ ! -f "$FIELDS/text_cache_lseg.pt" ] || cp "$FIELDS/text_cache_lseg.pt" "$TEXT_CACHE"
@@ -84,10 +88,10 @@ json.dump([dict(name=s, field=f"{F}/{s}_lseg.pt", ply=f"{M}/{s}_seq1.pt",
                 fields={k: f"{KF}/{s}_lseg_k{k}.pt" for k in ks})], open(out, "w"), indent=1)
 PY
   scripts/gpu_gate.sh "$EVAL_NEED" python3 scripts/eval_views.py --vocab configs/vocab_replica.json \
-    --row-factory usplat.baselines:row_factory --extractor lseg --dataset replica_semnerf \
+    --row-factory "$ROW_FACTORY" --extractor lseg --dataset replica_semnerf \
     --stride 10 --downscale "$DOWNSCALE" --tau-cov "$TAU_COV" --text-cache "$TEXT_CACHE" \
-    --rows ours_P0,ours_P2,averaging,normlift,viewcount \
-    --betas "$TAB1/eval_val.json" --scenes "$OUT/scenes_${STAGE}_${s}.json" \
+    --rows "$ROWS" \
+    --betas "$BETAS" --scenes "$OUT/scenes_${STAGE}_${s}.json" \
     --out "$OUT/views_${STAGE}_${s}.json" > "$OUT/eval_${STAGE}_${s}.$TS.log" 2>&1 \
     || { tail -30 "$OUT/eval_${STAGE}_${s}.$TS.log"; exit 1; }
   grep -E " k= " "$OUT/eval_${STAGE}_${s}.$TS.log" || true

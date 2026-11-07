@@ -1,0 +1,25 @@
+{
+ "name": "normlift_vote",
+ "registered": "2026-11-07, before any validation or test evaluation of the row",
+ "question": "Tables I and II compared ours with NormLift without its Sec. 3.4 refinement (the paper's 'w/o refinement' row). Evaluate NormLift as published, with its reliability-guided KNN mode voting.",
+ "row": "normlift_vote (usplat.baselines.NormLiftVote; factory usplat.baselines:normlift_vote_factory)",
+ "source": "arXiv 2609.18898 Sec. 3.4, Eqs. 9-10; official code github.com/kaust-violab/NormLift_release @ e0982e2, pipeline/knn_vote.py (MIT), ported line by line (tests/test_normlift_vote.py: equal to a direct port of its chunk loop)",
+ "hyperparameters": {"K": 36, "sigma_d_m": 0.3, "tau": 0.55, "gamma": 0.1, "delta": 0.05, "passes": 1, "update": "simultaneous (every read from the original features)", "targets": "every Gaussian, R = 0 included", "copied": "the unnormalized lifted feature of the chosen neighbour", "R": "NormLift's Eq. 8 reliability, unchanged by the voting", "tuning": "none: the official defaults"},
+ "deviations": [
+  "our 64-D field features (PCA of LSeg, as every row) instead of NormLift's full feature dimension",
+  "exact KNN by scipy cKDTree with ties ordered by (distance, index) and self removed explicitly (the official faiss IndexFlatL2 drops its first column)",
+  "the Table I protocol (rendered features, a per-row temperature, 2D labels) instead of NormLift's 3D point classification"
+ ],
+ "temperature": "fitted on the validation scenes by NLL, as for every row (eval_seg --val-scenes); the test uses these temperatures",
+ "commands": {
+  "driver": "scripts/normlift_vote.sh val, then test, then views (logs in results/normlift_vote/logs)",
+  "replica_val": "eval_seg.py --vocab configs/vocab_replica.json --row-factory usplat.baselines:row_factory,usplat.baselines:normlift_vote_factory --extractor lseg --dataset replica_semnerf --stride 10 --downscale 2 --tau-cov 0.5 --rows averaging,normlift,normlift_vote --val-scenes configs/replica_val.json --scenes configs/replica_val.json --out results/tab1/eval_val_normlift_vote.json",
+  "replica_test": "same, --betas results/tab1/eval_val_normlift_vote.json --scenes configs/replica_test.json --out results/tab1/eval_test_normlift_vote.json",
+  "scannet_val": "eval_seg.py --vocab configs/vocab_scannet.json ... --dataset scannet --stride 20 ... --val-scenes configs/scannet_val.json --scenes configs/scannet_val.json --out results/scannet_tab1/eval_val_normlift_vote.json",
+  "scannet_test": "same, --betas results/scannet_tab1/eval_val_normlift_vote.json --scenes configs/scannet_test.json --out results/scannet_tab1/eval_test_normlift_vote.json",
+  "views": "OUT=results/views_normlift_vote STAGE=test ROWS=averaging,normlift,normlift_vote BETAS=results/tab1/eval_val_normlift_vote.json scripts/replica_views.sh (k-view fields re-mapped as for v1, then deleted)"
+ },
+ "reproduction": "the averaging and normlift rows recomputed in each run must equal their v1 records (results/tab1, results/scannet_tab1: every summary metric; results/views/views_test.json: AUSE and error counts); a mismatch is reported, never hidden",
+ "test_policy": "one test run per dataset after the validation run; every result reported, including a NormLift that beats ours; no change to the row, the hyperparameters or the protocol after a test run",
+ "outputs": ["results/tab1/eval_{val,test}_normlift_vote.json", "results/scannet_tab1/eval_{val,test}_normlift_vote.json", "results/views_normlift_vote/views_test.json"]
+}

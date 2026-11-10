@@ -1,0 +1,40 @@
+{
+ "name": "stale_baselines",
+ "attempt": "11",
+ "registered": "2026-11-10, before any run of these rows on a real scene (user, 2026-11-10: 'I need more baseline in table IV')",
+ "question": "The stale-answer rate of Table IV (tab:stale) for more baselines: the update frame's own 2D features, Feature 3DGS and LEGaussians re-trained with the update frames, and a reset fired by baseline detectors.",
+ "metric": "The N2 stale-answer rate of scripts/dump_nor_qual.py (contrast_and_fa), unchanged: the share of the covered masks_real pixels, over every update keyframe with a mask, whose top class (argmax over the 101 classes of configs/vocab_replica.json, LSeg templates, ties = no class) is the scene's query. Coverage: the map's rendered alpha >= tau_cov (the record's value), the same pixels for every row. The query is read from the scene's dump (results/qual/nor/<scene>/contrast.json) and never chosen again. Lower is better.",
+ "rows": {
+  "2d": "2D features, per frame: the update keyframe's own LSeg features in the field's PCA basis (eval_change_nor.view_inputs: tokens -> bilinear upsample -> PCA-64 projection), no map. A reference row: it has no memory, so it is not ranked against the maps.",
+  "f3dgs_upd": "Feature 3DGS re-trained on the scene's mapping AND update keyframes (scripts/distill_update_nor.py); its per-Gaussian features rendered with the splat weights.",
+  "legs_l1_upd": "LEGaussians (lambda_u = 1, the value chosen on validation for Table III, configs/nor_distilled_prereg.json) re-trained on the mapping AND update keyframes; its 8-d codes rendered, then decoded by its MLP.",
+  "reset_feat_depth": "No new run: variant V1 of configs/reset_fused_prereg.json (registered 2026-10-23, test run once): the feature residual and the depth residual, rank-fused, fire our field's reset at their label-free threshold. Its per-scene stale-answer rate is read from results/reset_fused/test/<scene>.json.",
+  "reset_normlift_depth": "No new run: variant V3 of the same registration: NormLift's reliability drop and the depth residual, rank-fused, fire the reset. Read from the same records.",
+  "f3dgs, legs_l1": "Reference only (report, not the paper): the maps trained on the mapping keyframes alone and frozen (the Table III files), on the same pixels."
+ },
+ "training": {
+  "script": "scripts/distill_update_nor.py (imports scripts/distill_features.py and usplat/distill.py, never edits them)",
+  "frames": "the mapping keyframes and the update keyframes that scripts/eval_change_nor.py load_context reads for the scene's Table III record (results/nor/tab2_relmax/<split>/<scene>.json: its field, update stride, alignment and keyframe rule), so the trained maps see the frames our field has seen after its update",
+  "settings": {"iters": 30000, "min_iters": 5000, "tol": 0.01, "lr": 0.001, "alpha_min": 0.5, "codes": 128, "seed": 0, "channel_chunk": 32},
+  "settings_source": "scripts/distill_features.py defaults, as Table I and Table III",
+  "outputs": "results/fields/nor_<scene>_lseg_relmax_f3dgs_upd.pt, ..._legs_l1_upd.pt"
+ },
+ "evaluation": {
+  "script": "scripts/stale_baselines_nor.py (imports scripts/dump_nor_qual.py, scripts/eval_change_nor.py and scripts/eval_change_nor_distilled.py, never edits them)",
+  "outputs": "results/stale_baselines/<split>/<scene>_<pass>.json, pass = light (2d and the frozen maps) or trained (the re-trained maps)"
+ },
+ "controls": {
+  "before": "Every run recomputes the row 'before' (the mapping field's mu*, rendered) and compares it with the scene's dump. Stop rule (exit 2): the rate differs by more than 0.5 points or the pixel count n_mask_cov differs by more than 0.5%.",
+  "frozen": "The frozen maps' rows are a second check of the trained-map path: with no update they must stay near their own level after mapping."
+ },
+ "splits": {
+  "val": ["001", "002", "003", "004"],
+  "val_trained": ["002"],
+  "test": ["005", "006", "007", "008", "009", "010", "011", "013", "014", "015"]
+ },
+ "selection": "None. No row has a free parameter here (lambda_u comes from the Table III registration). Validation only checks the pipeline: the light pass on the 4 validation scenes, the trained pass on validation scene 002.",
+ "test_policy": "After the validation controls pass, each pass runs once on the 10 test scenes; a finished test record is never overwritten. Every row is reported, including scenes where a baseline is lower than ours. Nothing changes after the test run.",
+ "paper": "Table IV gets the new rows next to 'after mapping', NormLift and ours. Bold = best and underline = second best per scene among the rows that keep a map; the 2D row and 'after mapping' are reference rows.",
+ "driver": "scripts/stale_baselines.sh (STAGE=val|test, PASS=light|trained)",
+ "budget": "about 5 GPU hours: 22 trainings (medians on these scenes: 1059 s Feature 3DGS, 583 s LEGaussians) and 28 short evaluations, through scripts/gpu_gate.sh"
+}

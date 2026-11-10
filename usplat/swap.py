@@ -444,22 +444,22 @@ class SwapGT:
         self.n_views += 1
 
     def result(self, swapped_min_frac=0.5, static_max_frac=0.05, min_mass=1.0):
+        C, m = self.C.cpu(), self.m.cpu()                       # every output is a CPU tensor
         src = [self.col[a] for a, _ in self.pairs]
-        sw = self.C[:, src].sum(1)
-        frac = torch.where(self.m > 0, sw / self.m.clamp_min(1e-300), torch.zeros_like(sw))
-        seen = self.m >= min_mass
+        sw = C[:, src].sum(1)
+        frac = torch.where(m > 0, sw / m.clamp_min(1e-300), torch.zeros_like(sw))
+        seen = m >= min_mass
         label = torch.full((self.N,), -1, dtype=torch.int8)
         label[seen & (frac >= swapped_min_frac)] = 1
         label[seen & (frac <= static_max_frac)] = 0
-        post = self.C.clone()
+        post = C.clone()
         for a, b in self.pairs:                                 # label A now reads as B
-            post[:, self.col[b]] += self.C[:, self.col[a]]
+            post[:, self.col[b]] += C[:, self.col[a]]
             post[:, self.col[a]] = 0
-        has = self.C.sum(1) > 0
+        has = C.sum(1) > 0
         target = torch.where(has, post.argmax(1), torch.full((self.N,), -1, dtype=torch.long))
-        obj = torch.where(has, self.C.argmax(1), torch.full((self.N,), -1, dtype=torch.long))
-        return dict(label=label, frac=frac.cpu(), mass=self.m.cpu(), target=target.cpu(),
-                    object_id=obj.cpu(), seen=seen.cpu())
+        obj = torch.where(has, C.argmax(1), torch.full((self.N,), -1, dtype=torch.long))
+        return dict(label=label, frac=frac, mass=m, target=target, object_id=obj, seen=seen)
 
 
 def swap_gt(acc: SwapGT, spec, scene, bank, extra=None):

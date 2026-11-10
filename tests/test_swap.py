@@ -237,6 +237,25 @@ def test_swap_gt_equals_brute_force():
         SW.SwapGT(N, classes, [(3, 5)])
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+def test_swap_gt_result_gpu_equals_cpu():
+    """result() of sums held on the GPU: CPU tensors, equal to the CPU result (the first real run,
+    2026-11-10, stopped here on a device mismatch)."""
+    g = torch.Generator().manual_seed(0)
+    N, classes = 50, [3, 4, 9]
+    C = torch.rand(N, 3, generator=g, dtype=torch.float64)
+    C[:5] = 0                                                      # unobserved Gaussians
+    accs = {}
+    for dev in ("cpu", "cuda"):
+        a = SW.SwapGT(N, classes, [(3, 9)], device=dev)
+        a.C += C.to(dev)
+        a.m += 2 * C.sum(1).to(dev)
+        accs[dev] = a.result(0.5, 0.05, min_mass=0.05)
+    for k, v in accs["cuda"].items():
+        assert v.device.type == "cpu", k
+        assert torch.equal(v, accs["cpu"][k]), k
+
+
 # ------------------------------------------------------------------ fake scene on disk
 CLS = dict(wall=93, chair=20, sofa=76, table=80, lamp=47, plant=44)
 D = 16

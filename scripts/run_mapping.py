@@ -572,12 +572,17 @@ def run_gsplat(args, rec=None):
 
     # ---- baselines fed by the same per-view sums (plan K11) --------------------------
     bs = []
+    if args.robust_lift and not args.baselines:
+        raise SystemExit("--robust-lift needs --baselines")
     if args.baselines:
         text = None
         if css_ids is not None:
             text = css_text
             print(f"CSS vocabulary: {len(css_ids)} classes present in {args.css_eval_data}")
         bs = B.default_baselines(field, text=text, class_ids=css_ids)
+        for c0 in [float(x) for x in args.robust_lift.split(",") if x.strip()]:
+            bs.append(B.RobustLift.for_field(field, c0=c0, tau=cfg.tau_min))
+            print(f"RobustLift: c0 {c0:g}, tau {cfg.tau_min:g} (row {bs[-1].name})")
         if full_ids is not None:
             bs.append(B.full_vocab_css(field, full_text, full_ids))
             print(f"CSS full vocabulary: {len(full_ids)} classes of {args.vocab} (rows "
@@ -778,6 +783,9 @@ def build_parser():
     ap.add_argument("--extractor", default="lseg", help="usplat.extractors name")
     ap.add_argument("--baselines", action="store_true",
                     help="also accumulate the K11 baselines (NormLift/averaging, view count, CSS)")
+    ap.add_argument("--robust-lift", default="",
+                    help="attempt 09: comma-separated c0 values; one RobustLift accumulator (rows "
+                         "robust_c<c0>, trimmed view mean, tau = the field's tau_min) per value; needs --baselines")
     ap.add_argument("--vocab", default="", help="frozen vocabulary (CSS classes + templates)")
     ap.add_argument("--css-eval-data", default="",
                     help="evaluation sequence whose present classes form the CSS vocabulary")

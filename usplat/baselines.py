@@ -416,6 +416,56 @@ class ViewCount(_Accumulator):
         return [_row("viewcount", "feature", self._feature, self.uncertainties)]
 
 
+# ------------------------------------------------------- (c') robust view weighting
+class RobustLift(_Accumulator):
+    """Attempt 09 (configs/robust_prereg.json): the field's view-level direction as a trimmed mean:
+    a view that disagrees with the Gaussian's own earlier evidence is left out. View v adds
+    omega_v * g_v * u_v to F, with u_v = R_v / m_v (raw channel), omega_v = min(1, m_v / (a0 H W))
+    the field's view weight and g_v = 1[cos(u_v, F) >= c0] once the Gaussian holds at least tau
+    views of evidence (W >= tau, W = sum of omega over every view, kept or not), else g_v = 1. Labels from F / ||F||. The field's own sums (u_epi, u_ale)
+    are untouched, so the aleatoric channel still sees every disagreement. With c0 = -1 every
+    g_v = 1 and the direction equals the field's mu* = R / ||R|| (text prior off)."""
+    _state = ("F", "W")
+
+    def __init__(self, num_gaussians, feat_dim, c0=0.5, tau=3.0, name=None, device="cpu",
+                 dtype=torch.float32):
+        if not -1.0 <= float(c0) < 1.0:
+            raise ValueError(f"c0 must be in [-1, 1), got {c0}")
+        self.N, self.d, self.dtype = int(num_gaussians), int(feat_dim), dtype
+        self.c0, self.tau = float(c0), float(tau)
+        self.name = name or f"robust_c{self.c0:g}"
+        z = _zeros(device, dtype)
+        self.F, self.W = z(self.N, self.d), z(self.N)
+
+    @classmethod
+    def for_field(cls, field, **kw):
+        return cls(field.N, field.d, device=field.device, dtype=field.dtype, **kw).attach(field)
+
+    def config(self):
+        return dict(num_gaussians=self.N, feat_dim=self.d, c0=self.c0, tau=self.tau, name=self.name,
+                    dtype=_dtype_name(self.dtype))
+
+    @torch.no_grad()
+    def on_view(self, s):
+        seen = s.m > 0
+        u = s.R / torch.where(seen, s.m, torch.ones_like(s.m))[:, None]        # view mean u_v
+        om = torch.where(seen, (s.m / s.ref).clamp(max=1.0), torch.zeros_like(s.m))
+        den = (u.norm(dim=-1) * self.F.norm(dim=-1)).clamp_min(1e-12)
+        cos = (u * self.F).sum(-1) / den
+        g = (cos >= self.c0).to(self.F.dtype)
+        g = torch.where(self.W >= self.tau, g, torch.ones_like(g))
+        self.F += (om * g)[:, None] * u
+        self.W += om
+
+    @torch.no_grad()
+    def feature(self):
+        f = self.F / self.F.norm(dim=-1, keepdim=True)
+        return torch.where(torch.isnan(f), torch.zeros_like(f), f)
+
+    def rows(self):
+        return [_row(self.name, "feature", self.feature)]
+
+
 # ------------------------------------------------------------------------ (d) CSS
 def opinion_from_counts(r: torch.Tensor):
     """Subjective-logic opinion from evidence counts r (N, K), prior weight K:
@@ -738,7 +788,8 @@ def update_all(field, rasterize_fn, z_obs, css=(), **kw):
 
 
 # ----------------------------------------------------------------- checkpoints / eval
-_TYPES = {"Averaging": Averaging, "NormLift": NormLift, "ViewCount": ViewCount, "CSS": CSS}
+_TYPES = {"Averaging": Averaging, "NormLift": NormLift, "ViewCount": ViewCount, "CSS": CSS,
+          "RobustLift": RobustLift}
 
 
 def default_baselines(field, text=None, class_ids=None, alpha0=1.0, beta=1.0, yager=True):

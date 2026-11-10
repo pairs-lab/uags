@@ -1,0 +1,20 @@
+{
+ "attempt": "09",
+ "name": "robust view weighting (trimmed view mean)",
+ "registered": "2026-11-10, before any real-data run of this attempt",
+ "asked_by": "user, 2026-11-10: improve Table II (per-class IoU); choice in the question dialog: 'Try robust view weighting'",
+ "question": "Does leaving out the views that disagree with a Gaussian's own earlier evidence raise the label accuracy of Tables I and II over ours (labels from mu* = R / ||R||)?",
+ "method": "usplat.baselines.RobustLift: view v adds omega_v * g_v * u_v, u_v = R_v / m_v (raw channel), omega_v = min(1, m_v / (a0 H W)); g_v = 1[cos(u_v, F) >= c0] once W >= tau (W = sum of omega over every view), else 1. Labels from F / ||F||. The field's sums, u_epi and u_ale are not changed.",
+ "variants": {"c0": [0.5, 0.7, 0.8, 0.9], "tau": "the field's tau_min (3 views)"},
+ "rows": ["robust_c0.5", "robust_c0.7", "robust_c0.8", "robust_c0.9"],
+ "reference_row": "ours_P2 (the paper's Ours row; its labels equal ours_P0's), from the same evaluation run on the same fields",
+ "data": {
+  "validation": {"replica": ["office_0", "room_2"], "scannet": ["scene0000_00", "scene0062_00"]},
+  "test": {"replica": "configs/replica_test.json (6 scenes)", "scannet": "configs/scannet_test.json (8 scenes)"},
+  "protocol": "the Table I protocol unchanged: same maps, frames, LSeg features, PCA, coverage rule (tau_cov 0.5), vocabulary and evaluation code (scripts/eval_seg.py); fields re-mapped with --robust-lift into results/fields_robust (the published fields are not touched)"
+ },
+ "selection": "S(row) = mean over the two datasets of the validation mean mIoU (points). The best variant is the row with the largest S; ties (equal to 0.01 point) go to the smaller c0, the milder trim.",
+ "accept_for_test": "S(best) >= S(ours_P2) + 1.0 point AND the best variant's validation mean mIoU is not lower than ours_P2's on either dataset. Otherwise the attempt stops: the test scenes never run and Tables I, II stay as they are.",
+ "adopt": "after the single test run: the variant's test mean mIoU is higher than ours_P2's on both datasets, higher in >= 4 of 6 Replica and >= 5 of 8 ScanNet test scenes, and S_test(variant) >= S_test(ours_P2) + 0.5 point. Then ours' labels (P0, P1, P2) come from the trimmed direction in Tables I, II and the figures, and the paper says it was attempt 09, selected on validation.",
+ "disclosure": "reported in the paper and the report either way (NEGATIVE if it stops on validation)."
+}

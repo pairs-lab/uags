@@ -699,3 +699,52 @@ if __name__ == "__main__":
     test_checkpoint_row_factory()
     with tempfile.TemporaryDirectory() as tmp:
         test_eval_seg_cli_row_factory(pathlib.Path(tmp))
+
+
+# ----------------------------------------------------------- attempt 09: RobustLift
+def test_robustlift_without_weighting_equals_field_direction():
+    """c0 = -1: every view keeps its weight, so the direction is the field's R / ||R|| (a mapping
+    pass: no change test, no resets)."""
+    torch.manual_seed(0)
+    N, d, V = 30, 8, 6
+    ras, P = _views(V, N=N)
+    f = _field(N, d, change_test=False)
+    rl = B.RobustLift.for_field(f, c0=-1.0)
+    for r in ras:
+        f.update_view(r, Fn.normalize(torch.randn(P, d), dim=-1), num_pixels=P)
+    seen = f.raw.W1 > 0
+    want = Fn.normalize(f.raw.R[seen], dim=-1)
+    assert torch.allclose(rl.feature()[seen], want, atol=1e-5)
+    assert torch.allclose(rl.W, f.raw.W1, atol=1e-5)
+
+
+def test_robustlift_drops_a_disagreeing_view():
+    """Three views of e1, then a view of e2 (cos 0 < c0 = 0.5): its weight is 0, the direction stays
+    e1 and the evidence count still grows."""
+    from usplat.vmf_field import ViewStats
+    d = 4
+    rl = B.RobustLift(1, d, c0=0.5, tau=3.0)
+    e1, e2 = torch.eye(d)[0], torch.eye(d)[1]
+    for u in (e1, e1, e1, e2):
+        rl.on_view(ViewStats(R=(2.0 * u)[None], m=torch.tensor([2.0]), Rc=None, mc=None, Ds=None, Dm=None,
+                             ref=1.0))
+    assert torch.allclose(rl.feature()[0], e1)
+    assert rl.W.item() == 4.0
+    rl2 = B.RobustLift(1, d, c0=0.5, tau=5.0)          # below tau: no weighting yet
+    for u in (e1, e1, e1, e2):
+        rl2.on_view(ViewStats(R=(2.0 * u)[None], m=torch.tensor([2.0]), Rc=None, mc=None, Ds=None, Dm=None,
+                              ref=1.0))
+    assert rl2.F[0, 1].item() == 1.0
+
+
+def test_robustlift_checkpoint_roundtrip():
+    N, d = 12, 6
+    ras, P = _views(3, N=N)
+    f = _field(N, d)
+    bs = [B.RobustLift.for_field(f, c0=0.7)]
+    for r in ras:
+        f.update_view(r, Fn.normalize(torch.randn(P, d), dim=-1), num_pixels=P)
+    buf = io.BytesIO(); torch.save({"baselines": baselines_state(bs)}, buf); buf.seek(0)
+    rows = row_factory(torch.load(buf, weights_only=False))
+    assert [r.name for r in rows] == ["robust_c0.7"]
+    assert torch.allclose(load_baselines(baselines_state(bs))[0].feature(), bs[0].feature())

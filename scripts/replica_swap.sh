@@ -31,6 +31,9 @@
 # banks, fields and ground truth go to $SWAP, records and logs to $OUT. Every GPU step goes
 # through scripts/gpu_gate.sh. Existing banks/fields/GT are reused. DRY_RUN=1 prints each
 # step (shell-quoted) instead of running it; the refusal rules still run.
+# FIELD_CONFIG=<json> : FieldConfig overrides for both fields (run_mapping.py --field-config), e.g. the
+# change test of Table III, '{"change_weight": "relmax", "fast_min": 0.5, "slow_min": 0.5}' (the
+# default field still has the earlier "view" weight). Use other SWAP and OUT folders for it.
 # Disk: each mapping step is refused unless DISK_FACTOR (1.5) x its field size (N of the map x
 # 1.3 KB reset / 1.0 KB no-reset per Gaussian, scripts/disk_guard.py) is free in $SWAP: about
 # 3.6 GB for the val fields and 11 GB for the test fields, plus banks and ground truth.
@@ -70,6 +73,7 @@ MSEQ=$(spec mapping.sequence); MSTRIDE=$(spec mapping.stride)
 USEQ=$(spec update.sequence); USTRIDE=$(spec update.stride)
 EXTRACTOR=$(spec extractor)
 HEAD=$(git rev-parse HEAD)
+[ -z "${FIELD_CONFIG:-}" ] || echo "[swap $STAGE] field config: $FIELD_CONFIG"
 echo "[swap $STAGE] $TS git ${HEAD:0:7} dirty: $(git status --porcelain --untracked-files=no -- scripts usplat configs | wc -l) files; scenes: $SCENES"
 
 # step <log> <command...>: run it with its output in <log> (tail on failure); DRY_RUN: print it
@@ -140,6 +144,7 @@ for s in $SCENES; do
           --feat-dim 64 --pca-frames 20 --seed 0 --use-depth
           --update-data "$ROOT/$s/$USEQ" --update-stride "$USTRIDE"
           --feature-transform usplat.swap:swap_factory)
+  [ -z "${FIELD_CONFIG:-}" ] || COMMON+=(--field-config "$FIELD_CONFIG")
   [ -f "$F" ] || space "$SWAP/fields" "$MAPS/${s}_seq1.pt" 1300
   [ -f "$F" ] || step "$OUT/map_${s}.$TS.log" scripts/gpu_gate.sh "$MAP_NEED" \
     python3 scripts/run_mapping.py "${COMMON[@]}" --baselines --change-baselines --oracle-depth \

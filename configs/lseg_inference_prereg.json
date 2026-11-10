@@ -1,0 +1,65 @@
+{
+ "name": "LSeg inference settings for every row of Tables I and II: a validation-only 2D gate (stage A)",
+ "registered": "2026-11-10, before any run of this attempt",
+ "asked_by": "user, 2026-11-10: 'and still need to improve table II' (earlier the same day: 'improve the perception model, improve algorithm or so on')",
+ "question": "Would a finer token stride, flip averaging or the official multi-scale sliding window of LSeg raise the per-frame 2D mIoU of Table I's 2D path by at least 1 point on BOTH datasets? The 2D path is the input of every row, so this is the gate before any re-mapping.",
+ "scope": "Validation only: the 2D segmentation of the validation evaluation frames (Replica office_0, room_2; ScanNet scene0000_00, scene0062_00). No map is rebuilt and no test scene is read (the test scene lists are read by name only, to check that they do not overlap). If the gate passes, nothing else runs here: re-mapping every scene and re-training the trained rows would be a later decision of the user. Every row of Tables I and II would get the same features, so the parity of ours and NormLift is not expected to change.",
+ "pipeline": {
+  "stage_a": "scripts/lseg_inference_gate.sh (scripts/extractor_2d.py per dataset and candidate, unchanged; then the selection inside the driver)"
+ },
+ "incumbent": "lseg",
+ "extractor": "lseg for every candidate; a candidate is the incumbent's code with other inference settings, selected only by the UAGS_LSEG_* environment variables that usplat/extractors/lseg.py build() reads. scripts/extractor_2d.py records the resulting options (token_stride, flip, scales) in each record.",
+ "candidates": {
+  "s8": {"env": {}, "what": "the incumbent of Table I: token stride 8, no flip, single scale"},
+  "s4": {"env": {"UAGS_LSEG_STRIDE": "4"}, "what": "token stride 4"},
+  "s2": {"env": {"UAGS_LSEG_STRIDE": "2"}, "what": "token stride 2 (the head output, no pooling)"},
+  "s8_flip": {"env": {"UAGS_LSEG_FLIP": "1"}, "what": "token stride 8, horizontal-flip averaging"},
+  "s2_flip": {"env": {"UAGS_LSEG_STRIDE": "2", "UAGS_LSEG_FLIP": "1"}, "what": "token stride 2, flip averaging"},
+  "s8_ms": {"env": {"UAGS_LSEG_SCALES": "0.75,1.0,1.25", "UAGS_LSEG_FLIP": "1"}, "what": "token stride 8, multi-scale sliding window (scales 0.75, 1.0, 1.25; base 520, crop 480) with flip"},
+  "s2_ms": {"env": {"UAGS_LSEG_STRIDE": "2", "UAGS_LSEG_SCALES": "0.75,1.0,1.25", "UAGS_LSEG_FLIP": "1"}, "what": "token stride 2, the same multi-scale window with flip"}
+ },
+ "order": ["s8", "s4", "s2", "s8_flip", "s2_flip", "s8_ms", "s2_ms"],
+ "order_text": "cheapest first (pooling only, then 2 forward passes, then 14 crops per frame); the tie-break order of the rule",
+ "datasets": {
+  "replica": {
+   "scenes": {"validation": "configs/replica_val.json", "test": "configs/replica_test.json"},
+   "eval": {"vocab": "configs/vocab_replica.json", "dataset": "replica_semnerf", "stride": 10, "downscale": 2, "tau_cov": 0.5},
+   "mapping": {"dataset": "replica_semnerf", "data": "/home/thanhnc/gauss_ws/src/uags/data/replica_semnerf/Replica_Dataset/{name}/Sequence_1", "stride": 5},
+   "table1": {"val": "results/tab1/eval_val.json", "text_cache": "results/fields/text_cache_lseg.pt"}
+  },
+  "scannet": {
+   "scenes": {"validation": "configs/scannet_val.json", "test": "configs/scannet_test.json"},
+   "eval": {"vocab": "configs/vocab_scannet.json", "dataset": "scannet", "stride": 20, "downscale": 2, "tau_cov": 0.5},
+   "mapping": {"dataset": "scannet", "data": "/home/thanhnc/gauss_ws/src/uags/data/scannet/uags_f2/{name}", "stride": 10},
+   "table1": {"val": "results/scannet_tab1/eval_val.json", "text_cache": "results/fields/scannet/text_cache_lseg.pt"}
+  }
+ },
+ "stage_a": {
+  "what": "per candidate and dataset: the 2D segmentation of every validation evaluation frame through Table I's 2D-row path (scripts/extractor_2d.py): tokens -> bilinear upsample to the label grid (downscale 2) -> unit -> PCA-64 fit on the first 20 mapping frames of the scene with the candidate's own tokens (seed 0) -> logits with the PCA-projected text of the present classes -> argmax over every labelled pixel",
+  "protocol": {"downscale": 2, "feat_dim": 64, "pca_frames": 20, "seed": 0},
+  "out": "results/lseg_inference",
+  "metric": "per scene mIoU over the classes present in its evaluation frames (records: scenes.<scene>.pca.miou, in points); A_D(x) = mean over dataset D's two validation scenes",
+  "secondary": "pixel accuracy, the full-dimensional 2D mIoU and the extraction time per frame: reported, never used by the rule",
+  "text_cache": "a COPY of Table I's cache (datasets.<d>.table1.text_cache) in the out directory; the Table I caches are never written"
+ },
+ "reproduction": {
+  "id": "R0",
+  "tol_points": 0.1,
+  "text": "before any decision: candidate s8 must reproduce Table I's validation 2D row (datasets.<d>.table1.val, metrics.scenes.<scene>.rows.2d_features.all.miou) within 0.1 point on each of the four scenes. If not, the gate measures something else than Table I: no winner is named."
+ },
+ "rule": {
+  "delta": "delta_D(x) = A_D(x) - A_D(s8) for D in {replica, scannet}, in points",
+  "winner": "the candidate (not s8) with the largest min(delta_replica, delta_scannet); candidates within tie_tol_points of the largest tie, and the earliest in 'order' wins",
+  "tie_tol_points": 0.1,
+  "gate": "PASS only if R0 passed AND the winner's min(delta_replica, delta_scannet) >= margin_points. Otherwise the attempt ends here as NEGATIVE: LSeg keeps the settings of Table I.",
+  "margin_points": 1.0,
+  "why_margin": "the margin of configs/extractor_prereg.json: a re-mapping of 18 scenes and a re-training of the trained rows is justified only by a clear 2D gain on both datasets; Table I's rows tie within 0.4 mIoU on the same features"
+ },
+ "if_pass": "reported as PARTIAL (validation only). The user decides whether to rebuild every map and every row with the winner; that would be a new registered stage and a further look at both test splits.",
+ "disclosure": "reported in docs/reports/2026-11-10-lseg-inference-gate either way, with every candidate's numbers",
+ "gpu": {
+  "headroom_mib": 1024,
+  "need_mib": {"s8": 4000, "s4": 4000, "s2": 6000, "s8_flip": 4000, "s2_flip": 6000, "s8_ms": 6000, "s2_ms": 6000},
+  "basis": "LSeg stage A peak 1876 MiB at stride 8 (configs/extractor_prereg.json gpu.basis); stride 2 keeps 16 times more tokens per frame and the sliding window holds per-scale sums; raised to 8000 once if a run goes out of memory (reported)"
+ }
+}

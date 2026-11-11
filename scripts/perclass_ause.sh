@@ -16,7 +16,7 @@ mkdir -p "$OUT/logs"
 [ -f "$OUT/text_cache_replica.pt" ] || cp "$R/fields/text_cache_lseg.pt" "$OUT/text_cache_replica.pt"
 [ -f "$OUT/text_cache_scannet.pt" ] || cp "$R/fields/scannet/text_cache_lseg.pt" "$OUT/text_cache_scannet.pt"
 FACT=usplat.baselines:row_factory,usplat.distill:row_factory
-NEED=${NEED:-7000}
+NEED=${NEED:-7000}               # --with-2d: LSeg fp32 on the evaluation frames too
 if [ -n "$(git status --porcelain --untracked-files=no -- scripts usplat configs)" ]; then
   echo "refused: uncommitted changes in scripts/ usplat/ configs/ (the run must name a commit)"; exit 2
 fi
@@ -28,15 +28,15 @@ run() {       # run <name> <vocab> <dataset> <stride> <text cache> <betas> <scen
   echo "[$(date '+%F %T')] $name test"
   scripts/gpu_gate.sh "$NEED" python3 scripts/eval_seg.py --vocab "$2" --row-factory "$FACT" \
     --extractor lseg --dataset "$3" --stride "$4" --downscale 2 --tau-cov 0.5 --text-cache "$5" \
-    --betas "$6" --scenes "$7" --rows "$8" --per-class-ranking \
+    --betas "$6" --scenes "$7" --rows "$8" --with-2d --per-class-ranking \
     --out "$OUT/${name}_test.json" > "$OUT/logs/${name}_test.log" 2>&1 \
     || { tail -30 "$OUT/logs/${name}_test.log"; exit 1; }
 }
 
 replica() { run replica configs/vocab_replica.json replica_semnerf 10 "$OUT/text_cache_replica.pt" \
-  "$R/tab1/eval_val.json" configs/replica_test.json ours_P0,ours_P2,normlift,viewcount,f3dgs,legs_l4; }
+  "$R/tab1/eval_val.json" configs/replica_test.json ours_P0,ours_P2,normlift,viewcount,f3dgs,legs_l4,css_a0.01,2d_features; }
 scannet() { run scannet configs/vocab_scannet.json scannet 20 "$OUT/text_cache_scannet.pt" \
-  "$R/scannet_tab1/eval_val.json" configs/scannet_test.json ours_P0,ours_P2,normlift,viewcount,f3dgs,legs_l1; }
+  "$R/scannet_tab1/eval_val.json" configs/scannet_test.json ours_P0,ours_P2,normlift,viewcount,f3dgs,legs_l1,css_a0.1,2d_features; }
 
 case "${1:-all}" in
   replica) replica ;;

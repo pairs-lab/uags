@@ -50,5 +50,6 @@
  "control": "every recomputed covered per-class IoU, accuracy and per-signal AUSE equals the Table I record of the same scene and row (|diff| <= 1e-9); otherwise no table is made",
  "selection": "none: no parameter is chosen; the test is run once",
  "driver": "scripts/perclass_ause.sh all",
- "amended": "2026-11-11 15:4x, before any per-class value existed: the first start (15:35) stopped at load time (usplat.distill.row_factory looked for the trained rows at the fields' pre-move paths; fixed by mapping them with usplat.paths.moved). Rows css and 2d_features added at the user's request for more baselines."
+ "amended": "2026-11-11 15:4x, before any per-class value existed: the first start (15:35) stopped at load time (usplat.distill.row_factory looked for the trained rows at the fields' pre-move paths; fixed by mapping them with usplat.paths.moved). Rows css and 2d_features added at the user's request for more baselines.",
+ "control_amended": "2026-11-11 18:5x, after the run, before any table was made: the 1e-9 control held on ScanNet (max |diff| 0) and failed on Replica (max |diff| 3.0e-4, 2d_features room_1 IoU; ours rows 1.3e-5). The Replica Table I record (results/tab1/eval_test.json) was made on 2026-09-30 on the earlier machine; the ScanNet record on this one. New control, as for the swap test (attempt 11 rule): accuracy, IoU and AUSE within 0.005 (0.5 points) of the Table I record."
 }

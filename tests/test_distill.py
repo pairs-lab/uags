@@ -80,7 +80,18 @@ def test_row_factory_reads_files_and_checks_basis(tmp_path):
     with pytest.raises(ValueError, match="PCA basis"):
         D.row_factory(dict(config=dict(out=main), pca=dict(basis=basis.flip(1))), None, "cpu")
     assert D.row_factory(dict(config=dict(out=str(tmp_path / "other.pt")), pca=pca), None, "cpu") == []
-    print("PASS distill row factory: rows, legs_u channel, basis check, aux identities")
+    # a field built before the 2026-10-31 move stores its old path: the files are found where
+    # usplat.paths.moved puts that path
+    import usplat.paths as P
+    old = P.OLD_ROOT + "/uags_fields/scene_lseg.pt"
+    saved = P._RENAMED["uags_fields"]
+    P._RENAMED["uags_fields"] = str(tmp_path)
+    try:
+        assert [r.name for r in D.row_factory(dict(config=dict(out=old), pca=pca), None, "cpu")] \
+            == ["f3dgs", "legs_l2"]
+    finally:
+        P._RENAMED["uags_fields"] = saved
+    print("PASS distill row factory: rows, legs_u channel, basis check, aux identities, moved paths")
 
 
 def test_stopping_rule():

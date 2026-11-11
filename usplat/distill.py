@@ -230,6 +230,8 @@ def row_factory(ckpt, field=None, device="cpu", class_ids=None, field_path=None)
     main = field_path or (ckpt.get("config") or {}).get("out")
     if not main:
         return []
+    from .paths import moved          # fields built before the 2026-10-31 move store old paths
+    main = moved(main)
     stem = main[:-3] if main.endswith(".pt") else main
     paths = sorted(glob.glob(f"{glob.escape(stem)}_f3dgs.pt") +
                    glob.glob(f"{glob.escape(stem)}_legs_l*.pt"))

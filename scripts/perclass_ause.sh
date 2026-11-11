@@ -24,7 +24,11 @@ echo "[$(date '+%F %T')] per-class ranking, git $(git rev-parse --short HEAD)"
 
 run() {       # run <name> <vocab> <dataset> <stride> <text cache> <betas> <scenes> <rows>
   local name=$1
-  [ -f "$OUT/${name}_test.json" ] && { echo "exists: $name"; return; }
+  if [ -f "$OUT/${name}_test.json" ]; then       # a finished record is kept; any other status stops
+    st=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('status'))" "$OUT/${name}_test.json")
+    [ "$st" = ok ] && { echo "exists: $name"; return; }
+    echo "refused: $OUT/${name}_test.json has status $st (move it aside to rerun)"; exit 2
+  fi
   echo "[$(date '+%F %T')] $name test"
   scripts/gpu_gate.sh "$NEED" python3 scripts/eval_seg.py --vocab "$2" --row-factory "$FACT" \
     --extractor lseg --dataset "$3" --stride "$4" --downscale 2 --tau-cov 0.5 --text-cache "$5" \

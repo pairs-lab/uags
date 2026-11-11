@@ -95,7 +95,7 @@
   "levels": "d (the fork's default stream: all three multimask outputs), s, p, w (its s, m, l: outputs 0, 1, 2), each through the same filters (predicted IoU > 0.7, stability >= 0.85, crop-edge boxes dropped, box NMS 0.7 per crop, cross-crop NMS 0.7 preferring smaller crops, SAM's clean-up of regions and holes < 100 px), then its masks_update (mask_nms on IoU_pred x stability: IoU 0.8, score 0.7, inner 0.5); painted in list order (a later mask overwrites an earlier one) at the field's grid (downscale 2: area average >= 1/2), int16, -1 = no mask",
   "frames": "the main field's mapping frames; for Table IV also the update keyframes of the scene's Table III record (--table)",
   "outputs": "results/sam_masks/<field stem>_sam.npz (mapping), results/sam_masks/<field stem>_sam_upd.npz (NOR update keyframes); labels (frames, 4, h, w)",
-  "gpu": "scripts/gpu_gate.sh 6000",
+  "gpu": "scripts/gpu_gate.sh 7800 (6000 ran out of memory in the time step, 2026-11-11 19:47; a memory cap changes no computation)",
   "code_matched": "segment-anything-langsplat segment_anything/automatic_mask_generator.py: generate, generate_curr_anns, _generate_masks, _generate_masks_data, _process_crop, _process_crop_data, _process_batch, _process_batch_data (usplat.sam_lift.LevelStreams on segment_anything 1.0); LangSplat preprocess.py: the SamAutomaticMaskGenerator arguments, sam_encoder, masks_update, mask_nms, filter, mask2segmap (usplat.sam_lift.make_generator, generate_levels, masks_update, mask_nms, paint_labels)",
   "identity": "meta['identity'] = sha256 of the settings above, the model, the checkpoint sha256 and the mask code (LevelStreams, make_generator, mask_nms, masks_update, generate_levels, paint_labels, ...)"
  },

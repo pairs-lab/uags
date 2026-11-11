@@ -1,0 +1,98 @@
+{
+ "schema": "uags.prereg/1",
+ "id": "sam_baselines_v1",
+ "name": "sam_baselines",
+ "registered": "2026-11-11, before any run of these rows on a real scene (only one-frame smoke tests of the code had run)",
+ "asked_by": "user, 2026-11-11: re-implement LangSplat and OpenGaussian 'in our protocol' as extra rows next to the re-implemented Feature 3DGS and LEGaussians",
+ "question": "How do two SAM-mask feature-lifting methods, LangSplat and OpenGaussian, compare with the other rows of Tables I, II, III, IV and the error-split table when they lift the same 2D features on the same map?",
+ "shared_protocol": "As every row of papers/main.tex 'Maps and baselines': the scene's fixed 3D-GS map (geometry frozen), the main field's mapping frames (scripts/distill_features.py select_frames), the LSeg features compressed by the field's own PCA to d = 64 (unit vectors), the splat-weight renderer, the coverage floor tau_cov = 0.5 and scripts/eval_seg.py's evaluation (text cosine -> softmax over the scene's classes, one temperature per row fitted on validation). The methods' own ingredient is SAM: their CLIP feature per mask is replaced by the unit mean of the LSeg PCA-64 features inside the mask, so every row sees the same 2D features.",
+ "methods": {
+  "langsplat": {
+   "paper": "Qin et al., LangSplat, CVPR 2024, arXiv 2312.16084",
+   "rows": ["langsplat_s", "langsplat_p", "langsplat_w"],
+   "definition": "usplat/sam_lift.py (h): a scene autoencoder 64 -> 3 (encoder 64-32-16-8-3 with BatchNorm + ReLU, decoder 3-8-16-32-64 with ReLU, unit outputs; loss MSE + 0.001 (1 - cos); Adam 1e-4, 100 epochs, batch 64, the lowest-loss epoch of the last 5; trained once per scene on the mask features of all three levels); one model per SAM level: a per-Gaussian 3-d latent (zero init) trained so that the rendered latent matches the encoded mask feature, L1 on the covered pixels inside a mask; Adam lr 0.0025. Query: rendered latent -> decoder -> 64-d -> as every feature row. No uncertainty of its own (the evaluator's 1 - max p).",
+   "settings": {"iters": 30000, "min_iters": 5000, "tol": 0.01, "log_every": 1000, "lr": 0.0025, "alpha_min": 0.5, "seed": 0, "ae_dims": [64, 32, 16, 8, 3], "ae_epochs": 100, "ae_lr": 0.0001, "ae_batch": 64, "ae_keep": 5}
+  },
+  "opengs": {
+   "paper": "Wu et al., OpenGaussian, NeurIPS 2024, arXiv 2406.02058",
+   "rows": ["opengs"],
+   "definition": "usplat/sam_lift.py (i), on the whole-level masks: (a) per-Gaussian 6-d instance feature (unit, U[0,1) init) trained with L_c + 0.1 L_s (intra-mask smoothing and inter-mask contrast 1 / (|m_i - m_j|^2 + 1), its Eq. 1-2 as its code computes them; masks with >= 50 covered pixels), Adam lr 0.001; (b) two-level codebook by k-means (10 rounds): k1 = 64 coarse clusters on [feature, 1.0 xyz], k2 = 5 fine clusters per coarse one on the feature (its ScanNet setting, paper Appendix A.1), 320 instances; (c) 2D-3D association per mapping view: instance mask = covered pixels where the instance's rendered share is >= 1/2 of alpha; best whole-level SAM mask by S = IoU (1 - mean |c_i - p_j|) (its Eq. 5), a match needs S > 0.2; instance feature = unit IoU-weighted mean of the matched masks' pooled LSeg features; never matched: zero (uniform predictive). Query: per-Gaussian feature = its instance's feature, rendered, as every feature row. No uncertainty of its own.",
+   "settings": {"iters": 30000, "min_iters": 5000, "tol": 0.01, "log_every": 1000, "lr": 0.001, "alpha_min": 0.5, "seed": 0, "dim": 6, "smooth_weight": 0.1, "min_mask_px": 50, "k1": 64, "k2": 5, "pos_weight": 1.0, "kmeans_iters": 10, "share_min": 0.5, "min_score": 0.2}
+  },
+  "deviations": "Listed in the usplat/sam_lift.py docstring ('Deviations from the papers'), fixed with this registration. Main ones: LSeg PCA-64 mask means instead of CLIP per mask; SAM thresholds 0.88 / 0.95 without a crop layer or LangSplat's extra mask NMS (LangSplat's preprocess.py: 0.7 / 0.85, crop_n_layers 1, masks_update); one LangSplat level per row chosen on validation (it picks a level per query); OpenGaussian's codebook as plain k-means without its stage-2 codebook training, its stage 1 capped at 30k (its ScanNet setting: 20k)."
+ },
+ "masks": {
+  "script": "scripts/sam_masks.py (usplat.sam_lift.generate_levels, paint_labels)",
+  "model": "segment_anything 1.0 (pip install --no-deps segment-anything), vit_h, data/weights/sam/sam_vit_h_4b8939.pth",
+  "checkpoint_sha256": "a7bf3b02f3ebf1267aba913ff637d9a2d5c33d3173bb679e46d9f338c26f262e",
+  "settings": {"points_per_side": 32, "points_per_batch": 64, "pred_iou_thresh": 0.88, "stability_score_thresh": 0.95, "stability_score_offset": 1.0, "box_nms_thresh": 0.7, "min_mask_region_area": 100, "min_area": 100},
+  "levels": "multimask outputs 0, 1, 2 = s (subpart), p (part), w (whole), each filtered on its own; painted at the field's grid (downscale 2: area average >= 1/2), larger masks first, int16, -1 = no mask",
+  "frames": "the main field's mapping frames; for Table IV also the update keyframes of the scene's Table III record (--table)",
+  "outputs": "results/sam_masks/<field stem>_sam.npz (mapping), results/sam_masks/<field stem>_sam_upd.npz (NOR update keyframes); meta['identity'] = settings + checkpoint + mask code, the same for every scene",
+  "gpu": "scripts/gpu_gate.sh 6000"
+ },
+ "training": {
+  "script": "scripts/train_sam_baselines.py (imports scripts/distill_features.py and usplat/distill.py, never edits them)",
+  "mapping_only": "--field <main field> --masks <_sam.npz> --method langsplat --level all | --method opengs; outputs <main>_langsplat_{s,p,w}.pt, <main>_opengs.pt, <main>_langsplat_ae.pt",
+  "mapping_and_update": "--table results/nor/tab2_relmax/<split>/<scene>.json --masks <_sam.npz>,<_sam_upd.npz>; outputs <field>_langsplat_<level>_upd.pt, <field>_opengs_upd.pt (the frames of scripts/distill_update_nor.py)",
+  "main_fields": {
+   "replica": "the fields of configs/replica_val.json and configs/replica_test.json (results/fields/<scene>_lseg.pt)",
+   "scannet": "the fields of configs/scannet_val.json and configs/scannet_test.json (results/fields/scannet/<scene>_lseg.pt)",
+   "nor": "results/fields/nor_<scene>_lseg_relmax.pt (Table III's mapping-only fields)"
+  },
+  "gpu": "scripts/gpu_gate.sh 5000 (the extractor runs on the GPU as in distill_features.py)",
+  "identity": "every file records sha256 identity of (code, the masks' settings identity, its config); eval_seg folds it into the scene identity (validation and test must match)"
+ },
+ "splits": {
+  "replica": {"val": "configs/replica_val.json (office_0, room_2)", "test": "configs/replica_test.json (N = 6)"},
+  "scannet": {"val": "configs/scannet_val.json (N = 2)", "test": "configs/scannet_test.json (N = 8)"},
+  "nor": {"val": ["001", "002", "003", "004"], "test": ["005", "006", "007", "008", "009", "010", "011", "013", "014", "015"], "test_file": "configs/nor_test.json"}
+ },
+ "selection": {
+  "langsplat_level": "Per dataset (Replica, ScanNet): the level whose row (langsplat_s, langsplat_p, langsplat_w) has the highest mean mIoU over the validation scenes in the validation record eval_val.json below; ties -> the earlier level in (s, p, w). The tables show that level's row; the other two are reported in the text or the report, never dropped silently.",
+  "nor_level": "Tables III and IV use the level chosen on Replica (no NOR-specific selection); only that level is trained on the NOR scenes.",
+  "opengs": "no free parameter",
+  "rule": "Selection reads validation records only. Nothing is chosen on a test scene."
+ },
+ "tables": {
+  "I (tab:replica)": {
+   "how": "scripts/eval_seg.py with --row-factory usplat.baselines:row_factory,usplat.distill:row_factory,usplat.sam_lift:row_factory and Table I's arguments (Replica: --vocab configs/vocab_replica.json --extractor lseg --dataset replica_semnerf --stride 10 --downscale 2 --tau-cov 0.5 --text-cache <copy of results/fields/text_cache_lseg.pt>; ScanNet: --vocab configs/vocab_scannet.json --dataset scannet --stride 20, results/fields/scannet/text_cache_lseg.pt). Validation: --val-scenes = --scenes = the val config (fits the temperatures); test: --betas <that eval_val.json> --scenes <test config>.",
+   "rows": "langsplat_s, langsplat_p, langsplat_w, opengs, and the controls ours_P0, ours_P2, normlift, f3dgs, legs_l4 (Replica) / legs_l1 (ScanNet), selected with --rows",
+   "outputs": "results/sam_baselines/replica/eval_val.json, eval_test.json; results/sam_baselines/scannet/eval_val.json, eval_test.json",
+   "cells": "the chosen LangSplat level and OpenGaussian as two new rows (mIoU, accuracy, ECE, NLL, Brier, AURC; AUSE_u '--': no uncertainty of their own), marked re-implemented; bold / underline recomputed over all ranked rows; the CSS reference row stays unranked",
+   "gpu": "scripts/gpu_gate.sh 7000"
+  },
+  "II (tab:perclass)": "Per-class IoU of the same two rows from the test records above (scripts/make_tables.py perclasspair, the same class columns); bold / underline recomputed.",
+  "error split (tab:views)": "Only the full-map columns (Replica M = 180, ScanNet full): AUSE of 1 - max p relative to random, as the Feature 3DGS row, from the test records above (papers/table_tools/views_table.py's rule for trained rows); the M < 180 columns are '--' (no field from M frames).",
+  "III (tab:change)": {
+   "how": "scripts/sam_change_nor.py change (scripts/eval_change_nor_distilled.py, imported unchanged) on each NOR scene with the scene's Table III record options (--align, --update-stride, --tau-cov from results/nor/tab2_relmax/<split>/<scene>.json, as scripts/nor_distilled.sh), --distilled <field>_langsplat_<Replica level>.pt,<field>_opengs.pt, --reference <the record>",
+   "rows": "langsplat_<level>_feat, opengs_feat: the feature residual (1 - cos of rendered and observed features) on their mapping-only features, frozen during the update, as the Feature 3DGS / LEGaussians rows of configs/nor_distilled_prereg.json",
+   "outputs": "results/nor/sam/<split>/<scene>.json",
+   "gpu": "scripts/gpu_gate.sh 6000"
+  },
+  "IV (tab:stale)": {
+   "how": "train on the mapping AND update keyframes (train_sam_baselines.py --table, as configs/stale_baselines_prereg.json's f3dgs_upd / legs_l1_upd), then scripts/sam_change_nor.py stale (scripts/stale_baselines_nor.py, imported unchanged) --table <record> --dump results/qual/nor/<scene> --vocab configs/vocab_replica.json --text-cache results/stale_baselines/text_cache_lseg_nor.pt --distilled <field>_langsplat_<level>_upd.pt,<field>_opengs_upd.pt --stage <val|test> --no-2d",
+   "rows": "langsplat_<level>_upd, opengs_upd: the stale-answer rate (lower is better); the frozen mapping-only files may be added as reference rows (report only)",
+   "outputs": "results/stale_baselines_sam/<split>/<scene>_trained.json",
+   "validation": "pipeline check only, as configs/stale_baselines_prereg.json: the trained pass on validation scene 002",
+   "gpu": "training scripts/gpu_gate.sh 5000, evaluation 6000"
+  }
+ },
+ "controls": {
+  "eval_seg": "Every validation and test run recomputes the control rows (ours_P0, ours_P2, normlift, f3dgs, legs). Their fitted temperatures and every stored per-scene metric must equal the Table I records (results/tab1/eval_val.json, eval_test.json; results/scannet_tab1/eval_val.json, eval_test.json) to abs diff <= 1e-6; a larger difference stops the run before the test stage and is reported.",
+  "change": "The feat_control row of each Table III run is compared with the scene's Table III record (eval_change_nor_distilled.py --reference); max |diff| <= 1e-6, else stop.",
+  "stale": "The 'before' row must reproduce the scene's dump (stale_baselines_nor.py's stop rule: rate within 0.5 points, pixel count within 0.5%, else exit 2).",
+  "code": "tests/test_sam_lift.py: an OpenGaussian file with one instance per Gaussian holding the field's mu* gives the 'feat' row and the 'before' counts exactly (toy scene)."
+ },
+ "test_policy": "After the selection, each test scene runs once per table; a finished test record is never overwritten. Every row is reported, including scenes and metrics where a baseline beats ours. Nothing changes after the test run.",
+ "order": ["masks (all scenes)", "train Replica + ScanNet val and test files (all three LangSplat levels, OpenGaussian)", "eval_seg validation (Replica, ScanNet) + controls", "select the LangSplat level", "eval_seg test once", "NOR: masks of the update keyframes, train the chosen level and OpenGaussian (mapping-only, and mapping + update)", "Table III val then test, Table IV val 002 then test"],
+ "budget": {
+  "masks": "about 4,800 frames: Replica 8 scenes x ~179 mapping frames (~1,430), ScanNet 10 scenes (2,110 mapping frames, distill logs), NOR 14 scenes (638 mapping + 637 update keyframes, configs/nor_val.json and nor_test.json counts); GPU time per frame not measured (the 6000 MiB gate was above the smoke allowance; the one-frame CPU run took 513 s on a loaded machine)",
+  "trainings": "72 on Replica + ScanNet (18 scenes x 3 LangSplat levels + OpenGaussian) and 50 on NOR (14 mapping-only x 2, 11 mapping + update x 2); reference: Feature 3DGS took 28 ms/iter on Replica office_0 and 37-89 ms/iter on ScanNet (65 rendered channels), LangSplat renders 4 and OpenGaussian 7",
+  "evaluations": "eval_seg 4 runs (val, test x Replica, ScanNet), Table III 14 scene runs, Table IV 11 scene runs"
+ },
+ "code": {
+  "files": ["usplat/sam_lift.py", "scripts/sam_masks.py", "scripts/train_sam_baselines.py", "scripts/sam_change_nor.py", "tests/test_sam_lift.py"],
+  "unchanged": "usplat/distill.py, usplat/rows.py, usplat/seg_eval.py, scripts/eval_seg.py, scripts/eval_change_nor_distilled.py, scripts/stale_baselines_nor.py and every file they import"
+ }
+}

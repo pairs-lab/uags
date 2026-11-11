@@ -45,7 +45,12 @@ import eval_change as EC                                                    # no
 from usplat import change_eval as CE                                        # noqa: E402
 from usplat import distill as D                                             # noqa: E402
 
-TOL = 1e-9
+# a rebuilt field is not bit-identical to the paper run (LSeg and gsplat on the GPU), so the
+# control uses attempt 11's rule (configs/stale_baselines_prereg.json): rates within 0.5 points,
+# counts within 0.5% (relative); set before any real-scene run
+POINTS = 0.005
+COUNT_REL = 0.005
+TOL = POINTS
 CONTROL = "averaging"
 FIELD_ROWS = ("ours", "averaging")              # the field's own rows in _seg_block
 CODE = ("scripts/swap_trained_eval.py", "scripts/distill_update_swap.py", "scripts/eval_change.py",
@@ -141,13 +146,27 @@ def _diff(a, b):
     return abs(a - b) if math.isfinite(a) and math.isfinite(b) else float("inf")
 
 
-def control_check(row, ref, tol=TOL):
-    """The recomputed row against the record's: every key, within tol (NaN equals NaN)."""
+def control_check(row, ref, tol=TOL, count_rel=COUNT_REL):
+    """The recomputed row against the record's, every key (NaN equals NaN): counts (n_*) within
+    count_rel of the record's value (relative), every other value within tol (absolute)."""
     keys = sorted(set(row) | set(ref))
-    diffs = {k: (_diff(row[k], ref[k]) if k in row and k in ref else float("inf")) for k in keys}
+    diffs, bad = {}, []
+    for k in keys:
+        if k not in row or k not in ref:
+            diffs[k] = float("inf"); bad.append(k)
+            continue
+        d = _diff(row[k], ref[k])
+        if k.startswith("n_"):
+            d = d / max(abs(float(ref[k])), 1.0)
+            ok = d <= count_rel
+        else:
+            ok = d <= tol
+        diffs[k] = d
+        if not ok:
+            bad.append(k)
     worst = max(diffs.values()) if diffs else float("inf")
-    return dict(ok=bool(keys) and worst <= tol, tol=tol, max_abs_diff=worst, diffs=diffs,
-                rerun=row, record=ref)
+    return dict(ok=bool(keys) and not bad, tol=tol, count_rel=count_rel, max_abs_diff=worst,
+                failed=bad, diffs=diffs, rerun=row, record=ref)
 
 
 def read_record(path, scene, split, cfg_sha, gt):
@@ -278,7 +297,7 @@ def run(args, argv):
         print(f"{args.scene} {name:12s} acc changed {r['acc_changed']:.4f} ({r['n_changed']}) "
               f"static {r['acc_static']:.4f} ({r['n_static']})")
     print(f"{args.scene} control {CONTROL}: max |rerun - record| {control['max_abs_diff']:.3g} "
-          f"(tol {TOL:g}) -> {'ok' if control['ok'] else 'FAILED'}; ours {control['ours_info']['max_abs_diff']:.3g}")
+          f"(tol {TOL:g} points-as-fraction, counts {COUNT_REL:g} rel) -> {'ok' if control['ok'] else 'FAILED'}; ours {control['ours_info']['max_abs_diff']:.3g}")
     out = dict(status="ok" if control["ok"] else "control failed", split=args.split,
                scene=args.scene, config_sha256=cfg_sha, control=control, exit=0 if control["ok"] else 2)
     if args.check_only:

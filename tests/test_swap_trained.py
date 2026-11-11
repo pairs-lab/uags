@@ -218,7 +218,7 @@ def test_scores_and_control_pass(toy, tmp_path):
 
 def test_control_fails_and_check_only(toy, tmp_path):
     rec = json.loads(toy["rec"].read_text())
-    for eps, ok in ((1e-10, True), (1e-6, False)):
+    for eps, ok in ((1e-10, True), (0.01, False)):    # 0.01 > 0.5 points
         r = json.loads(json.dumps(rec))
         r["metrics"]["seg"]["rows"]["averaging"]["acc_changed"] += eps
         p = tmp_path / f"rec_{eps:g}.json"
@@ -230,12 +230,17 @@ def test_control_fails_and_check_only(toy, tmp_path):
         chk = SE.main(_score_argv(toy, trained=[], record=p, extra=["--check-only"]))
         assert chk["exit"] == (0 if ok else 2) and "rows" not in chk
     r = json.loads(json.dumps(rec))
-    r["metrics"]["seg"]["rows"]["averaging"]["n_static"] += 1
+    n = r["metrics"]["seg"]["rows"]["averaging"]["n_static"]
+    r["metrics"]["seg"]["rows"]["averaging"]["n_static"] = int(n * 1.01) + 1   # > 0.5% relative
     (tmp_path / "n.json").write_text(json.dumps(r))
     assert SE.main(_score_argv(toy, trained=[], record=tmp_path / "n.json",
                                extra=["--check-only"]))["exit"] == 2
     assert not SE.control_check(dict(a=1.0), dict(a=1.0, b=2.0))["ok"]      # a missing key
     assert SE.control_check(dict(a=float("nan")), dict(a="nan"))["ok"]
+    assert SE.control_check(dict(acc=0.504), dict(acc=0.500))["ok"]         # within 0.5 points
+    assert not SE.control_check(dict(acc=0.506), dict(acc=0.500))["ok"]
+    assert SE.control_check(dict(n_x=1004), dict(n_x=1000))["ok"]           # counts: 0.5% relative
+    assert not SE.control_check(dict(n_x=1006), dict(n_x=1000))["ok"]
     r = json.loads(json.dumps(rec))
     r["metrics"]["scene"] = "other"
     (tmp_path / "s.json").write_text(json.dumps(r))

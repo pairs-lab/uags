@@ -9,27 +9,95 @@
  "methods": {
   "langsplat": {
    "paper": "Qin et al., LangSplat, CVPR 2024, arXiv 2312.16084",
-   "rows": ["langsplat_s", "langsplat_p", "langsplat_w"],
-   "definition": "usplat/sam_lift.py (h): a scene autoencoder 64 -> 3 (encoder 64-32-16-8-3 with BatchNorm + ReLU, decoder 3-8-16-32-64 with ReLU, unit outputs; loss MSE + 0.001 (1 - cos); Adam 1e-4, 100 epochs, batch 64, the lowest-loss epoch of the last 5; trained once per scene on the mask features of all three levels); one model per SAM level: a per-Gaussian 3-d latent (zero init) trained so that the rendered latent matches the encoded mask feature, L1 on the covered pixels inside a mask; Adam lr 0.0025. Query: rendered latent -> decoder -> 64-d -> as every feature row. No uncertainty of its own (the evaluator's 1 - max p).",
-   "settings": {"iters": 30000, "min_iters": 5000, "tol": 0.01, "log_every": 1000, "lr": 0.0025, "alpha_min": 0.5, "seed": 0, "ae_dims": [64, 32, 16, 8, 3], "ae_epochs": 100, "ae_lr": 0.0001, "ae_batch": 64, "ae_keep": 5}
+   "rows": [
+    "langsplat_s",
+    "langsplat_p",
+    "langsplat_w"
+   ],
+   "definition": "usplat/sam_lift.py (h): a scene autoencoder 64 -> 3 (its autoencoder/model.py scaled to 64-d: encoder 64-32-16-8-3 with BatchNorm + ReLU, decoder 3-8-16-32-64 with ReLU, unit outputs), trained on the mask features of all four SAM levels of the scene (its _f.npy holds default, s, m, l) with its loss l2_loss + 0.001 cos_loss (the cosine over the batch dimension, dim 0, as its code); Adam 1e-4, 100 epochs, batch 64, the lowest-loss epoch of the last 5. One model per level s, p, w: a per-Gaussian 3-d latent (zero init) trained with its l1_loss on the masked maps (|F - E(zbar)| summed over the covered pixels inside a mask, divided by all pixels x 3 channels); Adam lr 0.0025. Query: rendered latent -> decoder -> 64-d -> as every feature row. No uncertainty of its own (the evaluator's 1 - max p).",
+   "settings": {
+    "iters": 30000,
+    "min_iters": 5000,
+    "tol": 0.01,
+    "log_every": 1000,
+    "lr": 0.0025,
+    "alpha_min": 0.5,
+    "seed": 0,
+    "ae_dims": [
+     64,
+     32,
+     16,
+     8,
+     3
+    ],
+    "ae_epochs": 100,
+    "ae_lr": 0.0001,
+    "ae_batch": 64,
+    "ae_keep": 5,
+    "levels": [
+     "s",
+     "p",
+     "w"
+    ]
+   }
   },
   "opengs": {
    "paper": "Wu et al., OpenGaussian, NeurIPS 2024, arXiv 2406.02058",
-   "rows": ["opengs"],
-   "definition": "usplat/sam_lift.py (i), on the whole-level masks: (a) per-Gaussian 6-d instance feature (unit, U[0,1) init) trained with L_c + 0.1 L_s (intra-mask smoothing and inter-mask contrast 1 / (|m_i - m_j|^2 + 1), its Eq. 1-2 as its code computes them; masks with >= 50 covered pixels), Adam lr 0.001; (b) two-level codebook by k-means (10 rounds): k1 = 64 coarse clusters on [feature, 1.0 xyz], k2 = 5 fine clusters per coarse one on the feature (its ScanNet setting, paper Appendix A.1), 320 instances; (c) 2D-3D association per mapping view: instance mask = covered pixels where the instance's rendered share is >= 1/2 of alpha; best whole-level SAM mask by S = IoU (1 - mean |c_i - p_j|) (its Eq. 5), a match needs S > 0.2; instance feature = unit IoU-weighted mean of the matched masks' pooled LSeg features; never matched: zero (uniform predictive). Query: per-Gaussian feature = its instance's feature, rendered, as every feature row. No uncertainty of its own.",
-   "settings": {"iters": 30000, "min_iters": 5000, "tol": 0.01, "log_every": 1000, "lr": 0.001, "alpha_min": 0.5, "seed": 0, "dim": 6, "smooth_weight": 0.1, "min_mask_px": 50, "k1": 64, "k2": 5, "pos_weight": 1.0, "kmeans_iters": 10, "share_min": 0.5, "min_score": 0.2}
+   "rows": [
+    "opengs"
+   ],
+   "definition": "usplat/sam_lift.py (i), on the default-level masks (its ScanNet script: --sam_level 0): (a) per-Gaussian 6-d instance feature (unit, U[0,1) init) trained with L_c + 0.1 L_s (its cohesion_loss and separation_loss: 1 / (|m_i - m_j|^2 + 1) with its rank weights 0.1 + 0.9 rank / (m - 1), set to 0.1 below 0.9 after 5000 stage-1 iterations, its iteration 35k with stage 1 from 30k); every mask of the view with a covered pixel (its 50-px filter is commented out); Adam lr 0.001; (b) two-level codebook by k-means (10 rounds): k1 = 64 coarse clusters on [feature, 1.0 xyz], k2 = 5 fine clusters per coarse one on the feature (its ScanNet setting), 320 instances; (c) 2D-3D association per mapping view: instance mask = covered pixels where the instance's rendered share is >= 1/2 of alpha; best default-level SAM mask by S = IoU (1 - sum_k |c_ik - p_jk|) (its Eq. 5, calculate_pairwise_distances l1), a match needs S > 0.2; instance feature = the plain mean of the matched masks' pooled LSeg features over the views (its per_leaf_feat), unit at query (its F.normalize), zero when matched in fewer than 2 views (its eval_scannet.py occu_count < 2): uniform predictive. Query: per-Gaussian feature = its instance's feature, rendered, as every feature row. No uncertainty of its own.",
+   "settings": {
+    "iters": 30000,
+    "min_iters": 5000,
+    "tol": 0.01,
+    "log_every": 1000,
+    "lr": 0.001,
+    "alpha_min": 0.5,
+    "seed": 0,
+    "dim": 6,
+    "smooth_weight": 0.1,
+    "min_mask_px": 1,
+    "k1": 64,
+    "k2": 5,
+    "pos_weight": 1.0,
+    "kmeans_iters": 10,
+    "share_min": 0.5,
+    "min_score": 0.2,
+    "min_views": 2,
+    "switch": 5000,
+    "level": "d"
+   },
+   "settings_note": "stage 1 capped at 30k with the stopping rule, the budget of every trained row; its ScanNet stage 1 is 20k (30k-50k)"
   },
-  "deviations": "Listed in the usplat/sam_lift.py docstring ('Deviations from the papers'), fixed with this registration. Main ones: LSeg PCA-64 mask means instead of CLIP per mask; SAM thresholds 0.88 / 0.95 without a crop layer or LangSplat's extra mask NMS (LangSplat's preprocess.py: 0.7 / 0.85, crop_n_layers 1, masks_update); one LangSplat level per row chosen on validation (it picks a level per query); OpenGaussian's codebook as plain k-means without its stage-2 codebook training, its stage 1 capped at 30k (its ScanNet setting: 20k)."
+  "deviations": "Listed in the usplat/sam_lift.py docstring ('Deviations from the papers and their code'), fixed with this registration. Shared protocol: LSeg PCA-64 mask means instead of CLIP per mask, SAM on the full frame with masks downscaled to the field's grid, losses on covered pixels only, views drawn with replacement, eval_seg's queries. LangSplat: widths scaled to 64-d, one level per row chosen on validation (it picks a level per query). OpenGaussian: plain k-means codebook without its stage-2 training, instance masks from the full map's splat weights, stage 1 capped at 30k (its ScanNet: 20k). SAM: an empty mask is dropped (a guard), mask_nms keeps the top 3 when no score passes (its code would raise there)."
  },
  "masks": {
   "script": "scripts/sam_masks.py (usplat.sam_lift.generate_levels, paint_labels)",
   "model": "segment_anything 1.0 (pip install --no-deps segment-anything), vit_h, data/weights/sam/sam_vit_h_4b8939.pth",
   "checkpoint_sha256": "a7bf3b02f3ebf1267aba913ff637d9a2d5c33d3173bb679e46d9f338c26f262e",
-  "settings": {"points_per_side": 32, "points_per_batch": 64, "pred_iou_thresh": 0.88, "stability_score_thresh": 0.95, "stability_score_offset": 1.0, "box_nms_thresh": 0.7, "min_mask_region_area": 100, "min_area": 100},
-  "levels": "multimask outputs 0, 1, 2 = s (subpart), p (part), w (whole), each filtered on its own; painted at the field's grid (downscale 2: area average >= 1/2), larger masks first, int16, -1 = no mask",
+  "settings": {
+   "points_per_side": 32,
+   "points_per_batch": 64,
+   "pred_iou_thresh": 0.7,
+   "stability_score_thresh": 0.85,
+   "stability_score_offset": 1.0,
+   "box_nms_thresh": 0.7,
+   "crop_n_layers": 1,
+   "crop_nms_thresh": 0.7,
+   "crop_overlap_ratio": 0.3413333333333333,
+   "crop_n_points_downscale_factor": 1,
+   "min_mask_region_area": 100,
+   "update_iou_thr": 0.8,
+   "update_score_thr": 0.7,
+   "update_inner_thr": 0.5
+  },
+  "levels": "d (the fork's default stream: all three multimask outputs), s, p, w (its s, m, l: outputs 0, 1, 2), each through the same filters (predicted IoU > 0.7, stability >= 0.85, crop-edge boxes dropped, box NMS 0.7 per crop, cross-crop NMS 0.7 preferring smaller crops, SAM's clean-up of regions and holes < 100 px), then its masks_update (mask_nms on IoU_pred x stability: IoU 0.8, score 0.7, inner 0.5); painted in list order (a later mask overwrites an earlier one) at the field's grid (downscale 2: area average >= 1/2), int16, -1 = no mask",
   "frames": "the main field's mapping frames; for Table IV also the update keyframes of the scene's Table III record (--table)",
-  "outputs": "results/sam_masks/<field stem>_sam.npz (mapping), results/sam_masks/<field stem>_sam_upd.npz (NOR update keyframes); meta['identity'] = settings + checkpoint + mask code, the same for every scene",
-  "gpu": "scripts/gpu_gate.sh 6000"
+  "outputs": "results/sam_masks/<field stem>_sam.npz (mapping), results/sam_masks/<field stem>_sam_upd.npz (NOR update keyframes); labels (frames, 4, h, w)",
+  "gpu": "scripts/gpu_gate.sh 6000",
+  "code_matched": "segment-anything-langsplat segment_anything/automatic_mask_generator.py: generate, generate_curr_anns, _generate_masks, _generate_masks_data, _process_crop, _process_crop_data, _process_batch, _process_batch_data (usplat.sam_lift.LevelStreams on segment_anything 1.0); LangSplat preprocess.py: the SamAutomaticMaskGenerator arguments, sam_encoder, masks_update, mask_nms, filter, mask2segmap (usplat.sam_lift.make_generator, generate_levels, masks_update, mask_nms, paint_labels)",
+  "identity": "meta['identity'] = sha256 of the settings above, the model, the checkpoint sha256 and the mask code (LevelStreams, make_generator, mask_nms, masks_update, generate_levels, paint_labels, ...)"
  },
  "training": {
   "script": "scripts/train_sam_baselines.py (imports scripts/distill_features.py and usplat/distill.py, never edits them)",
@@ -44,12 +112,38 @@
   "identity": "every file records sha256 identity of (code, the masks' settings identity, its config); eval_seg folds it into the scene identity (validation and test must match)"
  },
  "splits": {
-  "replica": {"val": "configs/replica_val.json (office_0, room_2)", "test": "configs/replica_test.json (N = 6)"},
-  "scannet": {"val": "configs/scannet_val.json (N = 2)", "test": "configs/scannet_test.json (N = 8)"},
-  "nor": {"val": ["001", "002", "003", "004"], "test": ["005", "006", "007", "008", "009", "010", "011", "013", "014", "015"], "test_file": "configs/nor_test.json"}
+  "replica": {
+   "val": "configs/replica_val.json (office_0, room_2)",
+   "test": "configs/replica_test.json (N = 6)"
+  },
+  "scannet": {
+   "val": "configs/scannet_val.json (N = 2)",
+   "test": "configs/scannet_test.json (N = 8)"
+  },
+  "nor": {
+   "val": [
+    "001",
+    "002",
+    "003",
+    "004"
+   ],
+   "test": [
+    "005",
+    "006",
+    "007",
+    "008",
+    "009",
+    "010",
+    "011",
+    "013",
+    "014",
+    "015"
+   ],
+   "test_file": "configs/nor_test.json"
+  }
  },
  "selection": {
-  "langsplat_level": "Per dataset (Replica, ScanNet): the level whose row (langsplat_s, langsplat_p, langsplat_w) has the highest mean mIoU over the validation scenes in the validation record eval_val.json below; ties -> the earlier level in (s, p, w). The tables show that level's row; the other two are reported in the text or the report, never dropped silently.",
+  "langsplat_level": "Per dataset (Replica, ScanNet): the level whose row (langsplat_s, langsplat_p, langsplat_w) has the highest mean mIoU ('all' pixels) over the validation scenes in the validation record eval_val.json below; ties -> the earlier level in (s, p, w) (scripts/sam_baselines_check.py select). The tables show that level's row; the other two are reported in the text or the report, never dropped silently.",
   "nor_level": "Tables III and IV use the level chosen on Replica (no NOR-specific selection); only that level is trained on the NOR scenes.",
   "opengs": "no free parameter",
   "rule": "Selection reads validation records only. Nothing is chosen on a test scene."
@@ -79,20 +173,67 @@
   }
  },
  "controls": {
-  "eval_seg": "Every validation and test run recomputes the control rows (ours_P0, ours_P2, normlift, f3dgs, legs). Their fitted temperatures and every stored per-scene metric must equal the Table I records (results/tab1/eval_val.json, eval_test.json; results/scannet_tab1/eval_val.json, eval_test.json) to abs diff <= 1e-6; a larger difference stops the run before the test stage and is reported.",
+  "eval_seg": "Every validation and test run recomputes the control rows (ours_P0, ours_P2, normlift, f3dgs, legs_l4 on Replica / legs_l1 on ScanNet). Every stored per-scene metric of the control rows must be within 0.005 absolute of the Table I record (results/tab1/eval_val.json, eval_test.json; results/scannet_tab1/eval_val.json, eval_test.json; rates as fractions, NLL in nats), and every fitted temperature within 1% relative; the run reports the max differences (scripts/sam_baselines_check.py control -> results/sam_baselines/<dataset>/control_<stage>.json). A failed check stops the driver before the next stage and is reported.",
   "change": "The feat_control row of each Table III run is compared with the scene's Table III record (eval_change_nor_distilled.py --reference); max |diff| <= 1e-6, else stop.",
   "stale": "The 'before' row must reproduce the scene's dump (stale_baselines_nor.py's stop rule: rate within 0.5 points, pixel count within 0.5%, else exit 2).",
-  "code": "tests/test_sam_lift.py: an OpenGaussian file with one instance per Gaussian holding the field's mu* gives the 'feat' row and the 'before' counts exactly (toy scene)."
+  "code": "tests/test_sam_lift.py: an OpenGaussian file with one instance per Gaussian holding the field's mu* gives the 'feat' row and the 'before' counts exactly (toy scene).",
+  "eval_seg_note": "Set before any run. The Replica Table I record was made on 2026-09-30 on the earlier machine and differs from a recompute on this machine by up to 3.0e-4 (ours rows 1.3e-5); ScanNet matches to 0. The measurement is in configs/perclass_ause_prereg.json control_amended (commit 9f0afbf)."
  },
  "test_policy": "After the selection, each test scene runs once per table; a finished test record is never overwritten. Every row is reported, including scenes and metrics where a baseline beats ours. Nothing changes after the test run.",
- "order": ["masks (all scenes)", "train Replica + ScanNet val and test files (all three LangSplat levels, OpenGaussian)", "eval_seg validation (Replica, ScanNet) + controls", "select the LangSplat level", "eval_seg test once", "NOR: masks of the update keyframes, train the chosen level and OpenGaussian (mapping-only, and mapping + update)", "Table III val then test, Table IV val 002 then test"],
+ "order": [
+  "time (measure SAM)",
+  "masks (all scenes)",
+  "train (Replica + ScanNet val and test: three LangSplat levels, OpenGaussian)",
+  "val (eval_seg validation + control)",
+  "select (the LangSplat level)",
+  "test (eval_seg test once + control)",
+  "nor-masks (update keyframes)",
+  "nor-train, nor-train-upd",
+  "nor-change-val, nor-change-test (Table III)",
+  "nor-stale-val (002), nor-stale-test (Table IV)"
+ ],
  "budget": {
-  "masks": "about 4,800 frames: Replica 8 scenes x ~179 mapping frames (~1,430), ScanNet 10 scenes (2,110 mapping frames, distill logs), NOR 14 scenes (638 mapping + 637 update keyframes, configs/nor_val.json and nor_test.json counts); GPU time per frame not measured (the 6000 MiB gate was above the smoke allowance; the one-frame CPU run took 513 s on a loaded machine)",
+  "masks": "about 4,800 frames: Replica 8 scenes x ~179 mapping frames (~1,430), ScanNet 10 scenes (2,110 mapping frames, distill logs), NOR 14 scenes (638 mapping + 637 update keyframes, configs/nor_val.json and nor_test.json counts). GPU time per frame: measured by the driver's time step before the full run (not measured yet; the crop layer makes SAM run on 5 crops per frame).",
   "trainings": "72 on Replica + ScanNet (18 scenes x 3 LangSplat levels + OpenGaussian) and 50 on NOR (14 mapping-only x 2, 11 mapping + update x 2); reference: Feature 3DGS took 28 ms/iter on Replica office_0 and 37-89 ms/iter on ScanNet (65 rendered channels), LangSplat renders 4 and OpenGaussian 7",
   "evaluations": "eval_seg 4 runs (val, test x Replica, ScanNet), Table III 14 scene runs, Table IV 11 scene runs"
  },
  "code": {
-  "files": ["usplat/sam_lift.py", "scripts/sam_masks.py", "scripts/train_sam_baselines.py", "scripts/sam_change_nor.py", "tests/test_sam_lift.py"],
+  "files": [
+   "usplat/sam_lift.py",
+   "scripts/sam_masks.py",
+   "scripts/train_sam_baselines.py",
+   "scripts/sam_change_nor.py",
+   "scripts/sam_baselines.sh",
+   "scripts/sam_baselines_check.py",
+   "tests/test_sam_lift.py"
+  ],
   "unchanged": "usplat/distill.py, usplat/rows.py, usplat/seg_eval.py, scripts/eval_seg.py, scripts/eval_change_nor_distilled.py, scripts/stale_baselines_nor.py and every file they import"
+ },
+ "revisions": [
+  {
+   "date": "2026-11-11",
+   "before": "any run of these rows (only one-frame smoke tests of the code had run)",
+   "change": "Main-session decisions: follow each method's released code where it differs from its paper, unless that changes the shared protocol. SAM: LangSplat's real preprocessing (its fork's four-stream generator with one crop layer, its masks_update, list-order painting; levels d, s, p, w). OpenGaussian: the default level (its ScanNet --sam_level 0), the plain mean of the matched masks' features, its eval's >= 2 matched views, its L1-sum distance, its rank-weighted separation loss and no mask-size filter (its code). LangSplat: its autoencoder data (all four levels), its dim-0 cosine and its l1_loss normalization. eval_seg control tolerance set to 0.005 absolute / 1% relative (1e-6 cannot hold on Replica). Driver scripts/sam_baselines.sh with a SAM timing step."
+  }
+ ],
+ "driver": {
+  "script": "scripts/sam_baselines.sh",
+  "steps": [
+   "time",
+   "masks",
+   "train",
+   "val",
+   "select",
+   "test",
+   "nor-masks",
+   "nor-train",
+   "nor-train-upd",
+   "nor-change-val",
+   "nor-change-test",
+   "nor-stale-val",
+   "nor-stale-test"
+  ],
+  "rules": "Through scripts/gpu_gate.sh with UAGS_GPU_HEADROOM_MIB from the environment (default 1024); needs: masks 6000, training 5000, eval_seg 7000, Tables III/IV 6000 (need + headroom <= 8900, else refused). Resumable: finished outputs are skipped, a record with another status than ok is moved to the logs and rerun. Test steps refuse uncommitted changes in scripts/ usplat/ configs/; a finished test record is never overwritten. Logs: results/sam_baselines/logs/.",
+  "time_step": "SAM with the settings above on 2 frames of Replica office_0 on the GPU (gate 6000) -> results/sam_baselines/time/sam_time.json (s/frame of the second frame, the estimate for all frames); run before the masks step so the masks budget is measured."
  }
 }

@@ -178,8 +178,9 @@ def build_parser():
     src.add_argument("--table", help="a NeRF-Object-Removal Table III record: mapping + update")
     ap.add_argument("--masks", required=True, help="scripts/sam_masks.py file(s), comma-separated")
     ap.add_argument("--method", choices=SL.METHODS, required=True)
-    ap.add_argument("--level", choices=SL.LEVELS + ("all",), default="all",
-                    help="LangSplat's SAM level (s, p, w) or all three")
+    ap.add_argument("--level", choices=SL.LANGSPLAT_LEVELS + ("all",), default="all",
+                    help="LangSplat's SAM level (s, p, w) or all three; OpenGaussian: all (it "
+                         "uses the default level)")
     ap.add_argument("--iters", type=int, default=30000, help="at most (the papers' count)")
     ap.add_argument("--min-iters", type=int, default=5000)
     ap.add_argument("--tol", type=float, default=0.01)
@@ -199,6 +200,10 @@ def build_parser():
     ap.add_argument("--kmeans-iters", type=int, default=SL.KMEANS_ITERS)
     ap.add_argument("--share-min", type=float, default=SL.SHARE_MIN)
     ap.add_argument("--min-score", type=float, default=SL.MIN_SCORE)
+    ap.add_argument("--min-views", type=int, default=SL.MIN_VIEWS,
+                    help="OpenGaussian: an instance matched in fewer views gets no feature")
+    ap.add_argument("--switch", type=int, default=SL.OPENGS_SWITCH,
+                    help="OpenGaussian: iteration of its separation-weight switch")
     ap.add_argument("--inst-chunk", type=int, default=64, help="instances per association render")
     ap.add_argument("--channel-chunk", type=int, default=32)
     ap.add_argument("--backend", choices=["gsplat", "mock"], default="gsplat")
@@ -222,7 +227,8 @@ def _conf(args, name, level, frames):
         c.update(level=level, ae_dims=list(args.ae_dims), ae_epochs=args.ae_epochs,
                  ae_lr=args.ae_lr, ae_batch=args.ae_batch, ae_keep=SL.AE_KEEP)
     else:
-        c.update(level="w", dim=SL.OPENGS_DIM, smooth_weight=args.smooth_weight,
+        c.update(level=SL.OPENGS_LEVEL, dim=SL.OPENGS_DIM, smooth_weight=args.smooth_weight,
+                 min_views=args.min_views, switch=args.switch,
                  min_mask_px=args.min_mask_px, k1=args.k1, k2=args.k2, pos_weight=args.pos_weight,
                  kmeans_iters=args.kmeans_iters, share_min=args.share_min,
                  min_score=args.min_score)
@@ -284,11 +290,11 @@ def main(argv=None):
         os.makedirs(args.out_dir, exist_ok=True)
         stem = os.path.join(os.path.abspath(args.out_dir), os.path.basename(field))
     if args.method == "langsplat":
-        levels = list(SL.LEVELS) if args.level == "all" else [args.level]
-    elif args.level not in ("all", "w"):
-        raise SystemExit("OpenGaussian trains on the whole level only (--level w or all)")
+        levels = list(SL.LANGSPLAT_LEVELS) if args.level == "all" else [args.level]
+    elif args.level != "all":
+        raise SystemExit("OpenGaussian trains on the default level only (--level all)")
     else:
-        levels = ["w"]
+        levels = [SL.OPENGS_LEVEL]
     name_of = lambda lv: SL.variant_name(args.method, lv if args.method == "langsplat" else None)
     todo = [lv for lv in levels if args.force or not os.path.exists(D.out_path(stem, name_of(lv) + suffix))]
     for lv in levels:
@@ -380,11 +386,12 @@ def main(argv=None):
     else:
         name = SL.variant_name("opengs")
         out = D.out_path(stem, name + suffix)
-        views = [(v["ras"], dict(lab=v["lab"][SL.WHOLE].to(dev))) for v in inputs]
+        views = [(v["ras"], dict(lab=v["lab"][SL.DEFAULT].to(dev))) for v in inputs]
         sync()
         t1 = time.time()
         res = SL.train_opengs(views, N, iters=args.iters, lr=args.lr,
                               smooth_weight=args.smooth_weight, min_px=args.min_mask_px,
+                              switch=args.switch,
                               alpha_min=args.alpha_min, seed=args.seed, device=dev,
                               min_iters=args.min_iters, tol=args.tol, log_every=args.log_every,
                               ckpt_path=f"{out}.ckpt", name=name + suffix)
@@ -394,24 +401,28 @@ def main(argv=None):
         feat = res["features"]
         cb = SL.two_level_codebook(feat, scene["splats"]["means"].detach(), args.k1, args.k2,
                                    args.pos_weight, args.kmeans_iters, args.seed)
-        assoc = SL.associate([(v["ras"], dict(lab=v["lab"][SL.WHOLE].to(dev),
-                                              zbar=v["means"][SL.WHOLE])) for v in inputs],
+        assoc = SL.associate([(v["ras"], dict(lab=v["lab"][SL.DEFAULT].to(dev),
+                                              zbar=v["means"][SL.DEFAULT])) for v in inputs],
                              cb["instance"], cb["n_instances"], cb["codes"], feat,
                              alpha_min=args.alpha_min, share_min=args.share_min,
-                             min_score=args.min_score, chunk=args.inst_chunk)
+                             min_score=args.min_score, min_views=args.min_views,
+                             chunk=args.inst_chunk)
         sync()
         t_post = time.time() - t1
         used = torch.bincount(cb["instance"], minlength=cb["n_instances"]) > 0
         matched = assoc["n_matched"] > 0
-        n_g = int(matched[cb["instance"]].sum())
+        featured = assoc["features"].norm(dim=-1) > 0          # matched in >= min_views views
+        n_g = int(featured[cb["instance"]].sum())
         print(f"{name}: {int(used.sum())} of {cb['n_instances']} instances hold Gaussians, "
-              f"{int((used & matched).sum())} matched; {n_g} of {N} Gaussians get a feature")
-        finish(name, "w", res, dict(
+              f"{int((used & matched).sum())} matched, {int((used & featured).sum())} in >= "
+              f"{args.min_views} views; {n_g} of {N} Gaussians get a feature")
+        finish(name, SL.OPENGS_LEVEL, res, dict(
             ins_feat=feat.cpu(), instance=cb["instance"].to(torch.int32).cpu(),
             coarse=cb["coarse"].to(torch.int32).cpu(), codes=cb["codes"].cpu(),
-            instance_features=assoc["features"].cpu(), match_weight=assoc["weight"].cpu(),
+            instance_features=assoc["features"].cpu(), match_score=assoc["score"].cpu(),
             n_matched=assoc["n_matched"].cpu(), n_instances=cb["n_instances"],
             association=dict(n_used=int(used.sum()), n_matched=int((used & matched).sum()),
+                             n_with_feature=int((used & featured).sum()),
                              n_gaussians_with_feature=n_g)), t_train, t_post)
     return saved
 

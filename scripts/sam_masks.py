@@ -1,13 +1,14 @@
 """
-sam_masks.py — SAM masks of a scene's frames for the SAM-mask baselines (usplat/sam_lift.py,
-LangSplat's preprocessing): per frame, the multimask outputs of a 32 x 32 point grid as three
-levels (subpart, part, whole), each filtered on its own (usplat.sam_lift.generate_levels) and
-painted into an int16 label map at the main field's grid (usplat.sam_lift.paint_labels).
+sam_masks.py — SAM masks of a scene's frames for the SAM-mask baselines (usplat/sam_lift.py):
+LangSplat's preprocessing, its fork's SamAutomaticMaskGenerator (usplat.sam_lift.LevelStreams:
+32 x 32 points, one crop layer, four streams default / s / m / l) and its masks_update
+(usplat.sam_lift.generate_levels), each level painted in list order into an int16 label map at
+the main field's grid (usplat.sam_lift.paint_labels). Levels d, s, p, w = its default, s, m, l.
 
     scripts/gpu_gate.sh 6000 python3 scripts/sam_masks.py \
         --field /home/thanhnc/gauss_ws/src/uags/results/fields/office_0_lseg.pt
 
-writes <out-dir>/<field stem>_sam.npz (usplat.sam_lift.save_masks): labels (frames, 3, h, w),
+writes <out-dir>/<field stem>_sam.npz (usplat.sam_lift.save_masks): labels (frames, 4, h, w),
 the frames' dataset index and part, and meta: the SAM checkpoint's sha256, model and settings,
 the segment_anything version, the mask code's hash, the field and its frames, per-frame mask
 counts and times. meta["identity"] hashes the settings, the checkpoint and the mask code only,
@@ -41,7 +42,8 @@ from usplat import sam_lift as SL                                           # no
 from usplat.paths import DATA, RESULTS, moved                               # noqa: E402
 
 CHECKPOINT = os.path.join(DATA, "weights", "sam", "sam_vit_h_4b8939.pth")
-MASK_CODE = (SL.generate_levels, SL.downscale_mask, SL.paint_labels, SL.save_masks)
+MASK_CODE = (SL.LevelStreams, SL.make_generator, SL._pair_counts, SL.mask_nms, SL.masks_update,
+             SL.generate_levels, SL.downscale_mask, SL.paint_labels, SL.save_masks)
 
 
 def sha256_file(path):
@@ -153,7 +155,9 @@ def main(argv=None):
     from segment_anything import SamPredictor, sam_model_registry
     from usplat.datasets import downscale
     sam = sam_model_registry[args.model](checkpoint=args.checkpoint).to(args.device).eval()
-    predictor = SamPredictor(sam)
+    generator = SL.make_generator(SamPredictor(sam), **settings)
+    upd = dict(update_iou_thr=settings["update_iou_thr"], update_score_thr=settings["update_score_thr"],
+               update_inner_thr=settings["update_inner_thr"], device=args.device)
     t_load = time.time() - t_start
     print(f"{stem}: {len(frames)} frames ({tag[1:]}), SAM {args.model} on {args.device}, "
           f"downscale {factor} -> {out}")
@@ -172,11 +176,12 @@ def main(argv=None):
         if done is None:
             t0 = time.time()
             img = np.ascontiguousarray(full["image"].numpy().astype(np.uint8))
-            levels = SL.generate_levels(predictor, img, **settings)
+            levels, before = SL.generate_levels(generator, img, **upd)
             lab = np.stack([SL.paint_labels(ms, hw) for ms in levels])
             if str(args.device).startswith("cuda"):
                 torch.cuda.synchronize()
             info = dict(identity=ident, part=pt, index=idx, n_masks=[len(ms) for ms in levels],
+                        n_before_update=before,
                         n_painted=[int(len(np.unique(lv[lv >= 0]))) for lv in lab],
                         covered=[float((lv >= 0).mean()) for lv in lab],
                         image_hw=list(img.shape[:2]), seconds=time.time() - t0)
@@ -185,7 +190,7 @@ def main(argv=None):
                 np.savez_compressed(f, labels=lab, info=np.array(json.dumps(info)))
             os.replace(tmp, pfile)
             done = (lab, info)
-            print(f"  [{k + 1}/{len(frames)}] {pt}:{idx} masks s/p/w {info['n_masks']} "
+            print(f"  [{k + 1}/{len(frames)}] {pt}:{idx} masks d/s/p/w {info['n_masks']} "
                   f"({info['seconds']:.1f} s)", flush=True)
         labels.append(done[0])
         index.append(idx)
@@ -208,7 +213,7 @@ def main(argv=None):
     SL.save_masks(out, np.stack(labels), index, part, meta)
     shutil.rmtree(parts)
     n = np.array([p["n_masks"] for p in per])
-    print(f"wrote {out}: {len(per)} frames, masks per frame s/p/w {n.mean(0).round(1).tolist()}, "
+    print(f"wrote {out}: {len(per)} frames, masks per frame d/s/p/w {n.mean(0).round(1).tolist()}, "
           f"{sum(p['seconds'] for p in per):.0f} s")
     return out
 

@@ -1,14 +1,17 @@
 """usplat.sam_lift (LangSplat and OpenGaussian re-implemented on SAM masks) on synthetic data
 (CPU, linear toy rasterizers, no SAM weights), and scripts/train_sam_baselines.py on the toy
 NeRF-Object-Removal scene of tests/test_eval_change.py (mock backend):
- * SAM levels: the three multimask outputs filtered apart (IoU, stability, NMS, small regions,
-   min area; mock predictor); painting order (smaller masks win), the field-grid downscale;
-   the masks file round trip and its refusals
+ * SAM levels (LangSplat's fork, mock predictor): four streams filtered alike (IoU, stability,
+   NMS, small regions), the default stream equal to stock SAM, the crop layer (smaller crops
+   preferred, no duplicates); mask_nms equal to its loops on random masks, masks_update hand
+   cases; painting in list order (later masks win), the field-grid downscale; the masks file
+   round trip and its refusals
  * targets: unit mask means on the painted pixels, no target outside every mask
  * LangSplat: autoencoder round trip (unit latent / output), training lowers the masked L1
    loss, the row renders the latent and decodes it to 64-d
- * OpenGaussian: L_s and L_c on hand examples, the min-pixel filter; training separates
-   masks; codebook sizes; the association on a toy whose answer is known
+ * OpenGaussian: L_s and L_c (its rank weights, the switch) on hand examples; training
+   separates masks; codebook sizes; the association (plain mean, >= 2 views) on a toy whose
+   answer is known
  * row_factory: rows of the files next to the field (moved paths), the basis-hash refusal
  * resume equals an uninterrupted run (both methods); the scripts end to end
 """
@@ -39,8 +42,10 @@ def _load(name, path):
 
 # --------------------------------------------------------------------------- SAM masks
 class MockPredictor:
-    """SamPredictor stand-in: every point returns 3 logit masks (one per level) of the region
-    that contains it, with set IoU predictions; transform = identity."""
+    """SamPredictor stand-in. The image encodes absolute pixel coordinates (channel 0 = x,
+    1 = y), so a crop still knows where it is; every point returns 3 logit masks (outputs
+    0, 1, 2) of the region regions[k](X, Y, x, y) that contains it, with IoU predictions
+    iou[k](x, y); transform = identity."""
     device = "cpu"
 
     class model:
@@ -52,83 +57,193 @@ class MockPredictor:
             return p
 
     def __init__(self, regions, iou):
-        self.regions, self.iou = regions, iou       # regions[l](x, y) -> (H, W) bool
+        self.regions, self.iou = regions, iou
 
     def set_image(self, image):
-        self.hw = image.shape[:2]
+        self.X, self.Y = image[..., 0].astype(int), image[..., 1].astype(int)
 
     def reset_image(self):
         pass
 
     def predict_torch(self, pts, labels, multimask_output=True, return_logits=True):
         assert multimask_output and return_logits
-        B = pts.shape[0]
-        out = torch.zeros(B, 3, *self.hw)
-        iou = torch.zeros(B, 3)
+        B, (h, w) = pts.shape[0], self.X.shape
+        out, iou = torch.zeros(B, 3, h, w), torch.zeros(B, 3)
         for b in range(B):
-            x, y = pts[b, 0].tolist()
-            for lv in range(3):
-                m = torch.from_numpy(self.regions[lv](x, y))
-                out[b, lv] = torch.where(m, 10.0, -10.0)
-                iou[b, lv] = self.iou[lv](x, y)
+            xc, yc = pts[b, 0].tolist()
+            xi, yi = min(int(xc), w - 1), min(int(yc), h - 1)
+            xa, ya = int(self.X[yi, xi]), int(self.Y[yi, xi])
+            for k in range(3):
+                m = torch.from_numpy(self.regions[k](self.X, self.Y, xa, ya))
+                out[b, k] = torch.where(m, 10.0, -10.0)
+                iou[b, k] = self.iou[k](xa, ya)
         return out, iou, None
 
 
-def test_generate_levels_filters_each_level_apart():
-    pytest.importorskip("segment_anything")
-    H = W = 40
+def _coord_image(H, W):
     yy, xx = np.mgrid[0:H, 0:W]
+    return np.stack([xx, yy, np.zeros_like(xx)], -1).astype(np.uint8), xx, yy
 
-    def quad(x, y):          # subpart: the point's 20 x 20 quadrant, with a 2-px island in the next
-        m = (xx // 20 == int(x) // 20) & (yy // 20 == int(y) // 20)
-        if int(x) < 20 and int(y) < 20:
-            m = m.copy()
-            m[30:32, 30:32] = True                   # small island: SAM's clean-up removes it
+
+def test_fork_generator_levels_filters_and_update():
+    """The fork's four streams on one crop: per-stream IoU / stability filters, NMS, SAM's
+    small-region clean-up (an island is removed; a mask that is one small region is kept, SAM
+    keeps the largest), then masks_update (a mask inside a larger one is removed); the default
+    stream equals stock SAM's output."""
+    pytest.importorskip("segment_anything")
+    from segment_anything import SamAutomaticMaskGenerator
+    img, xx, yy = _coord_image(40, 40)
+
+    def quad(X, Y, x, y):    # output 0: the point's 20 x 20 quadrant (+ a 2-px island for top-left)
+        m = (X // 20 == x // 20) & (Y // 20 == y // 20)
+        if x < 20 and y < 20:
+            m = m | ((X >= 30) & (X < 32) & (Y >= 30) & (Y < 32))
         return m
 
-    def half(x, y):          # part: the left / right half
-        return xx // 20 == int(x) // 20
+    def half(X, Y, x, y):    # output 1: the left / right half
+        return X // 20 == x // 20
 
-    def tiny(x, y):          # whole: a 9 x 9 square (81 px < min area 100) or the full image
-        return (xx < 9) & (yy < 9) if int(x) < 20 else np.ones((H, W), bool)
+    def tiny(X, Y, x, y):    # output 2: a 9 x 9 square (81 px < 100, kept whole) or the image
+        return (X < 9) & (Y < 9) if x < 20 else np.ones_like(X, dtype=bool)
     iou = (lambda x, y: 0.95, lambda x, y: 0.95 if x < 20 else 0.5, lambda x, y: 0.99)
     pred = MockPredictor((quad, half, tiny), iou)
-    lv = SL.generate_levels(pred, np.zeros((H, W, 3), np.uint8), points_per_side=8,
-                            points_per_batch=16)
-    s, p, w = lv
-    assert len(s) == 4                                    # NMS: one mask per quadrant
-    assert all(int(m.sum()) == 400 for m in s)            # the island is gone
-    assert len(p) == 1 and p[0][:, :20].all() and not p[0][:, 20:].any()   # right: IoU 0.5 < 0.88
-    assert len(w) == 1 and w[0].all()                     # the 81-px square is under min area
-    none = SL.generate_levels(pred, np.zeros((H, W, 3), np.uint8), points_per_side=8,
-                              pred_iou_thresh=0.999)
-    assert [len(x) for x in none] == [0, 0, 0]
-    print("PASS SAM levels: per-level IoU / stability filter, NMS, small regions, min area")
+    st = dict(SL.SAM_SETTINGS, points_per_side=8, points_per_batch=16, crop_n_layers=0)
+    gen = SL.make_generator(pred, **st)
+    d, s, m, l = gen.generate(img)
+    assert len(s) == 4 and all(a["area"] == 400 for a in s)          # NMS + island removed
+    assert len(m) == 1 and m[0]["segmentation"][:, :20].all()         # right half: IoU 0.5 < 0.7
+    assert sorted(a["area"] for a in l) == [81, 1600]                 # its largest region kept
+    stock = SamAutomaticMaskGenerator(SL._StubSam(), **{k: st[k] for k in SL.AMG_KEYS})
+    stock.predictor = pred
+    ref = stock.generate(img)
+    assert len(ref) == len(d) and all(np.array_equal(a["segmentation"], b["segmentation"])
+                                      for a, b in zip(ref, d))     # default = stock SAM, same order
+    levels, before = SL.generate_levels(gen, img)
+    assert before == [len(d), 4, 1, 2]
+    areas = [sorted(int(x.sum()) for x in lv) for lv in levels]
+    # masks_update drops a mask inside a larger one (the quadrants and the square in the full
+    # image: < 1/2 of it), whatever the scores
+    assert areas == [[800, 1600], [400] * 4, [800], [1600]], areas
+    none, _ = SL.generate_levels(SL.make_generator(pred, **dict(st, pred_iou_thresh=0.999)), img)
+    assert [len(x) for x in none] == [0, 0, 0, 0]
+    print("PASS fork generator: four streams, filters, clean-up, default = stock SAM, masks_update")
 
 
-def test_paint_labels_smaller_masks_win_and_downscale():
+def test_fork_generator_crop_layer():
+    """crop_n_layers 1 (the whole image + 2 x 2 crops): a mask that a crop holds whole is kept
+    from the smaller crop (cross-crop NMS on 1 / crop area), masks cut by an inner crop edge
+    are dropped in that crop, and no level keeps a duplicate."""
+    pytest.importorskip("segment_anything")
+    img, xx, yy = _coord_image(200, 200)
+    A = lambda X, Y: (X >= 30) & (X < 60) & (Y >= 30) & (Y < 60)
+
+    def small(X, Y, x, y):   # output 0: object A, or the point's 100 x 100 quadrant without A
+        if A(np.array(x), np.array(y)):
+            return A(X, Y)
+        return (X // 100 == x // 100) & (Y // 100 == y // 100) & ~A(X, Y)
+    same = lambda X, Y, x, y: small(X, Y, x, y)
+    pred = MockPredictor((small, same, same), (lambda x, y: 0.9,) * 3)
+    st = dict(SL.SAM_SETTINGS, points_per_side=8, points_per_batch=64)
+    gen = SL.make_generator(pred, **st)
+    d, s, m, l = gen.generate(img)
+    a = [r for r in s if r["area"] == 900]
+    assert len(a) == 1 and a[0]["crop_box"] == [0, 0, 134, 134], [r["crop_box"] for r in a]
+    for lv in (s, m, l):
+        assert sorted(r["area"] for r in lv) == [900, 9100] + [10000] * 3
+    assert sorted(r["area"] for r in d) == [900, 9100] + [10000] * 3  # streams agree: one each
+    low = MockPredictor((small, same, same), (lambda x, y: 0.9, lambda x, y: 0.5, lambda x, y: 0.9))
+    d, s, m, l = SL.make_generator(low, **st).generate(img)           # a level empty in every crop
+    assert m == [] and len(s) == len(l) == 5
+    print("PASS crop layer: smaller crop preferred, no duplicates, an empty level")
+
+
+def _ref_mask_nms(masks, scores, iou_thr=0.7, score_thr=0.1, inner_thr=0.2):
+    """LangSplat's preprocess.py mask_nms, its loops (the reference for the vectorized one)."""
+    scores, idx = scores.sort(0, descending=True)
+    num_masks = idx.shape[0]
+    masks_ord = masks[idx.view(-1), :]
+    masks_area = torch.sum(masks_ord, dim=(1, 2), dtype=torch.float)
+    iou_matrix = torch.zeros((num_masks,) * 2, dtype=torch.float)
+    inner_iou_matrix = torch.zeros((num_masks,) * 2, dtype=torch.float)
+    for i in range(num_masks):
+        for j in range(i, num_masks):
+            intersection = torch.sum(torch.logical_and(masks_ord[i], masks_ord[j]), dtype=torch.float)
+            union = torch.sum(torch.logical_or(masks_ord[i], masks_ord[j]), dtype=torch.float)
+            iou_matrix[i, j] = intersection / union
+            if intersection / masks_area[i] < 0.5 and intersection / masks_area[j] >= 0.85:
+                inner_iou_matrix[i, j] = 1 - (intersection / masks_area[j]) * (intersection / masks_area[i])
+            if intersection / masks_area[i] >= 0.85 and intersection / masks_area[j] < 0.5:
+                inner_iou_matrix[j, i] = 1 - (intersection / masks_area[j]) * (intersection / masks_area[i])
+    iou_matrix.triu_(diagonal=1)
+    iou_max, _ = iou_matrix.max(dim=0)
+    inner_iou_max_u, _ = torch.triu(inner_iou_matrix, diagonal=1).max(dim=0)
+    inner_iou_max_l, _ = torch.tril(inner_iou_matrix, diagonal=1).max(dim=0)
+    keep = iou_max <= iou_thr
+    keep *= scores > score_thr
+    keep *= inner_iou_max_u <= 1 - inner_thr
+    keep *= inner_iou_max_l <= 1 - inner_thr
+    return idx[keep]
+
+
+def test_mask_nms_matches_its_loops_and_masks_update():
+    g = np.random.default_rng(0)
+    for trial in range(6):
+        n = int(g.integers(5, 25))
+        masks = np.zeros((n, 30, 30), bool)
+        for k in range(n):                      # rectangles of mixed sizes: IoU and inner cases
+            x0, y0 = g.integers(0, 25, 2)
+            w, h = g.integers(2, 30 - max(x0, y0) + 1, 2)
+            masks[k, y0:y0 + h, x0:x0 + w] = True
+            if k > 0 and g.random() < 0.3:      # a near-duplicate of the previous mask
+                masks[k] = masks[k - 1]
+                masks[k, y0, x0] = not masks[k, y0, x0]
+        masks = masks[masks.reshape(n, -1).any(1)]
+        sc = torch.from_numpy(g.uniform(0.6, 1.0, len(masks)))
+        t = torch.from_numpy(masks)
+        ours = SL.mask_nms(t, sc, iou_thr=0.8, score_thr=0.7, inner_thr=0.5)
+        ref = _ref_mask_nms(t, sc, iou_thr=0.8, score_thr=0.7, inner_thr=0.5)
+        assert torch.equal(ours, ref), (trial, ours, ref)
+    # hand cases: a duplicate (lower score dropped), a mask inside a larger one (dropped whatever
+    # its score), a low score (dropped)
+    big = np.zeros((10, 10), bool); big[:, :8] = True
+    dup = big.copy(); dup[0, 0] = False
+    inside = np.zeros((10, 10), bool); inside[:3, :3] = True
+    other = np.zeros((10, 10), bool); other[:, 8:] = True
+    anns = [dict(segmentation=m, predicted_iou=q, stability_score=1.0) for m, q in
+            ((big, 0.9), (dup, 0.85), (inside, 0.95), (other, 0.6))]
+    kept = SL.masks_update(anns, iou_thr=0.8, score_thr=0.7, inner_thr=0.5)[0]
+    assert [a["predicted_iou"] for a in kept] == [0.9]
+    low = [dict(segmentation=m, predicted_iou=0.5, stability_score=1.0) for m in (big, other)]
+    assert len(SL.masks_update(low, score_thr=0.7)[0]) == 2       # none passes: top 3 kept
+    assert SL.masks_update([], [])[0] == []
+    print("PASS mask_nms: equal to its loops on random masks; masks_update hand cases")
+
+
+def test_paint_labels_list_order_and_downscale():
     H, W = 8, 8
     big = np.ones((H, W), bool)
     mid = np.zeros((H, W), bool)
     mid[:, :4] = True
     small = np.zeros((H, W), bool)
     small[:2, :2] = True
-    lab = SL.paint_labels([small, big, mid], (H, W))       # list order does not matter
+    lab = SL.paint_labels([small, big, mid], (H, W))       # its mask2segmap: later masks win
     assert lab.dtype == np.int16
-    assert (lab[:2, :2] == 2).all()                        # smallest painted last (label 2)
-    assert (lab[2:, :4] == 1).all() and (lab[:, 4:] == 0).all()
+    assert (lab[:, :4] == 2).all() and (lab[:, 4:] == 1).all()
+    lab = SL.paint_labels([big, mid, small], (H, W))
+    assert (lab[:2, :2] == 2).all() and (lab[2:, :4] == 1).all() and (lab[:, 4:] == 0).all()
     assert (SL.paint_labels([], (3, 3)) == -1).all()
-    half = SL.paint_labels([small, mid], (4, 4))           # factor 2: area average >= 1/2
+    half = SL.paint_labels([mid, small], (4, 4))           # factor 2: area average >= 1/2
     assert half.shape == (4, 4) and half[0, 0] == 1 and (half[1:, :2] == 0).all()
     assert (half[:, 2:] == -1).all()
     edge = np.zeros((8, 8), bool)
     edge[0, 0] = True                                      # a quarter of a coarse pixel
     assert not SL.downscale_mask(edge, (4, 4)).any()
-    print("PASS painting: larger masks first, smaller win; field-grid downscale")
+    print("PASS painting: list order (later wins); field-grid downscale")
 
 
 def test_masks_file_round_trip(tmp_path):
-    lab = np.random.default_rng(0).integers(-1, 5, (3, 3, 4, 6)).astype(np.int16)
+    L = len(SL.LEVELS)
+    lab = np.random.default_rng(0).integers(-1, 5, (3, L, 4, 6)).astype(np.int16)
     p = tmp_path / "a_sam.npz"
     SL.save_masks(str(p), lab, [0, 5, 10], ["map"] * 3, dict(identity="X", settings=dict(k=1)))
     m = SL.load_masks(str(p))
@@ -145,6 +260,8 @@ def test_masks_file_round_trip(tmp_path):
         SL.load_masks([str(q), str(q)])
     with pytest.raises(ValueError, match="twice"):
         SL.save_masks(str(r), lab[:2], [1, 1], ["map", "map"], {})
+    with pytest.raises(ValueError, match="frames, 4"):
+        SL.save_masks(str(r), lab[:, :3], [1, 2, 3], ["map"] * 3, {})
     print("PASS masks file: round trip, two files, refusals")
 
 
@@ -254,7 +371,21 @@ def test_opengs_losses_on_hand_examples():
     SL.opengs_terms(G, torch.tensor([0, 1]), torch.ones(2, dtype=torch.bool), 1)[1].backward()
     step = -G.grad
     assert float((step[0] - step[1]) @ (G[0] - G[1]).detach()) > 0
-    print("PASS OpenGaussian losses: L_s, L_c, min-pixel filter, separation gradient")
+    # three masks: its separation_loss with its rank weights, before and after the switch
+    M3 = torch.tensor([[0.0, 0.0], [1.0, 0.0], [0.0, 3.0]])
+    F3, lab3 = M3.repeat_interleave(2, 0), torch.arange(3).repeat_interleave(2)
+    for late in (False, True):
+        inv = 1.0 / ((M3[:, None] - M3[None]).pow(2).sum(-1) + 1)
+        inv.masked_fill_(torch.eye(3, dtype=torch.bool), 0)
+        w = (inv.argsort().argsort().float() / 2) * 0.9 + 0.1         # its code, N = 3
+        if late:
+            w[w < 0.9] = 0.1
+        ref = (inv * w).sum() / 6
+        got = SL.opengs_terms(F3, lab3, torch.ones(6, dtype=torch.bool), 1, late=late)[1]
+        assert math.isclose(float(got), float(ref), rel_tol=1e-6), (late, got, ref)
+    early = SL.opengs_terms(F3, lab3, torch.ones(6, dtype=torch.bool), 1)[1]
+    assert float(early) > float(got)                                  # late weights are smaller
+    print("PASS OpenGaussian losses: L_s, L_c with its rank weights, min-pixel filter, gradient")
 
 
 def test_opengs_training_separates_the_masks():
@@ -293,9 +424,10 @@ def test_codebook_sizes():
 
 
 def test_association_toy_with_a_known_answer():
-    """4 groups = 4 instances; masks = groups except that mask 3 also covers half of group 2's
-    pixels... (group 2 matches its own mask, the larger IoU). Instance 4 has no Gaussian in view
-    and instance 5 is empty: both keep the zero vector."""
+    """4 groups = 4 instances; masks = groups except that in every other view mask 3 also covers
+    a third of group 2's pixels (group 2 still matches its own mask). Instance 4 has no Gaussian
+    in view and instance 5 is empty: both keep the zero vector. The feature is the plain mean of
+    the matched masks' features, unit, and zero below min_views matched views."""
     views, grp, feat = _toy(G=4, N=40, d=16)
     inst = grp.clone()
     inst[:2] = 4                                    # two Gaussians of group 0 -> instance 4 ...
@@ -322,6 +454,15 @@ def test_association_toy_with_a_known_answer():
         assert torch.allclose(F[k], zbar[k], atol=1e-5), k
     assert (F[4] == 0).all() and (F[5] == 0).all()
     assert out["n_matched"][:4].tolist() == [len(views)] * 4 and out["n_matched"][4:].tolist() == [0, 0]
+    assert float(out["score"][2]) < float(out["score"][0]) and float(out["score"][0]) > 0.99
+    one = SL.associate(tv[:1], inst, 6, codes, f6)                  # one view: < 2 matched views
+    assert (one["features"] == 0).all() and one["n_matched"][:4].tolist() == [1] * 4
+    one = SL.associate(tv[:1], inst, 6, codes, f6, min_views=1)
+    assert torch.allclose(one["features"][:4], zbar[:4], atol=1e-5)
+    # the plain mean: two views whose mask 0 carries other features give their unit mean
+    tv2 = [(tv[0][0], dict(tv[0][1], zbar=zbar[:4])), (tv[1][0], dict(tv[1][1], zbar=zbar[1:5]))]
+    two = SL.associate(tv2, inst, 6, codes, f6)
+    assert torch.allclose(two["features"][0], Fn.normalize(zbar[0] + zbar[1], dim=0), atol=1e-5)
     # a feature far from the masks' rendered features loses the match (S <= 0.2)
     far = SL.associate(tv, inst, 6, codes + 2.0, f6, alpha_min=0.5, min_score=0.2)
     assert (far["features"] == 0).all() and int(far["n_matched"].sum()) == 0
@@ -335,7 +476,7 @@ def test_association_toy_with_a_known_answer():
 def _files(main, pca, N=5):
     ae = SL.LangSplatAE()
     out = {}
-    for lv in SL.LEVELS:
+    for lv in SL.LANGSPLAT_LEVELS:
         name = SL.variant_name("langsplat", lv)
         out[name] = dict(family=SL.FAMILY, method="langsplat", name=name,
                          features=torch.randn(N, 3), ae=ae.eval().state_dict(),
@@ -420,8 +561,8 @@ TS = _load("train_sam_baselines", REPO / "scripts" / "train_sam_baselines.py")
 
 
 def _toy_masks(root, path, parts=("map",)):
-    """Three levels per frame of the toy scene: w = object (red) / wall, p = object / left
-    and right wall, s = object / wall quadrants, at the field's grid (downscale 1)."""
+    """Four levels per frame of the toy scene: d and w = object (red) / wall, p = object /
+    left and right wall, s = object / wall quadrants, at the field's grid (downscale 1)."""
     from usplat.datasets import make_dataset
     labels, index, part = [], [], []
     for pt in parts:
@@ -432,7 +573,7 @@ def _toy_masks(root, path, parts=("map",)):
             red = img[..., 0] > 160
             h, w = red.shape
             yy, xx = np.mgrid[0:h, 0:w]
-            lv = [np.where(red, 0, 1 + 2 * (yy >= h // 2) + (xx >= w // 2)),
+            lv = [np.where(red, 0, 1), np.where(red, 0, 1 + 2 * (yy >= h // 2) + (xx >= w // 2)),
                   np.where(red, 0, 1 + (xx >= w // 2)), np.where(red, 0, 1)]
             labels.append(np.stack(lv).astype(np.int16))
             index.append(int(fr["index"]))
@@ -454,7 +595,7 @@ def test_train_script_end_to_end(tmp_path, monkeypatch):
     ae_path = D.out_path(str(field), "langsplat_ae")
     ae0 = torch.load(ae_path, weights_only=False)
     assert all(r["ae_identity"] == ae0["identity"] for r in recs)
-    assert ae0["per_level"][0] > ae0["per_level"][2]             # more masks at the fine level
+    assert len(ae0["per_level"]) == 4 and ae0["per_level"][1] > ae0["per_level"][3]   # s > w
     r = recs[0]
     assert r["family"] == SL.FAMILY and r["n_frames"] == r["n_map_frames"] == 10
     assert r["iters_run"] == 20 and r["config"]["lr"] == SL.LANGSPLAT_LR
@@ -582,3 +723,47 @@ def test_stale_wrapper_table_iv(nor, monkeypatch):
     assert rows["langsplat_w"]["n_mask_cov"] == rows["before"]["n_mask_cov"]
     assert set(res["distilled"]) == {"opengs", "langsplat_w"}
     print("PASS sam_change_nor.py stale: OpenGaussian with mu* = the 'before' row")
+
+
+# --------------------------------------------------------------------------- the registered checks
+CHK = _load("sam_baselines_check", REPO / "scripts" / "sam_baselines_check.py")
+
+
+def _rec(miou, nll=0.5, beta=20.0, p2=None, scenes=("a", "b")):
+    rows = {}
+    for r, v in miou.items():
+        rows[r] = dict(all=dict(miou=v, nll=nll, n_pixels=100, iou=dict(wall=v, chair="nan"),
+                                ranking=dict(msp=dict(ause=0.1, n_undefined=0))),
+                       covered=dict(miou=v + 0.01))
+    betas = {r: beta for r in miou}
+    if p2 is not None:
+        betas["ours_P2"] = p2
+    return dict(status="ok", metrics=dict(scenes={s: dict(rows=rows) for s in scenes}, betas=betas))
+
+
+def test_control_tolerance_and_level_selection(tmp_path):
+    ref = _rec(dict(ours_P0=0.30, f3dgs=0.25, ours_P2=0.31), p2=dict(beta0=40.0, a=0.3))
+    near = _rec(dict(ours_P0=0.304, f3dgs=0.2501, ours_P2=0.31), nll=0.5049, beta=20.19,
+                p2=dict(beta0=40.3, a=0.3))
+    res = CHK.control(near, ref, ["ours_P0", "f3dgs", "ours_P2"])
+    assert res["ok"], res["failures"]
+    assert math.isclose(res["max_metric_diff"], 0.0049, abs_tol=1e-9) and res["max_beta_rel"] < 0.01
+    far = _rec(dict(ours_P0=0.306, f3dgs=0.25))                     # 0.006 > 0.005
+    assert not CHK.control(far, ref, ["ours_P0"])["ok"]
+    hot = _rec(dict(ours_P0=0.30, f3dgs=0.25), beta=20.3)            # 1.5% > 1%
+    assert not CHK.control(hot, ref, ["ours_P0"])["ok"]
+    p2 = _rec(dict(ours_P0=0.30, f3dgs=0.25, ours_P2=0.31), p2=dict(beta0=40.0, a=0.31))
+    assert not CHK.control(p2, ref, ["ours_P2"])["ok"]               # a P2 parameter off by 3%
+    other = _rec(dict(ours_P0=0.30), scenes=("a",))
+    assert not CHK.control(other, ref, ["ours_P0"])["ok"]            # scenes differ
+    assert not CHK.control(ref, ref, ["legs_l4"])["ok"]               # a missing row
+    sel = CHK.select(dict(replica=_rec(dict(langsplat_s=0.20, langsplat_p=0.31, langsplat_w=0.31)),
+                          scannet=_rec(dict(langsplat_s=0.40, langsplat_p=0.30, langsplat_w=0.35))))
+    assert sel["replica"]["level"] == "p" and sel["scannet"]["level"] == "s"   # tie -> earlier
+    assert sel["nor"]["level"] == "p"
+    a, b = tmp_path / "a.json", tmp_path / "b.json"
+    a.write_text(json.dumps(near)); b.write_text(json.dumps(ref))
+    assert CHK.main(["control", str(a), str(b), "--rows", "ours_P0", "--out", str(tmp_path / "c.json")]) == 0
+    a.write_text(json.dumps(far))
+    assert CHK.main(["control", str(a), str(b), "--rows", "ours_P0"]) == 2
+    print("PASS registered checks: control 0.005 / 1%, level selection with ties to the earlier")

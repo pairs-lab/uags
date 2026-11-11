@@ -169,6 +169,32 @@ def test_oracle_ause_zero():
           f"constant = random gap {rk['const']['random_gap']:.4f}")
 
 
+def test_per_class_ranking():
+    """--per-class-ranking: each class ranked on its own pixels; opt-in adds one key only."""
+    ras, lab, gt, text = _scene()
+    wrong = torch.zeros(lab.numel(), dtype=torch.bool)
+    wrong[torch.randperm(lab.numel(), generator=torch.Generator().manual_seed(3))[:40]] = True
+    feat_lab = torch.where(wrong, (lab + 1) % 4, lab)
+    u = torch.rand(lab.numel(), generator=torch.Generator().manual_seed(4))
+    u[lab == 2] = wrong[lab == 2].float()                     # class c: an oracle there only
+    rows = [TensorRow("noisy", "feature", buf=text[feat_lab], unc={"u": u})]
+    acc = evaluate_views(rows, [View(ras, gt, text)], {"noisy": 50.0}, tau_cov=0.5)
+    plain = acc.metrics()["noisy"]
+    per = acc.metrics(per_class_ranking=True)["noisy"]
+    for v in ("all", "covered"):
+        extra = per[v].pop("ranking_per_class")
+        assert json.dumps(per[v], sort_keys=True) == json.dumps(plain[v], sort_keys=True)  # nothing else
+        names = acc.class_names or [str(i) for i in range(4)]
+        assert set(extra) == {names[i] for i in range(4)}
+        g = gt.reshape(-1)
+        assert sum(e["n_pixels"] for e in extra.values()) == int((g >= 0).sum())
+        assert sum(e["n_errors"] for e in extra.values()) == 256 - round(plain[v]["acc"] * 256)
+        c = extra[names[2]]
+        assert abs(c["u"]["ause"]) < 1e-12 and c["n_errors"] > 0  # the oracle class: AUSE 0
+        assert set(c) == {"n_pixels", "n_errors", "msp", "entropy", "u"}
+    print(f"PASS per-class ranking: {len(extra)} classes, oracle class AUSE 0, other keys equal")
+
+
 def test_undefined_channel_rendering():
     ras, lab, gt, text = _scene()
     u = torch.full((lab.numel(),), 0.3)

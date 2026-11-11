@@ -527,7 +527,8 @@ def evaluate_scene(sc, vocab, betas, args, device, settings=None):
                 aux_identities=S["aux_identities"],
                 betas_used=used, raw_probs=sorted(raw & set(used)),
                 n_unknown_label_pixels=S["n_unknown"], n_skipped_frames=S["n_skipped"],
-                eval_s=time.perf_counter() - t0, rows=acc.metrics(args.ece_bins, args.ause_bins))
+                eval_s=time.perf_counter() - t0,
+                rows=acc.metrics(args.ece_bins, args.ause_bins, args.per_class_ranking))
 
 
 SUMMARY_KEYS = ("miou", "acc", "ece", "nll", "brier", "aurc", "coverage", "n_tied",
@@ -690,6 +691,8 @@ def build_parser():
                     help="max covered labelled pixels per val view for the beta fit")
     ap.add_argument("--ece-bins", type=int, default=15)
     ap.add_argument("--ause-bins", type=int, default=20)
+    ap.add_argument("--per-class-ranking", action="store_true",
+                    help="also rank the errors within each ground-truth class (AUSE, AURC per class and signal: ranking_per_class); adds that key only")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--plain-json", action="store_true",
                     help="write plain JSON instead of a usplat.runlog record")

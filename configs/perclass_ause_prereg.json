@@ -1,0 +1,24 @@
+{
+ "schema": "uags.prereg/1",
+ "id": "perclass_ause_v1",
+ "registered": "2026-11-11, before any per-class ranking is computed",
+ "asked_by": "user, 2026-11-11: add all candidate tables (a per-class table where the uncertainty is scored, next to Table II's per-class IoU)",
+ "post_hoc_note": "chosen after Table II (per-class IoU) showed a tie with NormLift; the paper says so",
+ "what": "AUSE of each uncertainty within each ground-truth class (eval_seg.py --per-class-ranking, covered pixels), on the Table I test scenes, with the Table I temperatures",
+ "splits": {"replica": "configs/replica_test.json (N=6)", "scannet": "configs/scannet_test.json (N=8)"},
+ "betas": {"replica": "results/tab1/eval_val.json", "scannet": "results/scannet_tab1/eval_val.json"},
+ "rows": {
+  "ours_P0": ["u_epi", "u_ale"],
+  "ours_P2": ["msp"],
+  "normlift": ["normlift_epi", "normlift_1-R", "normlift_1-Cinter", "msp"],
+  "viewcount": ["viewcount"],
+  "f3dgs": ["msp"],
+  "legs": ["legs_u"],
+  "legs_note": "legs_l4 on Replica, legs_l1 on ScanNet: the lambda_u of Table I (chosen on validation)"
+ },
+ "classes": "the class columns of Table II (scripts/make_tables.py perclasspair --min-best 1: classes in at least five test scenes), mean over the scenes with the class",
+ "value": "AUSE / AUSE of a random ranking of the same class's errors (scripts/plot_views.py _ratio, 20 bins), as tab:views; a scene where the class has no error is left out of that class's mean and counted",
+ "control": "every recomputed covered per-class IoU, accuracy and per-signal AUSE equals the Table I record of the same scene and row (|diff| <= 1e-9); otherwise no table is made",
+ "selection": "none: no parameter is chosen; the test is run once",
+ "driver": "scripts/perclass_ause.sh all"
+}

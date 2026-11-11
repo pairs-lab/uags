@@ -363,8 +363,12 @@ def ranking_signals(d):
     return sig
 
 
-def summarize(d, class_names=None, num_bins=15, ause_bins=20):
-    """Metrics of one row from concatenated per-pixel arrays (see SegAccumulator)."""
+def summarize(d, class_names=None, num_bins=15, ause_bins=20, per_class_ranking=False):
+    """Metrics of one row from concatenated per-pixel arrays (see SegAccumulator).
+    per_class_ranking: also rank the errors within each ground-truth class present in the
+    variant ("ranking_per_class": {class: {n_pixels, n_errors, signal: ranking_metrics}}),
+    every class on its own pixels with the same keys (n_undefined, n_uncovered of that
+    class). Opt-in; it adds this key only, every other value is unchanged."""
     out = {}
     cov = d["covered"]
     tied = d.get("tied", torch.zeros_like(cov))
@@ -399,6 +403,21 @@ def summarize(d, class_names=None, num_bins=15, ause_bins=20):
             reliability=reliability(conf, correct, num_bins),
             ranking=ranking)
         out[variant]["aurc"] = out[variant]["ranking"]["msp"]["aurc"]
+        if per_class_ranking:
+            per = {}
+            for i in torch.nonzero(present).squeeze(1).tolist():
+                m = gt == i
+                n_c = int(m.sum())
+                if n_c == 0:
+                    continue
+                e = err[m]
+                entry = dict(n_pixels=n_c, n_errors=int(e.sum()))
+                for k, v in signals.items():
+                    uk = d["u"].get(k)
+                    nu = int((c[m] & ~torch.isfinite(uk[sel][m])).sum()) if uk is not None else 0
+                    entry[k] = ranking_metrics(e, v[sel][m], ause_bins, nu, int((~c[m]).sum()))
+                per[names[i]] = entry
+            out[variant]["ranking_per_class"] = per
     return out
 
 
@@ -428,8 +447,9 @@ class SegAccumulator:
         d["u"] = {k: torch.cat([c["u"][k] for c in ch]) for k in chans}
         return d
 
-    def metrics(self, num_bins=15, ause_bins=20):
-        return {name: summarize(self.arrays(name), self.class_names, num_bins, ause_bins)
+    def metrics(self, num_bins=15, ause_bins=20, per_class_ranking=False):
+        return {name: summarize(self.arrays(name), self.class_names, num_bins, ause_bins,
+                                per_class_ranking)
                 for name in self.chunks}
 
 

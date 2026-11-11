@@ -1,0 +1,38 @@
+{
+ "name": "swap_trained",
+ "registered": "2026-11-11, before any run of these rows on a real scene",
+ "question": "Accuracy on swapped and static Gaussians of the Replica semantic swap (configs/swap_replica.json, the swap table) for the optimization-based baselines of Table I re-trained with the swapped update frames, next to ours, ours without reset and averaging.",
+ "rows": {
+  "f3dgs_upd": {"label": "Feature 3DGS, re-trained",
+                "description": "Feature 3DGS (usplat/distill.py) trained on the swap field's mapping keyframes AND its swapped update keyframes; scored on its per-Gaussian features."},
+  "legs_l4_upd": {"label": "LEGaussians, re-trained",
+                  "description": "LEGaussians with lambda_u = 4, Table I's Replica choice (row legs_l4, chosen on the Replica validation scenes by the lowest AUSE of its own u, scripts/make_tables.py choose --key legs; configs/quant_prereg.json), not chosen again here; trained on the same frames; scored on each Gaussian's own 8-d code decoded by its MLP, softmax(MLP(s_n)) S (its query rule at one Gaussian)."}
+ },
+ "training": {
+  "script": "scripts/distill_update_swap.py (imports scripts/distill_features.py, usplat/distill.py train_features and usplat/swap.py, never edits them)",
+  "frames": "run_mapping.py's selection on the swap field's mapping sequence (Sequence_1, stride 5) and update sequence (Sequence_2, stride 5); the update frames must be the frames the field's transform logged (results/swap_relmax/fields/<scene>_swap.frames.json, the paper run's log, given as --frames-ref), mapping + update the field's keyframe count",
+  "features": "the field's extractor tokens (LSeg, same options) -> bilinear upsample to the accumulation grid (downscale 2) -> the field's saved PCA-64 basis; update frames then pass through the field's own transform (usplat.swap:swap_factory with its bank, spec and scene: same bank, spec, seed and frames), which must log exactly the field's frames (i, dataset index, swapped pixels per source)",
+  "settings": {"iters": 30000, "min_iters": 5000, "tol": 0.01, "lr": 0.001, "alpha_min": 0.5, "codes": 128, "seed": 0, "channel_chunk": 32, "lam_u": 4},
+  "settings_source": "scripts/distill_features.py defaults, as Table I and Table IV; lambda_u = 4 from Table I on Replica",
+  "basis": "the field's PCA; a trained file or a resume checkpoint of another basis is refused (a rebuilt field has its own basis: retrain)",
+  "outputs": "results/swap_relmax/fields/<scene>_swap_f3dgs_upd.pt, <scene>_swap_legs_l4_upd.pt"
+ },
+ "scoring": {
+  "script": "scripts/swap_trained_eval.py (imports scripts/eval_change.py and usplat/change_eval.py, never edits them)",
+  "metric": "scripts/eval_change.py's segmentation block, unchanged: one _seg_block call with the trained rows as compare fields; change_eval.classify = argmax over the field's PCA projection of the text of the ground truth's classes (the bank's classes, vocabulary order), ties or a zero / non-finite feature = no class; change_eval.region_accuracy = acc_changed on the swapped Gaussians (label 1), acc_static on the static ones (label 0), target >= 0; the ground truth is eval_change.py gt-swap of the field's frames log. Higher is better.",
+  "outputs": "results/swap_relmax/trained_<split>_<scene>.json"
+ },
+ "control": {
+  "rule": "The same _seg_block call recomputes the row 'averaging' from the swap field (rebuilt by scripts/swap_trained.sh when it was deleted). Every value of it (n_changed, acc_changed, acc_changed_mass, n_static, acc_static, acc_static_mass) must equal the scene's eval record results/swap_relmax/eval_<split>_<scene>.json within 1e-9, else status 'control failed' and exit 2. It runs before the training (--check-only), so a rebuild that does not reproduce the paper run stops before any GPU training.",
+  "info": "'ours' and the field configuration are compared too and reported, not binding."
+ },
+ "splits": {
+  "val": ["office_0", "room_2"],
+  "test": ["room_0", "room_1", "office_1", "office_2", "office_3", "office_4"]
+ },
+ "selection": "None. No row has a free parameter here (lambda_u and every setting come from Table I). Validation checks the pipeline only.",
+ "test_policy": "After both validation records are finished with the control passed, the test scenes run once with the same code; a finished test record is never overwritten. Every row is reported, including scenes where a baseline is more accurate than ours.",
+ "paper": "The swap table gets the two rows next to ours, ours without reset and averaging (their values are copied from the eval records into each trained record, record_rows).",
+ "driver": "scripts/swap_trained.sh (STAGE=val|test)",
+ "budget": "about 25 min of GPU per scene (rebuild of bank, field and ground truth about 4 min; two trainings on about 360 keyframes, Table I needed 400-930 s each on 179), about 3.5 GPU hours for the 8 scenes, through scripts/gpu_gate.sh"
+}

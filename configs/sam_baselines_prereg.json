@@ -214,6 +214,11 @@
    "date": "2026-11-11",
    "before": "any run of these rows (only one-frame smoke tests of the code had run)",
    "change": "Main-session decisions: follow each method's released code where it differs from its paper, unless that changes the shared protocol. SAM: LangSplat's real preprocessing (its fork's four-stream generator with one crop layer, its masks_update, list-order painting; levels d, s, p, w). OpenGaussian: the default level (its ScanNet --sam_level 0), the plain mean of the matched masks' features, its eval's >= 2 matched views, its L1-sum distance, its rank-weighted separation loss and no mask-size filter (its code). LangSplat: its autoencoder data (all four levels), its dim-0 cosine and its l1_loss normalization. eval_seg control tolerance set to 0.005 absolute / 1% relative (1e-6 cannot hold on Replica). Driver scripts/sam_baselines.sh with a SAM timing step."
+  },
+  {
+   "date": "2026-11-13",
+   "before": "any test run (after the Replica validation control failed; selection not run)",
+   "change": "After the Replica validation control failed, before any test run: the driver omitted --with-2d, which Table I's commands pass. BetaFitter (usplat/seg_eval.py) draws its pixel sample from one generator shared over the val scenes, and the 2D row draws from it after each scene, so every scene after the first got another sample: the control rows' temperatures moved by up to 4.1% (ours_P2 g), metrics by up to 0.0039. The Table I command rerun on this machine reproduces the record to 1e-6 (results/sam_baselines/check/tab1_val_this_machine.json), so the machine is not the cause. Fix: scripts/sam_baselines.sh passes --with-2d and the 2d_features row for both datasets; control rule unchanged. The failed record is kept as results/sam_baselines/replica/eval_val.no2d_control_failed.json and disclosed."
   }
  ],
  "driver": {

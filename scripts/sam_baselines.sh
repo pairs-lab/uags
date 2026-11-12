@@ -177,14 +177,17 @@ do_nor_train_upd() {
 # ------------------------------------------------------------------------------- eval_seg
 FACT=usplat.baselines:row_factory,usplat.distill:row_factory,usplat.sam_lift:row_factory
 NEW_ROWS=langsplat_s,langsplat_p,langsplat_w,opengs
+# --with-2d as Table I's commands: BetaFitter draws its pixel sample from one generator shared over
+# the val scenes, and the 2D row draws from it after each scene, so without it every scene after the
+# first gets another sample and the control rows' temperatures move (Replica: up to 4%, 2026-11-13).
 ds_args() {    # ds_args <replica|scannet> <val|test>
   case "$1" in
     replica) [ -f "$OUT/text_cache_replica.pt" ] || cp "$R/fields/text_cache_lseg.pt" "$OUT/text_cache_replica.pt"
              echo "--vocab configs/vocab_replica.json --dataset replica_semnerf --stride 10" \
-                  "--text-cache $OUT/text_cache_replica.pt --rows $NEW_ROWS,$(control_rows replica)" ;;
+                  "--text-cache $OUT/text_cache_replica.pt --with-2d --rows $NEW_ROWS,$(control_rows replica),2d_features" ;;
     scannet) [ -f "$OUT/text_cache_scannet.pt" ] || cp "$R/fields/scannet/text_cache_lseg.pt" "$OUT/text_cache_scannet.pt"
              echo "--vocab configs/vocab_scannet.json --dataset scannet --stride 20" \
-                  "--text-cache $OUT/text_cache_scannet.pt --rows $NEW_ROWS,$(control_rows scannet)" ;;
+                  "--text-cache $OUT/text_cache_scannet.pt --with-2d --rows $NEW_ROWS,$(control_rows scannet),2d_features" ;;
   esac
 }
 control_rows() { case "$1" in replica) echo ours_P0,ours_P2,normlift,f3dgs,legs_l4 ;; scannet) echo ours_P0,ours_P2,normlift,f3dgs,legs_l1 ;; esac; }

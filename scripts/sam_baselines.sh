@@ -229,13 +229,17 @@ do_nor_change() {   # do_nor_change <val|test>
   mkdir -p "$R/nor/sam/$split"
   for s in $scenes; do
     local f st rec ref; f=$(nor_field "$s"); st=$(stem "$f"); rec=$R/nor/sam/$split/$s.json; ref=$(nor_record "$s")
-    if ok_rec "$rec"; then stamp "skip Table III $split $s (finished)"; continue; fi
-    aside "$rec"
-    stamp "Table III $split $s"
-    # shellcheck disable=SC2046
-    retry "$LOGS/change_${split}_$s.log" "$NEED_NOR" python3 scripts/sam_change_nor.py change --field "$f" \
-      $(refopts "$ref") --distilled "${st}_langsplat_$L.pt,${st}_opengs.pt" --reference "$ref" --out "$rec"
-    python3 -c "import json,sys; c=json.load(open(sys.argv[1]))['control_check']; print(f\"control: max |diff| {c['max_abs_diff']:.3g}\"); sys.exit(0 if c['max_abs_diff'] <= 1e-6 else 2)" "$rec" \
+    if ok_rec "$rec"; then
+      stamp "skip Table III $split $s (finished)"
+    else
+      aside "$rec"
+      stamp "Table III $split $s"
+      # shellcheck disable=SC2046
+      retry "$LOGS/change_${split}_$s.log" "$NEED_NOR" python3 scripts/sam_change_nor.py change --field "$f" \
+        $(refopts "$ref") --distilled "${st}_langsplat_$L.pt,${st}_opengs.pt" --reference "$ref" --out "$rec"
+    fi
+    # the run record keeps its results under "metrics"; a finished record is checked again on resume
+    python3 -c "import json,sys; d=json.load(open(sys.argv[1])); c=d.get('metrics', d)['control_check']; print(f\"control {sys.argv[2]}: max |diff| {c['max_abs_diff']:.3g}\"); sys.exit(0 if c['max_abs_diff'] <= 1e-6 else 2)" "$rec" "$s" \
       || { echo "control failed for $s: feat_control differs from $ref (stop; report it)"; exit 2; }
   done
 }
